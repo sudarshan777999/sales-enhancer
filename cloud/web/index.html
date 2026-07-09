@@ -295,6 +295,25 @@
   .foot{max-width:1360px;margin:0 auto;padding:0 24px 40px;color:var(--soft);font-size:12px;display:flex;align-items:center;gap:14px;}
   .hidden{display:none !important;}
   @media (max-width:820px){.kpis{grid-template-columns:repeat(3,1fr);}.modal-b{grid-template-columns:1fr;}.fu-row .note{display:none;}.search input{width:150px;}}
+  /* ---------- Monthly report ---------- */
+  .report-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;}
+  .report-slide{position:relative;background:#FBF4E4;border:1px solid #EADFC2;border-radius:14px;padding:26px 30px;margin-bottom:18px;box-shadow:var(--shadow);}
+  .report-slide h2{font-family:'Space Grotesk';color:#C0524A;font-size:24px;margin:0;}
+  .report-slide .rule{width:54px;height:4px;background:#C0524A;border-radius:2px;margin:8px 0 18px;}
+  .report-slide .brand{position:absolute;top:24px;right:30px;font-family:'Space Grotesk';font-weight:700;color:#C0524A;font-size:13px;text-align:right;line-height:1.05;}
+  .rtable{width:100%;border-collapse:collapse;background:#fff;border:1px solid #EADFC2;border-radius:10px;overflow:hidden;font-size:13px;box-shadow:none;}
+  .rtable th{text-align:left;background:#F3E9D2;color:#7a5a2a;text-transform:none;letter-spacing:normal;font-weight:600;font-size:12px;padding:9px 11px;border-bottom:1px solid #EADFC2;}
+  .rtable td{padding:8px 11px;border-bottom:1px solid #F1E7CE;}
+  .rbar-row{display:flex;align-items:center;gap:12px;margin-bottom:9px;}
+  .rbar-row .rl{width:90px;font-size:13px;font-weight:500;flex:none;}
+  .rbar-row .rt{flex:1;height:26px;background:#fff;border-radius:6px;overflow:hidden;border:1px solid #EADFC2;}
+  .rbar-row .rf{height:100%;background:#3B82F6;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;color:#fff;font-family:'Space Grotesk';font-size:12px;font-weight:600;min-width:22px;}
+  @media print{
+    body{background:#fff!important;background-image:none!important;}
+    header,.perm-note,.band,.kpis,.foot,.scrim,.drawer,.modal-scrim,#notifyPanel,.report-toolbar,.no-print{display:none!important;}
+    main{max-width:100%!important;margin:0!important;padding:0!important;}
+    .report-slide{page-break-after:always;break-after:page;box-shadow:none!important;margin:0 0 10px;}
+  }
 </style>
 </head>
 <body>
@@ -425,7 +444,8 @@ const DEFAULT_USERS=[
 ];
 const ROLE_LABEL={sales_head:'Sales Head',project_head:'Project Head',sales:'Salesperson'};
 
-let db={instance:INSTANCE,users:[],leads:[],transfers:[],crossInterest:[]};
+let db={instance:INSTANCE,users:[],leads:[],transfers:[],crossInterest:[],reportData:{}};
+let reportMonth=null, reportProject='Earthscape';
 let session=null, myCompanyId=null, activeTab='pipeline', openId=null, modalSrc='digital', loginView={step:'signin',err:'',email:''};
 let projById={}, projByName={}, pendingInvite=null;
 
@@ -454,7 +474,10 @@ async function loadAll(){
     sb.from('cross_interest').select('*').order('created_at',{ascending:false})
   ]);
   db.transfers=trs||[];db.crossInterest=cis||[];
+  const {data:comp}=await sb.from('companies').select('id,name,report_data').eq('id',myCompanyId).maybeSingle();
+  db.company=comp||null;db.reportData=(comp&&comp.report_data)||{};
 }
+async function saveReportData(next){const {error}=await sb.from('companies').update({report_data:next}).eq('id',myCompanyId);if(error){alert('Could not save report data: '+error.message);return false;}db.reportData=next;return true;}
 async function ensureProjects(){
   if(!myCompanyId||!currentUser()||currentUser().role!=='sales_head')return;
   const missing=PROJECTS.filter(p=>!projByName[p]);
@@ -820,6 +843,7 @@ function render(){
   else if(activeTab==='stats')m.innerHTML=statsHTML(scoped());
   else if(activeTab==='funnel')m.innerHTML=funnelHTML();
   else if(activeTab==='crossproject')m.innerHTML=crossProjectHTML();
+  else if(activeTab==='report')m.innerHTML=reportHTML();
   else m.innerHTML=tableHTML(leads);
   const total=scoped().length;
   document.getElementById('count').textContent=total+(u.role==='sales'?' of your leads':' leads in view');
@@ -834,6 +858,7 @@ function renderTabs(){
   if(cu&&(cu.role==='sales_head'||cu.role==='project_head'))tabs.push(['funnel','Funnel','']);
   tabs.push(['followups','Follow-ups due',dueCount],['stats','Follow-up stats',''],['all','All leads',s.length]);
   if(cu&&(cu.role==='sales_head'||cu.role==='project_head')){const ci=(db.crossInterest||[]).filter(c=>c.status==='open'&&(cu.role==='sales_head'||c.target_project_id===myProjId())).length;tabs.push(['crossproject','Cross-project',ci||'']);}
+  if(cu&&cu.role==='sales_head')tabs.push(['report','Report','']);
   document.getElementById('tabs').innerHTML=tabs.map(([k,l,n])=>`<button class="tab ${activeTab===k?'on':''}" onclick="setTab('${k}')">${l}<span class="n">${n}</span></button>`).join('');
 }
 function setTab(t){activeTab=t;render();}
@@ -1095,7 +1120,13 @@ function openBooking(id){
     <div class="ai-tag" style="margin-bottom:12px">Customer: <b>${l.name}</b> · ${l.project||''}</div>
     <div class="block"><label>Apartment name / number</label><input class="field" id="bk_apartment" placeholder="e.g. Tower B – 1204" value="${b.apartment||''}"/></div>
     <div class="block"><label>Location</label><input class="field" id="bk_location" placeholder="e.g. Whitefield" value="${b.location||l.location||''}"/></div>
-    <div class="block"><label>Company</label><input class="field" id="bk_company" placeholder="Customer's company" value="${b.company||l.company||''}"/></div>
+    <div class="facts" style="grid-template-columns:1fr 1fr;gap:12px">
+      <div class="block" style="margin:0"><label>Applicant company</label><input class="field" id="bk_company" placeholder="Where they work" value="${b.company||l.company||''}"/></div>
+      <div class="block" style="margin:0"><label>Applicant age</label><input class="field" id="bk_appage" placeholder="e.g. 42" value="${b.applicantAge||''}"/></div>
+      <div class="block" style="margin:0"><label>Co-applicant name</label><input class="field" id="bk_coapp" placeholder="optional" value="${b.coApplicant||''}"/></div>
+      <div class="block" style="margin:0"><label>Co-applicant age</label><input class="field" id="bk_coappage" placeholder="optional" value="${b.coApplicantAge||''}"/></div>
+      <div class="block" style="margin:0"><label>Co-applicant company</label><input class="field" id="bk_cocompany" placeholder="optional" value="${b.coApplicantCompany||''}"/></div>
+    </div>
     <div class="facts" style="grid-template-columns:1fr 1fr;gap:12px">
       <div class="block" style="margin:0"><label>Agreement Value (₹)</label><input class="field" id="bk_av" placeholder="e.g. 12000000" value="${b.agreementValue||''}" oninput="calcRealization()"/></div>
       <div class="block" style="margin:0"><label>Apartment size (sq.ft)</label><input class="field" id="bk_size" placeholder="e.g. 1200" value="${b.size||''}" oninput="calcRealization()"/></div>
@@ -1108,13 +1139,14 @@ function closeBooking(){document.getElementById('bookScrim').classList.remove('o
 async function saveBooking(){
   const id=bookingLeadId;const l=db.leads.find(x=>x.id===id);if(!l)return;
   const av=numOf(document.getElementById('bk_av').value),sz=numOf(document.getElementById('bk_size').value);
-  const booking={apartment:document.getElementById('bk_apartment').value.trim(),location:document.getElementById('bk_location').value.trim(),company:document.getElementById('bk_company').value.trim(),agreementValue:av||null,size:sz||null,realization:(sz>0?Math.round(av/sz):null),paymentStructure:document.getElementById('bk_pay').value,at:iso(today())};
+  const g=id=>document.getElementById(id).value.trim();
+  const booking={apartment:g('bk_apartment'),location:g('bk_location'),company:g('bk_company'),applicantAge:g('bk_appage'),coApplicant:g('bk_coapp'),coApplicantAge:g('bk_coappage'),coApplicantCompany:g('bk_cocompany'),agreementValue:av||null,size:sz||null,realization:(sz>0?Math.round(av/sz):null),paymentStructure:document.getElementById('bk_pay').value,at:iso(today())};
   if(!await updateLead(id,{stage:'booked',next_follow_up:null,booking}))return;
   await addActivityRow(id,{kind:'system',body:'Booked 🎉'+(booking.apartment?' — '+booking.apartment:'')+(booking.agreementValue?' · AV ₹'+booking.agreementValue.toLocaleString('en-IN'):'')});
   closeBooking();await refresh();
 }
 function bookingFactsHTML(l){const b=l.booking;if(!b)return '';
-  const rows=[['Apartment',b.apartment||'—'],['Location',b.location||'—'],['Company',b.company||'—'],['Agreement Value',b.agreementValue?('₹'+Number(b.agreementValue).toLocaleString('en-IN')):'—'],['Size',b.size?(b.size+' sq.ft'):'—'],['Realization',b.realization?('₹'+Number(b.realization).toLocaleString('en-IN')+' /sq.ft'):'—'],['Payment',b.paymentStructure||'—']];
+  const rows=[['Apartment',b.apartment||'—'],['Location',b.location||'—'],['Applicant company',b.company||'—'],['Applicant age',b.applicantAge||'—'],['Co-applicant',b.coApplicant||'—'],['Co-applicant age',b.coApplicantAge||'—'],['Co-applicant company',b.coApplicantCompany||'—'],['Agreement Value',b.agreementValue?('₹'+Number(b.agreementValue).toLocaleString('en-IN')):'—'],['Size',b.size?(b.size+' sq.ft'):'—'],['Realization',b.realization?('₹'+Number(b.realization).toLocaleString('en-IN')+' /sq.ft'):'—'],['Payment',b.paymentStructure||'—']];
   return `<div class="block"><label>Booking details</label><div class="facts">${rows.map(([k,v])=>`<div class="fact"><div class="k">${k}</div><div class="v mono">${v}</div></div>`).join('')}</div><div style="margin-top:10px"><button class="act" onclick="openBooking('${l.id}')">Edit booking details</button></div></div>`;}
 async function markLost(id,reason){if(!reason)return;const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;if(!await updateLead(id,{stage:'lost',lost_reason:reason,next_follow_up:null}))return;await addActivityRow(id,{kind:'system',body:'Lost — '+reason});await refresh();}
 async function reopen(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const stage=l.qualified?'qualified':(l.ownerId?'assigned':'new');if(!await updateLead(id,{stage,lost_reason:'',nq_reason:''}))return;await addActivityRow(id,{kind:'system',body:'Reopened'});await refresh();}
@@ -1211,6 +1243,88 @@ function crossProjectHTML(){
     <button class="act" style="flex:none" onclick="event.stopPropagation();closeInterest('${c.id}')">Clear</button></div>`).join('')+`</div>`;
   return `<div class="fu-wrap">${Object.entries(byTarget).map(([p,arr])=>sec(p,arr)).join('')}</div>`;
 }
+/* ============ monthly sales report (Sales Head) ============ */
+function setReportMonth(v){reportMonth=v;render();}
+function setReportProject(v){reportProject=v;render();}
+function rMonthLabel(ym){if(!ym)return '';const p=ym.split('-');return ['','January','February','March','April','May','June','July','August','September','October','November','December'][parseInt(p[1])]+' '+p[0];}
+function parseLines(t){return String(t||'').split('\n').map(l=>l.split(',').map(x=>x.trim())).filter(r=>r[0]&&r.some(x=>x!==''));}
+function srcCat(l){if(l.source==='walkin')return l.walkinSource==='CP'?'CP':'Direct';return (l.srcDetail==='Referral')?'Referral':'Digital';}
+function reportScope(){let ls=db.leads.slice();if(reportProject!=='All')ls=ls.filter(l=>l.project===reportProject);return ls;}
+function crossReasonSlide(title,leads,reasonFn,cats,slide){
+  const rs=[...new Set(leads.map(reasonFn).filter(Boolean))];
+  if(!rs.length)return slide(title,`<div style="color:#9c8a63">No records this month.</div>`);
+  const head=`<tr><th>Source</th>${rs.map(r=>`<th>${r}</th>`).join('')}<th>Total</th></tr>`;
+  const body=cats.map(c=>{const cl=leads.filter(l=>srcCat(l)===c);if(!cl.length)return '';const cells=rs.map(r=>`<td class="mono">${cl.filter(l=>reasonFn(l)===r).length}</td>`).join('');return `<tr><td>${c}</td>${cells}<td class="mono"><b>${cl.length}</b></td></tr>`;}).join('');
+  return slide(title,`<div style="overflow-x:auto"><table class="rtable">${head}<tbody>${body}</tbody></table></div>`);
+}
+function reportHTML(){
+  if(!reportMonth)reportMonth=iso(today()).slice(0,7);
+  const rd=db.reportData||{};
+  const all=reportScope();
+  const inMonth=all.filter(l=>(l.createdAt||'').slice(0,7)===reportMonth);
+  const closures=all.filter(l=>l.stage==='booked'&&l.booking&&(l.booking.at||'').slice(0,7)===reportMonth);
+  const cats=['Digital','CP','Direct','Referral'];
+  const brand=`<div class="brand">bricks<br>&amp; milestones</div>`;
+  const foot=`<div style="text-align:right;color:#9c8a63;font-size:11px;margin-top:14px">www.bricksandmilestones.com</div>`;
+  const slide=(title,inner)=>`<div class="report-slide">${brand}<h2>${title}</h2><div class="rule"></div>${inner}${foot}</div>`;
+  const projOpts=['All',...PROJECTS].map(p=>`<option ${reportProject===p?'selected':''}>${p}</option>`).join('');
+  const toolbar=`<div class="report-toolbar no-print">
+    <b style="font-family:'Space Grotesk';font-size:15px">Monthly Sales Review</b>
+    <input type="month" class="field" style="width:auto" value="${reportMonth}" onchange="setReportMonth(this.value)"/>
+    <select class="field" style="width:auto" onchange="setReportProject(this.value)">${projOpts}</select>
+    <button class="btn" onclick="window.print()">🖨 Print / Save as PDF</button>
+    <button class="btn ghost" onclick="toggleReportEditor()">Edit external data</button></div>`;
+  const editor=`<div class="report-slide no-print" id="reportEditor" style="display:none;background:#fff;border-color:var(--line)">
+    <h2 style="color:var(--ink);font-size:18px">External / historical data</h2><div class="rule" style="background:var(--brand)"></div>
+    <div class="block"><label>Performance Overview — previous months (one per line: <b>Month, Visits, Sales, Net</b>)</label>
+      <textarea class="field" id="rd_perf" style="min-height:90px;font-family:'Space Grotesk'">${(rd.performanceText||'').replace(/</g,'&lt;')}</textarea></div>
+    <div class="block"><label>Historic Sales Summary (one per line: <b>Month, 3.5BHK, 3BHK, Units</b>)</label>
+      <textarea class="field" id="rd_hist" style="min-height:90px;font-family:'Space Grotesk'">${(rd.historicText||'').replace(/</g,'&lt;')}</textarea></div>
+    <button class="btn" onclick="saveReport()">Save external data</button></div>`;
+  const titleSlide=`<div class="report-slide" style="text-align:center;padding:48px 30px">${brand}<h2 style="font-size:34px;color:#C0524A">Sales Review — ${rMonthLabel(reportMonth)}</h2><div style="color:#7a5a2a;font-size:15px;margin-top:6px">${reportProject==='All'?'All projects':reportProject} · Bricks &amp; Milestones</div>${foot}</div>`;
+  // Performance Overview
+  const perfRows=parseLines(rd.performanceText);
+  const curVisits=inMonth.length,curSales=closures.length;
+  const perfBody=perfRows.map(r=>`<tr><td>${r[0]}</td><td class="mono">${r[1]||''}</td><td class="mono">${r[2]||''}</td><td class="mono">${r[3]||''}</td></tr>`).join('')
+    +`<tr style="background:#F3E9D2;font-weight:600"><td>${rMonthLabel(reportMonth)} (live)</td><td class="mono">${curVisits}</td><td class="mono">${curSales}</td><td class="mono">${curSales}</td></tr>`;
+  const perfSlide=slide('Performance Overview',`<table class="rtable"><thead><tr><th>Month</th><th>Visits</th><th>Sales</th><th>Net Bookings After Cancellations</th></tr></thead><tbody>${perfBody}</tbody></table>`);
+  // Source-wise Visits
+  const scnt={};cats.forEach(c=>scnt[c]=0);inMonth.forEach(l=>{scnt[srcCat(l)]=(scnt[srcCat(l)]||0)+1;});
+  const smax=Math.max(1,...cats.map(c=>scnt[c]));const stot=inMonth.length||1;
+  const topCat=cats.slice().sort((a,b)=>scnt[b]-scnt[a])[0];
+  const srcBars=cats.map(c=>`<div class="rbar-row"><div class="rl">${c}</div><div class="rt"><div class="rf" style="width:${Math.round(scnt[c]/smax*100)}%">${scnt[c]}</div></div></div>`).join('');
+  const srcSlide=slide('Source-wise Visits',`${srcBars}<div style="margin-top:14px;color:#5a4a2a;font-size:14px">Majority visit contribution: <b>${topCat} (${Math.round(scnt[topCat]/stot*100)}%)</b>.</div>`);
+  // CP Contributions
+  const cpMap={};inMonth.filter(l=>l.source==='walkin'&&l.walkinSource==='CP').forEach(l=>{const k=l.cpName||'(unnamed CP)';cpMap[k]=(cpMap[k]||0)+1;});
+  const cpRows=Object.entries(cpMap).sort((a,b)=>b[1]-a[1]);
+  const cpBody=cpRows.length?cpRows.map(([n,c])=>`<tr><td>${n}</td><td class="mono">${c}</td></tr>`).join(''):'<tr><td colspan="2" style="color:#9c8a63">No CP visits this month.</td></tr>';
+  const cpSlide=slide('Channel Partner Contributions',`<table class="rtable"><thead><tr><th>Channel Partner</th><th>Visits</th></tr></thead><tbody>${cpBody}</tbody></table>`);
+  // Closures
+  const realVals=closures.map(l=>l.booking.realization).filter(v=>v);
+  const avg=realVals.length?Math.round(realVals.reduce((a,v)=>a+v,0)/realVals.length):0;
+  const clHead=`<tr><th>Unit</th><th>Applicant</th><th>Co-applicant</th><th>Age</th><th>SM</th><th>Source</th><th>Sub-source</th><th>Realization</th><th>Size</th><th>Location</th><th>Applicant Co.</th><th>Co-app Co.</th></tr>`;
+  const clBody=closures.length?closures.map(l=>{const b=l.booking;return `<tr><td>${b.apartment||'—'}</td><td>${l.name}</td><td>${b.coApplicant||'—'}</td><td class="mono">${b.applicantAge||''}${b.coApplicantAge?' & '+b.coApplicantAge:''}</td><td>${userName(l.ownerId)}</td><td>${srcCat(l)}</td><td>${l.cpName||l.srcDetail||'—'}</td><td class="mono">${b.realization?Number(b.realization).toLocaleString('en-IN'):'—'}</td><td class="mono">${b.size||'—'}</td><td>${b.location||'—'}</td><td>${b.company||'—'}</td><td>${b.coApplicantCompany||'—'}</td></tr>`;}).join(''):'<tr><td colspan="12" style="color:#9c8a63">No closures this month.</td></tr>';
+  const clSlide=slide('Closures',`<div style="overflow-x:auto"><table class="rtable" style="font-size:11.5px">${clHead}<tbody>${clBody}</tbody></table></div>${closures.length?`<div style="margin-top:12px;font-family:'Space Grotesk';font-weight:600;color:#5a4a2a">Average Realization — ₹${avg.toLocaleString('en-IN')}</div>`:''}`);
+  // Visits — Status Summary
+  const statuses=[['Booked','booked'],['Closed-Lost','lost'],['NQ','not_qualified'],['Q','qualified']];
+  const statBody=cats.map(c=>{const cl=inMonth.filter(l=>srcCat(l)===c);const cells=statuses.map(([_,st])=>`<td class="mono">${cl.filter(l=>l.stage===st).length}</td>`).join('');return `<tr><td>${c}</td>${cells}<td class="mono"><b>${cl.length}</b></td></tr>`;}).join('');
+  const statTot=statuses.map(([_,st])=>`<td class="mono"><b>${inMonth.filter(l=>l.stage===st).length}</b></td>`).join('');
+  const statSlide=slide('Visits — Status Summary',`<table class="rtable"><thead><tr><th>Source</th>${statuses.map(s=>`<th>${s[0]}</th>`).join('')}<th>Total</th></tr></thead><tbody>${statBody}<tr style="background:#F3E9D2"><td><b>Total</b></td>${statTot}<td class="mono"><b>${inMonth.length}</b></td></tr></tbody></table>`);
+  // NQ & Closed-Lost categories
+  const nqSlide=crossReasonSlide('NQ — Categories',inMonth.filter(l=>l.stage==='not_qualified'),l=>l.nqReason,cats,slide);
+  const lostSlide=crossReasonSlide('Closed-Lost — Categories',inMonth.filter(l=>l.stage==='lost'),l=>l.lostReason,cats,slide);
+  // Historic Sales Summary (external)
+  const histRows=parseLines(rd.historicText);let histSlide;
+  if(histRows.length){
+    const umax=Math.max(1,...histRows.map(r=>numOf(r[3])));
+    const body=histRows.map(r=>`<tr><td>${r[0]}</td><td class="mono">${r[1]||'—'}</td><td class="mono">${r[2]||'—'}</td><td class="mono">${r[3]||'—'}</td></tr>`).join('');
+    const bars=histRows.map(r=>`<div class="rbar-row"><div class="rl">${r[0]}</div><div class="rt"><div class="rf" style="width:${Math.round(numOf(r[3])/umax*100)}%;background:#C9B27A;color:#4a3a1a">${r[3]||''}</div></div></div>`).join('');
+    histSlide=slide('Historic Sales Summary',`<table class="rtable"><thead><tr><th>Month</th><th>3.5 BHK (₹)</th><th>3 BHK (₹)</th><th>Units sold</th></tr></thead><tbody>${body}</tbody></table><div style="margin-top:14px">${bars}</div>`);
+  } else histSlide=slide('Historic Sales Summary',`<div style="color:#9c8a63">Add the historic realization trend via <b>Edit external data</b>. Format per line: <b>Month, 3.5BHK, 3BHK, Units</b></div>`);
+  return toolbar+editor+titleSlide+perfSlide+histSlide+srcSlide+cpSlide+statSlide+nqSlide+lostSlide+clSlide;
+}
+function toggleReportEditor(){const e=document.getElementById('reportEditor');if(e)e.style.display=e.style.display==='none'?'':'none';}
+async function saveReport(){const rd=Object.assign({},db.reportData||{});rd.performanceText=document.getElementById('rd_perf').value;rd.historicText=document.getElementById('rd_hist').value;if(await saveReportData(rd))render();}
 /* ============ alerts / notifications ============ */
 function staleQualified(l){if(l.stage!=='qualified')return null;let last=parseD(l.createdAt);(l.log||[]).forEach(e=>{const t=parseD(e.d);if(t>last)last=t;});const days=Math.round((today()-last)/86400000);return days>=7?{days}:null;}
 function myProjId(){const u=currentUser();return u&&u.project?projByName[u.project]:null;}
