@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bricks & Milestones — Earthscape</title>
+<meta name="theme-color" content="#1B4965" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="icon.svg" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="Sales Enhancer" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --canvas:#EEF1F5;--surface:#FFFFFF;--ink:#152238;--soft:#5C6879;
+    --line:#DCE2EA;--line2:#EAEEF3;
+    --brand:#1B4965;--brand-ink:#12374d;--teal:#2C9C9A;
+    --new:#6C7A93;--assigned:#4A6FA5;--qualified:#2C9C9A;
+    --booked:#2E9E5B;--lost:#C0524A;--nq:#98A2B0;
+    --amber:#D9982B;--over:#C0433A;
+    --shadow:0 1px 2px rgba(21,34,56,.06),0 8px 24px rgba(21,34,56,.06);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--canvas);color:var(--ink);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;
+    background-image:linear-gradient(var(--line2) 1px,transparent 1px),linear-gradient(90deg,var(--line2) 1px,transparent 1px);background-size:26px 26px;background-position:-1px -1px;}
+  .mono{font-family:'Space Grotesk',sans-serif;font-variant-numeric:tabular-nums;}
+  h1,h2,h3{font-family:'Space Grotesk',sans-serif;margin:0;letter-spacing:-.01em;}
+  button{font-family:inherit;cursor:pointer;}
+  input,select,textarea{font-family:inherit;font-size:14px;}
+
+  /* ---------- Login ---------- */
+  .auth{min-height:100vh;display:grid;place-items:center;padding:40px 20px;}
+  .auth-card{width:min(440px,100%);background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 24px 60px rgba(21,34,56,.14);overflow:hidden;}
+  .auth-top{padding:26px 28px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:13px;}
+  .mark{width:42px;height:42px;border-radius:11px;background:var(--brand);display:grid;place-items:center;color:#fff;flex:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);}
+  .mark svg{width:23px;height:23px;}
+  .auth-top b{font-family:'Space Grotesk';font-weight:700;font-size:18px;letter-spacing:-.02em;display:block;}
+  .auth-top span{font-size:12px;color:var(--soft);font-weight:500;}
+  .auth-body{padding:22px 28px 26px;}
+  .auth-body>p{margin:0 0 16px;color:var(--soft);font-size:13.5px;}
+  .userpick{display:flex;flex-direction:column;gap:9px;}
+  .u-btn{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:12px 14px;transition:border-color .12s,transform .1s;}
+  .u-btn:hover{border-color:var(--brand);transform:translateY(-1px);}
+  .u-av{width:38px;height:38px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-family:'Space Grotesk';font-weight:600;font-size:14px;flex:none;}
+  .u-av.head{background:#12374d;}.u-av.ph{background:#4A6FA5;}.u-av.sales{background:#2C9C9A;}
+  .u-meta b{font-family:'Space Grotesk';font-weight:600;font-size:15px;}
+  .u-meta span{display:block;font-size:12px;color:var(--soft);}
+  .u-flag{margin-left:auto;font-size:10.5px;font-weight:600;color:var(--amber);background:#FBF3E1;padding:3px 8px;border-radius:20px;}
+  .auth-field{margin-bottom:14px;}
+  .auth-field label{font-size:12px;font-weight:600;color:var(--soft);display:block;margin-bottom:6px;}
+  .auth-field input{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:10px;outline:none;color:var(--ink);}
+  .auth-field input:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(27,73,101,.12);}
+  .auth-err{color:var(--lost);font-size:12.5px;margin:-4px 0 12px;min-height:16px;}
+  .auth-actions{display:flex;gap:10px;}
+  .auth-foot{padding:14px 28px;border-top:1px solid var(--line);font-size:11.5px;color:var(--soft);background:#F7F9FB;}
+  .back{background:none;border:none;color:var(--soft);font-size:13px;font-weight:600;padding:0;margin-bottom:14px;}
+  .back:hover{color:var(--brand);}
+
+  /* ---------- Buttons ---------- */
+  .btn{border:1px solid var(--brand);background:var(--brand);color:#fff;font-weight:600;padding:9px 15px;border-radius:9px;display:inline-flex;align-items:center;gap:7px;font-size:13.5px;transition:filter .15s;}
+  .btn:hover{filter:brightness(1.08);}
+  .btn svg{width:15px;height:15px;}
+  .btn.ghost{background:var(--surface);color:var(--ink);border-color:var(--line);}
+  .btn.ghost:hover{border-color:var(--brand);color:var(--brand);filter:none;}
+  .btn.wide{width:100%;justify-content:center;}
+
+  /* ---------- Header ---------- */
+  header{position:sticky;top:0;z-index:40;background:rgba(255,255,255,.86);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);}
+  .head-in{max-width:1360px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;gap:16px;}
+  .logo{display:flex;align-items:center;gap:11px;}
+  .logo .mark{width:34px;height:34px;border-radius:9px;}
+  .logo .mark svg{width:19px;height:19px;}
+  .logo b{font-family:'Space Grotesk';font-weight:700;font-size:16px;letter-spacing:-.02em;}
+  .ctx{font-size:11.5px;color:var(--soft);font-weight:600;display:flex;align-items:center;gap:6px;}
+  .ctx .chip{background:#EAF1F7;color:#2C5D80;padding:2px 9px;border-radius:20px;font-family:'Space Grotesk';}
+  .search{margin-left:auto;position:relative;}
+  .search input{width:210px;padding:9px 12px 9px 34px;border:1px solid var(--line);border-radius:9px;background:var(--surface);outline:none;color:var(--ink);}
+  .search input:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(27,73,101,.12);}
+  .search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--soft);}
+  .whoami{display:flex;align-items:center;gap:9px;border-left:1px solid var(--line);padding-left:14px;}
+  .whoami .u-av{width:32px;height:32px;font-size:12px;}
+  .whoami .nm{font-family:'Space Grotesk';font-weight:600;font-size:13.5px;line-height:1.15;}
+  .whoami .rl{font-size:11px;color:var(--soft);}
+  .signout{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 9px;color:var(--soft);font-size:12px;font-weight:600;}
+  .signout:hover{border-color:var(--lost);color:var(--lost);}
+
+  /* ---------- Tabs + KPIs ---------- */
+  .band{max-width:1360px;margin:0 auto;padding:0 24px;}
+  .tabs{display:flex;gap:4px;padding-top:16px;}
+  .tab{border:none;background:transparent;color:var(--soft);font-weight:600;font-size:13.5px;padding:8px 14px;border-radius:8px 8px 0 0;}
+  .tab.on{color:var(--brand);background:var(--surface);box-shadow:0 -1px 0 var(--line),1px 0 0 var(--line),-1px 0 0 var(--line);}
+  .tab .n{font-family:'Space Grotesk';margin-left:6px;font-size:12px;color:var(--soft);}
+  .tab.on .n{color:var(--brand);}
+  .perm-note{max-width:1360px;margin:12px auto 0;padding:0 24px;}
+  .perm-note .inner{background:#F1F5F9;border:1px solid var(--line);border-radius:10px;padding:9px 13px;font-size:12.5px;color:var(--soft);display:flex;align-items:center;gap:9px;}
+  .perm-note b{color:var(--ink);}
+  .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin:18px 0 8px;}
+  .kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:13px 15px;box-shadow:var(--shadow);}
+  .kpi .lab{font-size:11.5px;font-weight:600;color:var(--soft);text-transform:uppercase;letter-spacing:.05em;display:flex;align-items:center;gap:6px;}
+  .kpi .lab i{width:8px;height:8px;border-radius:2px;flex:none;}
+  .kpi .val{font-family:'Space Grotesk';font-weight:700;font-size:28px;margin-top:4px;letter-spacing:-.02em;}
+
+  /* ---------- Board ---------- */
+  main{max-width:1360px;margin:0 auto;padding:8px 24px 60px;}
+  .board{display:flex;gap:14px;overflow-x:auto;padding-bottom:12px;}
+  .col{flex:0 0 262px;display:flex;flex-direction:column;}
+  .col-head{display:flex;align-items:center;gap:9px;padding:4px 4px 10px;}
+  .col-head i{width:9px;height:9px;border-radius:3px;flex:none;}
+  .col-head h3{font-size:13.5px;font-weight:600;}
+  .col-head .ct{font-family:'Space Grotesk';font-size:12px;color:var(--soft);background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:1px 8px;margin-left:auto;}
+  .stack{display:flex;flex-direction:column;gap:10px;min-height:60px;}
+  .empty-col{border:1.5px dashed var(--line);border-radius:11px;padding:18px 12px;text-align:center;color:var(--soft);font-size:12.5px;}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:13px 14px;box-shadow:var(--shadow);cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .12s;border-left:3px solid var(--l,var(--new));}
+  .card:hover{transform:translateY(-2px);border-color:#cbd4df;box-shadow:0 4px 8px rgba(21,34,56,.08),0 14px 32px rgba(21,34,56,.09);}
+  .card .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  .card .nm{font-family:'Space Grotesk';font-weight:600;font-size:14.5px;}
+  .card .proj{font-size:12px;color:var(--soft);margin-top:1px;}
+  .src{font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:6px;white-space:nowrap;}
+  .src.digital{background:#EAF1F7;color:#2C5D80;}
+  .src.walkin{background:#EEF3EC;color:#3E7A4E;}
+  .card .meta{display:flex;align-items:center;gap:8px;margin-top:11px;flex-wrap:wrap;}
+  .avatar{width:22px;height:22px;border-radius:50%;background:var(--brand);color:#fff;font-size:10px;font-weight:600;display:grid;place-items:center;font-family:'Space Grotesk';}
+  .avatar.none{background:#EAEEF3;color:var(--soft);border:1px dashed var(--line);}
+  .budget{font-family:'Space Grotesk';font-size:12px;color:var(--ink);font-weight:600;margin-left:auto;}
+  .pill{font-size:11px;font-weight:600;padding:3px 8px;border-radius:7px;display:inline-flex;align-items:center;gap:5px;}
+  .pill svg{width:11px;height:11px;}
+  .pill.due{background:#FBF3E1;color:#8A6410;}
+  .pill.today{background:#FCEEDB;color:#9A5B12;}
+  .pill.over{background:#FBE9E7;color:#A03027;}
+  .reason-tag{font-size:11px;color:var(--soft);margin-top:9px;padding-top:9px;border-top:1px dashed var(--line);}
+  .reason-tag b{color:var(--ink);font-weight:600;}
+
+  /* ---------- Follow-ups ---------- */
+  .fu-wrap{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;}
+  .fu-sec{padding:6px 4px;}
+  .fu-sec>h3{padding:14px 18px 8px;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--soft);display:flex;align-items:center;gap:8px;}
+  .fu-sec>h3 .b{font-family:'Space Grotesk';background:var(--canvas);border-radius:20px;padding:1px 9px;font-size:12px;}
+  .fu-row{display:flex;align-items:center;gap:14px;padding:12px 18px;border-top:1px solid var(--line2);cursor:pointer;}
+  .fu-row:hover{background:#F8FAFC;}
+  .fu-row .date{font-family:'Space Grotesk';font-weight:600;width:96px;flex:none;}
+  .fu-row .date small{display:block;font-size:11px;color:var(--soft);font-weight:500;}
+  .fu-row .who{flex:1;min-width:0;}
+  .fu-row .who b{font-family:'Space Grotesk';font-weight:600;}
+  .fu-row .who span{color:var(--soft);font-size:12.5px;}
+  .fu-row .note{flex:1.4;color:var(--soft);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .fu-empty{padding:40px;text-align:center;color:var(--soft);}
+
+  /* ---------- Table ---------- */
+  table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--soft);font-weight:600;padding:12px 16px;border-bottom:1px solid var(--line);background:#F7F9FB;}
+  td{padding:12px 16px;border-bottom:1px solid var(--line2);font-size:13px;}
+  tbody tr{cursor:pointer;}
+  tbody tr:hover{background:#F8FAFC;}
+  .stg{font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;display:inline-block;}
+
+  /* ---------- Drawer ---------- */
+  .scrim{position:fixed;inset:0;background:rgba(21,34,56,.34);backdrop-filter:blur(2px);z-index:60;opacity:0;pointer-events:none;transition:opacity .2s;}
+  .scrim.on{opacity:1;pointer-events:auto;}
+  .drawer{position:fixed;top:0;right:0;height:100%;width:min(468px,94vw);background:var(--surface);z-index:70;box-shadow:-12px 0 40px rgba(21,34,56,.16);transform:translateX(100%);transition:transform .26s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;}
+  .drawer.on{transform:translateX(0);}
+  .dr-head{padding:20px 22px 16px;border-bottom:1px solid var(--line);}
+  .dr-head .row1{display:flex;align-items:flex-start;gap:12px;}
+  .dr-head h2{font-size:20px;}
+  .dr-head .sub{color:var(--soft);font-size:13px;margin-top:2px;}
+  .x{margin-left:auto;border:1px solid var(--line);background:var(--surface);width:32px;height:32px;border-radius:8px;color:var(--soft);font-size:17px;display:grid;place-items:center;flex:none;}
+  .x:hover{border-color:var(--brand);color:var(--brand);}
+  .dr-body{overflow-y:auto;padding:20px 22px 32px;flex:1;}
+  .block{margin-bottom:22px;}
+  .block>label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--soft);font-weight:600;display:block;margin-bottom:9px;}
+  .facts{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;}
+  .fact .k{font-size:11px;color:var(--soft);}
+  .fact .v{font-weight:500;margin-top:1px;word-break:break-word;}
+  .fact .v.mono{font-family:'Space Grotesk';}
+  select.field,input.field,textarea.field{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink);outline:none;}
+  select.field:focus,input.field:focus,textarea.field:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(27,73,101,.12);}
+  select.field:disabled,input.field:disabled{background:#F3F5F8;color:var(--soft);}
+  textarea.field{resize:vertical;min-height:60px;}
+  .stage-now{display:inline-flex;align-items:center;gap:8px;font-family:'Space Grotesk';font-weight:600;font-size:13.5px;padding:6px 12px;border-radius:20px;}
+  .stage-now i{width:9px;height:9px;border-radius:3px;}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;}
+  .act{border:1px solid var(--line);background:var(--surface);color:var(--ink);font-weight:600;font-size:13px;padding:8px 13px;border-radius:9px;display:inline-flex;align-items:center;gap:6px;}
+  .act:hover{border-color:var(--brand);}
+  .act.q{border-color:var(--qualified);color:var(--qualified);}
+  .act.q:hover{background:var(--qualified);color:#fff;}
+  .act.win{border-color:var(--booked);color:var(--booked);}
+  .act.win:hover{background:var(--booked);color:#fff;}
+  .act.bad{border-color:var(--lost);color:var(--lost);}
+  .act.bad:hover{background:var(--lost);color:#fff;}
+  .act.del{border-color:var(--lost);color:var(--lost);}
+  .act.del:hover{background:var(--lost);color:#fff;}
+  .act svg{width:14px;height:14px;}
+  .log{display:flex;flex-direction:column;gap:0;}
+  .log-item{display:flex;gap:12px;padding:10px 0;}
+  .log-item .dot{width:9px;height:9px;border-radius:50%;background:var(--brand);margin-top:5px;flex:none;position:relative;}
+  .log-item .dot::after{content:'';position:absolute;left:4px;top:12px;width:1px;height:calc(100% + 8px);background:var(--line);}
+  .log-item:last-child .dot::after{display:none;}
+  .log-item .lt{font-family:'Space Grotesk';font-weight:600;font-size:12.5px;}
+  .log-item .lb{color:var(--soft);font-size:12.5px;margin-top:1px;}
+  .fu-form{background:var(--canvas);border:1px solid var(--line);border-radius:11px;padding:13px;margin-top:10px;}
+  .fu-form .r{display:flex;gap:9px;margin-bottom:9px;}
+  .banner{border-radius:10px;padding:11px 13px;font-size:13px;display:flex;gap:9px;align-items:flex-start;}
+  .banner.win{background:#EAF5EE;color:#256b43;}
+  .banner.lost{background:#FAECEA;color:#8f342c;}
+  .banner.nq{background:#F1F3F6;color:#55606f;}
+  .banner b{font-family:'Space Grotesk';}
+  .locked-note{font-size:12px;color:var(--soft);background:#F3F5F8;border-radius:8px;padding:8px 11px;}
+  /* temperature */
+  .temp-seg{display:flex;gap:8px;}
+  .temp-opt{flex:1;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px;font-weight:600;font-size:13px;color:var(--soft);display:flex;align-items:center;justify-content:center;gap:7px;}
+  .temp-opt .d{width:9px;height:9px;border-radius:50%;}
+  .temp-opt.on{color:#fff;border-color:transparent;}
+  .temp-opt.hot.on{background:#D9534F;} .temp-opt.warm.on{background:#E0A32E;} .temp-opt.cold.on{background:#4A8FB5;}
+  .temp-opt.hot .d{background:#D9534F;} .temp-opt.warm .d{background:#E0A32E;} .temp-opt.cold .d{background:#4A8FB5;}
+  .tchip{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:.03em;}
+  .tchip.hot{background:#FBE7E6;color:#B23A36;} .tchip.warm{background:#FBF1DD;color:#9A6B12;} .tchip.cold{background:#E7F0F6;color:#356687;}
+  /* likelihood gauge */
+  .gauge{background:var(--canvas);border:1px solid var(--line);border-radius:12px;padding:15px;}
+  .gauge .num{font-family:'Space Grotesk';font-weight:700;font-size:34px;letter-spacing:-.02em;line-height:1;}
+  .gauge .bar{height:9px;border-radius:20px;background:#E3E8EE;overflow:hidden;margin:11px 0 12px;}
+  .gauge .fill{height:100%;border-radius:20px;transition:width .6s cubic-bezier(.4,0,.2,1);}
+  .gauge .why{font-size:13px;color:var(--ink);}
+  .gauge .signals{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+  .gauge .sig{font-size:11px;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:3px 9px;color:var(--soft);}
+  .ai-tag{font-size:11px;color:var(--soft);display:flex;align-items:center;gap:6px;margin-top:10px;flex-wrap:wrap;}
+  .mini-link{background:none;border:none;color:var(--brand);font-weight:600;cursor:pointer;padding:0;font-size:11px;}
+  .spin{width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;display:inline-block;}
+  @keyframes sp{to{transform:rotate(360deg);}}
+  /* timeline notes */
+  .tl-note{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--teal);border-radius:10px;padding:9px 12px;}
+  .tl-note .q{font-size:13px;color:var(--ink);}
+  .tl-by{font-size:11px;color:var(--soft);margin-top:3px;}
+  /* stats */
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
+  .stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:15px;box-shadow:var(--shadow);}
+  .stat .k{font-size:11px;color:var(--soft);font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+  .stat .v{font-family:'Space Grotesk';font-weight:700;font-size:29px;margin-top:5px;letter-spacing:-.02em;}
+  .stat .v small{font-size:13px;color:var(--soft);font-weight:500;}
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:18px 20px;margin-bottom:16px;}
+  .panel h3{font-size:14px;margin-bottom:15px;}
+  .barrow{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+  .barrow .lbl{width:130px;font-size:13px;font-weight:500;flex:none;display:flex;align-items:center;gap:7px;}
+  .barrow .lbl .d{width:9px;height:9px;border-radius:3px;flex:none;}
+  .barrow .track{flex:1;height:22px;background:var(--canvas);border-radius:6px;overflow:hidden;}
+  .barrow .fillb{height:100%;border-radius:6px;display:flex;align-items:center;padding-left:9px;color:#fff;font-family:'Space Grotesk';font-size:12px;font-weight:600;min-width:22px;}
+  .split{display:flex;gap:16px;} .split>*{flex:1;min-width:0;}
+  .range-bar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:16px;}
+  .range-bar .seg2{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;}
+  .range-bar .seg2 button{border:none;background:var(--surface);padding:8px 13px;font-weight:600;font-size:13px;color:var(--soft);}
+  .range-bar .seg2 button.on{background:var(--brand);color:#fff;}
+  .range-bar input[type=date]{padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);}
+  .funnel-row{display:flex;align-items:center;gap:12px;margin-bottom:8px;}
+  .funnel-row .fl{width:150px;flex:none;font-size:13px;font-weight:500;}
+  .funnel-row .ft{flex:1;height:30px;background:var(--canvas);border-radius:7px;overflow:hidden;}
+  .funnel-row .ff{height:100%;border-radius:7px;display:flex;align-items:center;padding-left:11px;color:#fff;font-family:'Space Grotesk';font-weight:600;font-size:13px;white-space:nowrap;}
+  .grp{display:flex;align-items:center;gap:12px;margin-bottom:11px;}
+  .grp .gl{width:120px;flex:none;font-size:13px;font-weight:500;}
+  .grp .gbars{flex:1;display:flex;flex-direction:column;gap:4px;}
+  .grp .gb{height:17px;border-radius:5px;display:flex;align-items:center;padding-left:8px;color:#fff;font-size:11px;font-weight:600;font-family:'Space Grotesk';min-width:20px;white-space:nowrap;}
+  .pill.sla{background:#FCEEDB;color:#9A5B12;} .pill.slaover{background:#FBE9E7;color:#A03027;}
+  .edit-block{background:#FFF7E8;border:1px solid #F0E0C0;border-radius:11px;padding:13px;}
+  .edit-block .eh{font-size:11px;font-weight:700;color:#9A6B12;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;}
+  .edit-block .r{display:flex;gap:9px;margin-bottom:9px;}
+  .bell{position:relative;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 8px;font-size:15px;line-height:1;}
+  .bell:hover{border-color:var(--brand);}
+  .bell .badge{position:absolute;top:-6px;right:-6px;background:var(--lost);color:#fff;font-family:'Space Grotesk';font-size:10px;font-weight:700;min-width:17px;height:17px;border-radius:9px;display:none;place-items:center;padding:0 4px;}
+  .notify-panel{position:absolute;right:24px;top:62px;width:344px;max-height:70vh;overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 44px rgba(21,34,56,.18);z-index:55;}
+  .notify-panel .nhead{padding:14px 16px;font-family:'Space Grotesk';font-weight:600;border-bottom:1px solid var(--line);}
+  .notify-panel .nsec{padding:11px 16px 4px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--soft);font-weight:600;}
+  .notify-panel .nrow{display:flex;gap:11px;padding:10px 16px;cursor:pointer;align-items:flex-start;border-top:1px solid var(--line2);}
+  .notify-panel .nrow:hover{background:#F8FAFC;}
+  .notify-panel .ndot{width:9px;height:9px;border-radius:50%;margin-top:5px;flex:none;}
+  .notify-panel .nmeta b{font-family:'Space Grotesk';font-weight:600;font-size:13.5px;}
+  .notify-panel .nmeta span{display:block;font-size:12px;color:var(--soft);}
+  .notify-panel .nempty{padding:22px 16px;color:var(--soft);font-size:13px;text-align:center;}
+  @media(max-width:820px){.stat-grid{grid-template-columns:repeat(2,1fr);}.split{flex-direction:column;}}
+
+  /* ---------- Modal ---------- */
+  .modal-scrim{position:fixed;inset:0;background:rgba(21,34,56,.4);backdrop-filter:blur(3px);z-index:80;display:none;align-items:flex-start;justify-content:center;padding:6vh 20px;overflow-y:auto;}
+  .modal-scrim.on{display:flex;}
+  .modal{background:var(--surface);border-radius:16px;width:min(540px,100%);box-shadow:0 24px 60px rgba(21,34,56,.28);}
+  .modal-h{padding:20px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;}
+  .modal-h h2{font-size:18px;}
+  .modal-b{padding:22px 24px;display:grid;grid-template-columns:1fr 1fr;gap:15px;}
+  .modal-b .full{grid-column:1/-1;}
+  .fld label{font-size:12px;font-weight:600;color:var(--soft);display:block;margin-bottom:5px;}
+  .seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;}
+  .seg button{flex:1;border:none;background:var(--surface);padding:9px;font-weight:600;font-size:13px;color:var(--soft);}
+  .seg button.on{background:var(--brand);color:#fff;}
+  .modal-f{padding:16px 24px 22px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid var(--line);}
+  .req{color:var(--lost);}
+  .foot{max-width:1360px;margin:0 auto;padding:0 24px 40px;color:var(--soft);font-size:12px;display:flex;align-items:center;gap:14px;}
+  .hidden{display:none !important;}
+  @media (max-width:820px){.kpis{grid-template-columns:repeat(3,1fr);}.modal-b{grid-template-columns:1fr;}.fu-row .note{display:none;}.search input{width:150px;}}
+</style>
+</head>
+<body>
+
+<!-- ============ AUTH ============ -->
+<div class="auth" id="authRoot"></div>
+
+<!-- ============ APP ============ -->
+<div id="appRoot" class="hidden">
+  <header>
+    <div class="head-in">
+      <div class="logo">
+        <div class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-5h6v5"/></svg></div>
+        <div><b>Bricks &amp; Milestones</b><div class="ctx" id="ctx"></div></div>
+      </div>
+      <div class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input id="search" placeholder="Search name or phone…" oninput="render()" />
+      </div>
+      <button class="btn ghost" id="bulkBtn" style="display:none" onclick="openBulk()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+        Bulk walk-ins
+      </button>
+      <button class="btn" onclick="openModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        New lead
+      </button>
+      <div class="whoami" id="whoami"></div>
+    </div>
+    <div class="band"><div class="tabs" id="tabs"></div></div>
+    <div class="notify-panel hidden" id="notifyPanel"></div>
+  </header>
+
+  <div class="perm-note" id="permNote"></div>
+  <div class="band"><div class="kpis" id="kpis"></div></div>
+  <main id="main"></main>
+  <div class="foot"><span id="count"></span></div>
+</div>
+
+<!-- Drawer -->
+<div class="scrim" id="scrim" onclick="closeDrawer()"></div>
+<aside class="drawer" id="drawer"></aside>
+
+<!-- New lead modal -->
+<div class="modal-scrim" id="modalScrim">
+  <div class="modal">
+    <div class="modal-h"><h2>Capture new lead</h2></div>
+    <div class="modal-b">
+      <div class="fld full">
+        <label>Source</label>
+        <div class="seg" id="srcSeg">
+          <button data-s="digital" class="on" onclick="setSrc('digital')">Digital lead</button>
+          <button data-s="walkin" onclick="setSrc('walkin')">Walk-in</button>
+        </div>
+      </div>
+      <div class="fld"><label>Full name <span class="req">*</span></label><input class="field" id="m_name" placeholder="e.g. Ananya Rao"/></div>
+      <div class="fld"><label>Phone <span class="req">*</span></label><input class="field" id="m_phone" placeholder="+91 …"/></div>
+      <div class="fld"><label>Email</label><input class="field" id="m_email" placeholder="optional"/></div>
+      <div class="fld"><label id="srcLabel">Channel</label><select class="field" id="m_srcdetail"></select></div>
+      <div class="fld"><label>Project</label><select class="field" id="m_project"></select></div>
+      <div class="fld"><label>Budget (₹)</label><input class="field" id="m_budget" placeholder="e.g. 1.2 Cr"/></div>
+      <div class="fld hidden" id="wf_wsource"><label>Walk-in source</label><select class="field" id="m_wsource" onchange="toggleCP()"><option value="Direct">Direct</option><option value="CP">Channel Partner (CP)</option></select></div>
+      <div class="fld hidden" id="wf_phase"><label>Phase</label><select class="field" id="m_phase"><option value="">—</option><option>Phase 1</option><option>Phase 2</option></select></div>
+      <div class="fld hidden" id="wf_cp"><label>CP name</label><input class="field" id="m_cp" placeholder="Channel partner name"/></div>
+      <div class="fld hidden" id="wf_location"><label>Location</label><input class="field" id="m_location" placeholder="e.g. Whitefield"/></div>
+      <div class="fld hidden" id="wf_company"><label>Company</label><input class="field" id="m_company" placeholder="Where they work"/></div>
+      <div class="fld hidden" id="wf_date"><label>Date of walk-in</label><input type="date" class="field" id="m_walkindate"/></div>
+      <div class="fld full" id="ownerFld"><label>Assign to</label><select class="field" id="m_owner"></select></div>
+      <div class="fld full"><label>Notes from reception</label><textarea class="field" id="m_notes" placeholder="What did they ask about?"></textarea></div>
+    </div>
+    <div class="modal-f">
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn" onclick="saveLead()">Add to pipeline</button>
+    </div>
+  </div>
+</div>
+
+<!-- Team modal -->
+<div class="modal-scrim" id="teamScrim">
+  <div class="modal">
+    <div class="modal-h"><h2>Your team</h2></div>
+    <div class="modal-b" style="display:block" id="teamBody"></div>
+    <div class="modal-f"><button class="btn ghost" onclick="closeTeam()">Close</button></div>
+  </div>
+</div>
+
+<!-- Bulk walk-ins modal -->
+<div class="modal-scrim" id="bulkScrim">
+  <div class="modal">
+    <div class="modal-h"><h2>Bulk upload walk-ins</h2></div>
+    <div class="modal-b" style="display:block" id="bulkBody"></div>
+    <div class="modal-f"><button class="btn ghost" onclick="closeBulk()">Close</button><button class="btn" id="bulkImportBtn" style="display:none" onclick="doBulkImport()">Import</button></div>
+  </div>
+</div>
+
+<!-- Booking details modal -->
+<div class="modal-scrim" id="bookScrim">
+  <div class="modal">
+    <div class="modal-h"><h2>Booking details 🎉</h2></div>
+    <div class="modal-b" id="bookBody" style="display:block"></div>
+    <div class="modal-f"><button class="btn ghost" onclick="closeBooking()">Cancel</button><button class="btn" style="background:var(--booked);border-color:var(--booked)" onclick="saveBooking()">Confirm booking</button></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ============ cloud connection ============ */
+const SUPABASE_URL='https://xhlgwzpbkovqxuxarcoe.supabase.co';
+const SUPABASE_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhobGd3enBia292cXh1eGFyY29lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NzQ5MTgsImV4cCI6MjA5OTE1MDkxOH0._rCZPfPYG5fseQCDUFELeP1n5YbhIiNI3WqXga7Mubc';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
+
+/* ============ config ============ */
+const INSTANCE='Bricks & Milestones';
+const STAGES={new:{label:'New',color:'var(--new)'},assigned:{label:'Assigned',color:'var(--assigned)'},qualified:{label:'Qualified',color:'var(--qualified)'},booked:{label:'Booked',color:'var(--booked)'},lost:{label:'Lost',color:'var(--lost)'},not_qualified:{label:'Not qualified',color:'var(--nq)'}};
+const BOARD_ORDER=['new','assigned','qualified','booked','lost','not_qualified'];
+const PROJECTS=['Earthscape','Solcrest','Lagos'];
+const DIGITAL=['Website','Google Ads','Facebook / Meta','Property portal','Referral','WhatsApp'];
+const NQ_REASONS=['Budget mismatch','Just browsing / not serious','Wrong location','Not the decision maker','Timeline too far out','Invalid contact details'];
+const LOST_REASONS=['Went with a competitor','Price / negotiation gap','Postponed purchase','Went unresponsive','Location not suitable','Home loan rejected'];
+const PAYMENT_STRUCTURES=['TES Pre EMI','Solcrest Payment Holiday','Normal CLP'];
+const PHASES=['Phase 1','Phase 2'];
+
+const DEFAULT_USERS=[
+  {id:'head',   name:'You',    role:'sales_head',  title:'Sales Head',            project:null,        pass:null},
+  {id:'sanyog', name:'Sanyog', role:'project_head',title:'Project Head · Earthscape',project:'Earthscape',pass:null},
+  {id:'amartya',name:'Amartya',role:'sales',       title:'Salesperson · Earthscape',project:'Earthscape',pass:null},
+  {id:'savita', name:'Savita', role:'sales',       title:'Salesperson · Earthscape',project:'Earthscape',pass:null},
+];
+const ROLE_LABEL={sales_head:'Sales Head',project_head:'Project Head',sales:'Salesperson'};
+
+let db={instance:INSTANCE,users:[],leads:[],transfers:[],crossInterest:[]};
+let session=null, myCompanyId=null, activeTab='pipeline', openId=null, modalSrc='digital', loginView={step:'signin',err:'',email:''};
+let projById={}, projByName={}, pendingInvite=null;
+
+/* ============ cloud data layer (Supabase) ============ */
+function projName(id){return projById[id]||null;}
+function projId(name){return projByName[name]||null;}
+function memberName(id){const u=user(id);return u?u.name:'';}
+function titleFor(m){const p=projName(m.project_id);if(m.role==='sales_head')return 'Sales Head';if(m.role==='project_head')return 'Project Head'+(p?' · '+p:'');return 'Salesperson'+(p?' · '+p:'');}
+function leadFromRow(r){return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',source:r.source,srcDetail:r.src_detail||'',walkinSource:r.walkin_source||'',cpName:r.cp_name||'',location:r.location||'',company:r.company_name||'',project:projName(r.project_id),budget:r.budget||'',notes:r.notes||'',stage:r.stage,ownerId:r.owner_id||null,qualified:r.qualified,nqReason:r.nq_reason||'',disqualifiedBy:r.disqualified_by||'',lostReason:r.lost_reason||'',temp:r.temp||null,nextFollowUp:r.next_follow_up||null,assignedAt:r.assigned_at||null,createdAt:r.created_at,assessment:null,booking:r.booking||null,walkinPhase:r.walkin_phase||'',revisits:[],log:[]};}
+
+async function loadAll(){
+  const {data:projs}=await sb.from('projects').select('*');
+  projById={};projByName={};(projs||[]).forEach(p=>{projById[p.id]=p.name;projByName[p.name]=p.id;});
+  const {data:mem}=await sb.from('members').select('*');
+  db.users=(mem||[]).map(m=>({id:m.id,name:m.name,role:m.role,project:projName(m.project_id),title:titleFor(m),email:m.email}));
+  myCompanyId=(mem||[]).find(m=>m.id===session)?.company_id||null;
+  await ensureProjects();
+  const {data:leads}=await sb.from('leads').select('*');
+  const rows=leads||[];const ids=rows.map(l=>l.id);
+  let acts=[];
+  if(ids.length){const {data:a}=await sb.from('lead_activity').select('*').in('lead_id',ids).order('created_at',{ascending:true});acts=a||[];}
+  const byLead={};acts.forEach(a=>{(byLead[a.lead_id]=byLead[a.lead_id]||[]).push(a);});
+  db.leads=rows.map(r=>{const L=leadFromRow(r);(byLead[r.id]||[]).forEach(a=>{const d=(a.created_at||'').slice(0,10);const by=memberName(a.author_id);L.log.push({t:a.body||'',d,kind:a.kind,by,next:a.next_follow_up||null});if(a.kind==='revisit')L.revisits.push({date:d,by});});return L;});
+  const [{data:trs},{data:cis}]=await Promise.all([
+    sb.from('transfer_requests').select('*').order('created_at',{ascending:false}),
+    sb.from('cross_interest').select('*').order('created_at',{ascending:false})
+  ]);
+  db.transfers=trs||[];db.crossInterest=cis||[];
+}
+async function ensureProjects(){
+  if(!myCompanyId||!currentUser()||currentUser().role!=='sales_head')return;
+  const missing=PROJECTS.filter(p=>!projByName[p]);
+  if(!missing.length)return;
+  await sb.from('projects').insert(missing.map(p=>({company_id:myCompanyId,name:p})));
+  const {data:projs}=await sb.from('projects').select('*');
+  projById={};projByName={};(projs||[]).forEach(p=>{projById[p.id]=p.name;projByName[p.name]=p.id;});
+}
+async function loadMyMember(){const {data}=await sb.from('members').select('*').eq('id',session).maybeSingle();return data;}
+async function refresh(){await loadAll();render();}
+
+/* write helpers — targeted row updates instead of a whole-blob save */
+async function updateLead(id,patch){const {error}=await sb.from('leads').update(patch).eq('id',id);if(error){alert('Could not save that change: '+error.message);return false;}return true;}
+async function addActivityRow(leadId,o){const payload={company_id:myCompanyId,lead_id:leadId,kind:o.kind,body:o.body||null,next_follow_up:o.next||null,author_id:session};if(o.date)payload.created_at=o.date+'T12:00:00';const {error}=await sb.from('lead_activity').insert(payload);if(error)console.error(error);}
+
+/* ============ helpers ============ */
+const uid=()=>Math.random().toString(36).slice(2,9);
+const today=()=>{const d=new Date();d.setHours(0,0,0,0);return d;};
+const parseD=s=>new Date(s+'T00:00:00');
+const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+function addDays(n){const d=today();d.setDate(d.getDate()+n);return iso(d);}
+function initials(n){return n.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();}
+function fmtDate(s){if(!s)return'';return parseD(s).toLocaleDateString('en-IN',{day:'numeric',month:'short'});}
+function dueState(s){if(!s)return null;const diff=Math.round((parseD(s)-today())/86400000);if(diff<0)return{cls:'over',n:diff};if(diff===0)return{cls:'today',n:0};return{cls:'due',n:diff};}
+function hash(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))>>>0;return 'h'+h.toString(16);}
+const clock='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+function user(id){return db.users.find(u=>u.id===id);}
+function currentUser(){return user(session);}
+function userName(id){const u=user(id);return u?u.name:'—';}
+function salespeople(project){return db.users.filter(u=>u.role==='sales'&&(!project||u.project===project));}
+
+/* ============ permissions ============ */
+function can(action,lead){
+  const u=currentUser();if(!u)return false;const r=u.role;
+  switch(action){
+    case 'create':return true;
+    case 'delete':return r==='sales_head'||r==='project_head';
+    case 'assign':return r==='sales_head'||r==='project_head';
+    case 'view':case 'edit':
+      if(r==='sales_head')return true;
+      if(r==='project_head')return lead.project===u.project;
+      return lead.ownerId===u.id;
+  }
+  return false;
+}
+
+/* ============ AUTH ============ */
+function showLogin(){document.getElementById('appRoot').classList.add('hidden');document.getElementById('authRoot').classList.remove('hidden');renderLogin();}
+function showApp(){document.getElementById('authRoot').classList.add('hidden');document.getElementById('appRoot').classList.remove('hidden');activeTab='pipeline';openId=null;render();}
+
+function authField(id,label,type,ph,val){return `<div class="auth-field"><label>${label}</label><input type="${type}" id="${id}" placeholder="${ph}" value="${val||''}" onkeydown="if(event.key==='Enter')authSubmit()"/></div>`;}
+function renderLogin(){
+  const root=document.getElementById('authRoot');
+  const top=`<div class="auth-top"><div class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-5h6v5"/></svg></div><div><b>Bricks &amp; Milestones</b><span>Earthscape · lead management</span></div></div>`;
+  const foot=`<div class="auth-foot">Secure cloud sign-in · your data lives in your company's private database.</div>`;
+  const st=loginView.step;const err=`<div class="auth-err">${loginView.err||''}</div>`;let body='';
+  if(st==='checkemail'){
+    body=`<div class="auth-body"><p>Almost there — we sent a confirmation link to <b>${loginView.email||'your email'}</b>. Open it, then come back here and sign in.</p><div class="auth-actions"><button class="btn wide ghost" onclick="gotoAuth('signin')">← Back to sign in</button></div></div>`;
+  } else if(st==='onboard'){
+    body=`<div class="auth-body"><p>Welcome! Let's set up your company — you'll be its <b>Sales Head</b>.</p>
+      ${authField('ob_company','Company name','text','e.g. Bricks & Milestones',loginView.company||'Bricks & Milestones')}
+      ${authField('ob_name','Your full name','text','e.g. Sudarshan',loginView.name||'')}
+      ${err}
+      <div class="auth-actions"><button class="btn wide" onclick="authSubmit()">Create company &amp; enter</button></div></div>`;
+  } else if(st==='join'){
+    body=`<div class="auth-body"><p>You've been invited to join a team on Sales Enhancer. Enter your name to continue.</p>
+      ${authField('ob_name','Your full name','text','e.g. Amartya',loginView.name||'')}
+      ${err}
+      <div class="auth-actions"><button class="btn wide" onclick="authSubmit()">Join the team &amp; enter</button></div></div>`;
+  } else if(st==='reset'){
+    body=`<div class="auth-body"><p>Enter your email and we'll send a password-reset link.</p>
+      ${authField('em','Email','email','you@company.com',loginView.email)}
+      ${err}
+      <div class="auth-actions"><button class="btn wide" onclick="authSubmit()">Send reset link</button></div>
+      <div style="margin-top:12px"><button class="mini-link" onclick="gotoAuth('signin')">← Back to sign in</button></div></div>`;
+  } else {
+    const signup=st==='signup';
+    body=`<div class="auth-body"><p>${signup?'Create your account.':'Sign in to your account.'}</p>
+      ${authField('em','Email','email','you@company.com',loginView.email)}
+      ${authField('pw','Password','password',signup?'At least 6 characters':'Your password','')}
+      ${err}
+      <div class="auth-actions"><button class="btn wide" onclick="authSubmit()">${signup?'Create account':'Sign in'}</button></div>
+      <div style="margin-top:14px;display:flex;justify-content:space-between;gap:10px;font-size:12.5px">
+        <button class="mini-link" onclick="gotoAuth('${signup?'signin':'signup'}')">${signup?'Have an account? Sign in':'New here? Create an account'}</button>
+        ${signup?'':`<button class="mini-link" onclick="gotoAuth('reset')">Forgot password?</button>`}
+      </div></div>`;
+  }
+  root.innerHTML=`<div class="auth-card">${top}${body}${foot}</div>`;
+  const f=document.getElementById('em')||document.getElementById('ob_company');if(f)f.focus();
+}
+function gotoAuth(step){loginView={step,err:'',email:loginView.email||'',name:loginView.name||'',company:loginView.company||''};renderLogin();}
+async function authSubmit(){
+  const st=loginView.step;
+  if(st==='onboard'){
+    const company=(document.getElementById('ob_company').value||'').trim();
+    const name=(document.getElementById('ob_name').value||'').trim();
+    if(!company||!name){loginView.err='Please fill in both fields.';return renderLogin();}
+    const {error}=await sb.rpc('create_company_and_owner',{company_name:company,full_name:name});
+    if(error){loginView.err=error.message;return renderLogin();}
+    const {data:mem2}=await sb.from('members').select('company_id').eq('id',session).maybeSingle();
+    if(mem2){await sb.from('projects').insert(PROJECTS.map(p=>({company_id:mem2.company_id,name:p})));}
+    await afterLogin();return;
+  }
+  if(st==='join'){
+    const name=(document.getElementById('ob_name').value||'').trim();
+    if(!name){loginView.err='Please enter your name.';return renderLogin();}
+    const {error}=await sb.rpc('accept_invite',{p_token:pendingInvite,full_name:name});
+    if(error){loginView.err=error.message;return renderLogin();}
+    pendingInvite=null;await afterLogin();return;
+  }
+  const email=(document.getElementById('em').value||'').trim();loginView.email=email;
+  if(st==='reset'){
+    if(!email){loginView.err='Enter your email first.';return renderLogin();}
+    const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.href});
+    if(error){loginView.err=error.message;return renderLogin();}
+    loginView.err='';loginView.step='checkemail';return renderLogin();
+  }
+  const pw=document.getElementById('pw').value;
+  if(!email||!pw){loginView.err='Enter your email and password.';return renderLogin();}
+  if(st==='signup'){
+    const {data,error}=await sb.auth.signUp({email,password:pw});
+    if(error){loginView.err=error.message;return renderLogin();}
+    if(!data.session){loginView.email=email;loginView.step='checkemail';return renderLogin();}
+    session=data.user.id;const mem=await loadMyMember();
+    if(mem){await afterLogin();}else if(pendingInvite){loginView={step:'join',err:'',email};renderLogin();}else{loginView={step:'onboard',err:'',email,company:'Bricks & Milestones'};renderLogin();}
+    return;
+  }
+  const {data,error}=await sb.auth.signInWithPassword({email,password:pw});
+  if(error){loginView.err=error.message;return renderLogin();}
+  session=data.user.id;const mem=await loadMyMember();
+  if(mem){await afterLogin();}else if(pendingInvite){loginView={step:'join',err:'',email};renderLogin();}else{loginView={step:'onboard',err:'',email,company:'Bricks & Milestones'};renderLogin();}
+}
+async function afterLogin(){await loadAll();showApp();}
+async function signOut(){await sb.auth.signOut();session=null;myCompanyId=null;closeDrawer();loginView={step:'signin',err:'',email:''};showLogin();}
+
+/* ============ team / invites (Sales Head only) ============ */
+function inviteLink(token){return location.origin+location.pathname+'?invite='+token;}
+function copyText(t){try{navigator.clipboard.writeText(t);alert('Invite link copied — paste it to your teammate (WhatsApp, SMS or email).');}catch(e){prompt('Copy this invite link:',t);}}
+async function openTeam(){document.getElementById('teamScrim').classList.add('on');await renderTeam();}
+function closeTeam(){document.getElementById('teamScrim').classList.remove('on');}
+async function renderTeam(){
+  const body=document.getElementById('teamBody');body.innerHTML='<div class="locked-note">Loading…</div>';
+  const {data:invs}=await sb.from('invitations').select('*').eq('status','pending');
+  const memRows=db.users.map(m=>`<tr><td><b class="mono">${m.name}</b></td><td>${ROLE_LABEL[m.role]}</td><td>${m.project||'—'}</td></tr>`).join('');
+  const projOpts=PROJECTS.map(p=>`<option>${p}</option>`).join('');
+  const invRows=(invs||[]).map(v=>{const link=inviteLink(v.token);return `<div class="fu-form" style="margin-top:8px"><div style="font-size:12.5px"><b>${v.email||'(no email)'}</b> · ${ROLE_LABEL[v.role]} · ${projName(v.project_id)||'—'}</div><div class="r" style="margin-top:8px;gap:8px"><input class="field" style="font-size:11px" readonly value="${link}"/><button class="btn" style="white-space:nowrap" onclick="copyText('${link}')">Copy link</button></div></div>`;}).join('');
+  body.innerHTML=`
+    <div class="block"><label>Current members</label>
+      <table style="box-shadow:none"><thead><tr><th>Name</th><th>Role</th><th>Project</th></tr></thead><tbody>${memRows}</tbody></table></div>
+    <div class="block"><label>Imported customers</label>
+      <button class="btn ghost" onclick="reconcileAgents()">Attach imported customers to their agents</button>
+      <div class="ai-tag" style="margin-top:8px">Bulk-imported customers tagged with an agent who wasn't a member yet are held unassigned. Once that agent has a login, click this to attach them all at once.</div></div>
+    <div class="block"><label>Invite a teammate</label>
+      <div class="fu-form">
+        <div class="r" style="gap:8px"><input class="field" id="inv_email" placeholder="Their email"/><select class="field" id="inv_role"><option value="sales">Salesperson</option><option value="project_head">Project Head</option></select></div>
+        <div class="r" style="gap:8px;margin-top:8px"><select class="field" id="inv_project">${projOpts}</select><button class="btn" style="white-space:nowrap" onclick="inviteTeammate()">Create invite link</button></div>
+        <div class="ai-tag" style="margin-top:8px">You'll get a link to send them (WhatsApp etc.). They open it, set a password, and they're in — with the role &amp; project you picked.</div>
+      </div></div>
+    ${invs&&invs.length?`<div class="block"><label>Pending invites</label>${invRows}</div>`:''}`;
+}
+async function inviteTeammate(){
+  const email=(document.getElementById('inv_email').value||'').trim();
+  const role=document.getElementById('inv_role').value;
+  const project=document.getElementById('inv_project').value;
+  if(!email){alert('Enter their email first.');return;}
+  const {data,error}=await sb.from('invitations').insert({company_id:myCompanyId,email,role,project_id:projId(project)||null,status:'pending'}).select().single();
+  if(error){alert('Could not create invite: '+error.message);return;}
+  await renderTeam();copyText(inviteLink(data.token));
+}
+
+/* ============ bulk walk-in import (Sales Head only) ============ */
+let bulkParsed=null;
+const BULK_COLS=['name','phone','email','project','walkin_source','cp_name','location','company','budget','walkin_date','assign_to','notes'];
+const HEADER_ALIAS={name:'name',customername:'name',fullname:'name',customer:'name',phone:'phone',mobile:'phone',contact:'phone',email:'email',project:'project',walkinsource:'walkin_source',source:'walkin_source',cpname:'cp_name',cp:'cp_name',location:'location',company:'company',budget:'budget',walkindate:'walkin_date',date:'walkin_date',assignto:'assign_to',agent:'assign_to',owner:'assign_to',salesperson:'assign_to',rep:'assign_to',notes:'notes'};
+function nk(s){return String(s||'').toLowerCase().replace(/[^a-z]/g,'');}
+function nameMatch(a,b){a=nk(a);b=nk(b);if(!a||!b||a.length<3||b.length<3)return a===b;return a===b||a.startsWith(b)||b.startsWith(a);}
+function openBulk(){bulkParsed=null;document.getElementById('bulkScrim').classList.add('on');document.getElementById('bulkImportBtn').style.display='none';renderBulkIntro();}
+function closeBulk(){document.getElementById('bulkScrim').classList.remove('on');}
+function renderBulkIntro(){
+  document.getElementById('bulkBody').innerHTML=`
+    <div class="block"><label>Paste rows (easiest)</label>
+      <div class="ai-tag" style="margin-bottom:8px">Paste straight from Excel/Sheets. First row = column titles. Only <b>name</b> is required. A two-column <b>Customer Name / Agent</b> list works perfectly.</div>
+      <textarea class="field" id="bulkPaste" style="min-height:120px;font-family:'Space Grotesk'" placeholder="Customer Name	Agent&#10;Ramesh Verma	Amartya&#10;Ranjan	Amartya"></textarea>
+      <div style="margin-top:9px"><button class="btn" onclick="onBulkPaste()">Preview pasted rows</button></div></div>
+    <div class="block"><label>…or upload a CSV file</label>
+      <button class="btn ghost" onclick="downloadTemplate()" style="margin-bottom:9px">⬇ Download CSV template</button>
+      <input type="file" accept=".csv,text/csv" class="field" id="bulkFile" onchange="onBulkFile(event)"/>
+      <div class="ai-tag" style="margin-top:8px">Columns understood: name (or Customer Name), phone, email, project (${PROJECTS.join(' / ')}), walkin_source (Direct/CP), cp_name, location, company, budget, walkin_date, assign_to (or Agent), notes.</div></div>
+    <div class="block" style="margin-bottom:6px"><label style="display:flex;align-items:center;gap:9px;text-transform:none;letter-spacing:normal;font-size:14px;color:var(--ink);cursor:pointer"><input type="checkbox" id="bulkQualified" style="width:17px;height:17px"/> Mark every imported customer as <b>Qualified</b></label></div>
+    <div id="bulkPreview"></div>`;
+}
+function csvCell(v){v=(v==null?'':String(v));return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+function downloadTemplate(){
+  const example=['Ananya Rao','+91 98765 43210','ananya@example.com',PROJECTS[0],'Direct','','Whitefield','Infosys','1.2 Cr',iso(today()),'',''];
+  const csv=BULK_COLS.join(',')+'\n'+example.map(csvCell).join(',')+'\n';
+  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  const a=document.createElement('a');a.href=url;a.download='walkins-template.csv';a.click();URL.revokeObjectURL(url);
+}
+function parseCSV(text){
+  const rows=[];let field='',row=[],inQ=false;text=text.replace(/\r\n?/g,'\n');
+  for(let i=0;i<text.length;i++){const c=text[i];
+    if(inQ){if(c==='"'){if(text[i+1]==='"'){field+='"';i++;}else inQ=false;}else field+=c;}
+    else{if(c==='"')inQ=true;else if(c===','){row.push(field);field='';}else if(c==='\n'){row.push(field);rows.push(row);row=[];field='';}else field+=c;}
+  }
+  if(field.length||row.length){row.push(field);rows.push(row);}
+  return rows.filter(r=>r.some(x=>String(x).trim()!==''));
+}
+function parseTable(text){
+  text=String(text||'').replace(/\r\n?/g,'\n');
+  if(text.indexOf('\t')>=0){return text.split('\n').filter(l=>l.trim()!=='').map(l=>l.split('\t'));}
+  return parseCSV(text);
+}
+function onBulkPaste(){const t=document.getElementById('bulkPaste').value;if(!t.trim()){alert('Paste your rows first (with a header row).');return;}buildBulk(t);}
+function normHeader(h){return String(h||'').trim().toLowerCase().replace(/[\s_]+/g,'');}
+function normDate(s){s=(s||'').trim();if(!s)return iso(today());
+  let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);if(m)return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);if(m)return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  return iso(today());
+}
+function findSales(s){s=(s||'').trim();if(!s)return null;const sl=s.toLowerCase();return db.users.find(u=>u.role==='sales'&&(nameMatch(u.name,s)||(u.email||'').toLowerCase()===sl))||null;}
+function onBulkFile(ev){const f=ev.target.files&&ev.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{buildBulk(String(rd.result));}catch(e){console.error(e);document.getElementById('bulkPreview').innerHTML='<div class="banner lost" style="margin-top:12px">Could not read that file. Make sure it is a .csv saved from Excel or Google Sheets.</div>';}};rd.readAsText(f);}
+function buildBulk(text){
+  const rows=parseTable(text);
+  const pv=document.getElementById('bulkPreview');
+  if(rows.length<2){pv.innerHTML='<div class="banner lost" style="margin-top:12px">No data rows found. Add at least one walk-in under the header row.</div>';document.getElementById('bulkImportBtn').style.display='none';return;}
+  const headers=rows[0].map(h=>HEADER_ALIAS[normHeader(h)]||normHeader(h));
+  const idx={};headers.forEach((h,i)=>{if(idx[h]===undefined)idx[h]=i;});
+  const get=(r,k)=>{const i=idx[k];return i===undefined?'':String(r[i]||'').trim();};
+  const valid=[],errors=[];
+  for(let r=1;r<rows.length;r++){const row=rows[r];
+    const name=get(row,'name'),phone=get(row,'phone');
+    if(!name){errors.push({line:r+1,why:'missing name'});continue;}
+    let project=get(row,'project');const pM=PROJECTS.find(p=>p.toLowerCase()===project.toLowerCase());project=pM||PROJECTS[0];
+    let ws=get(row,'walkin_source').toLowerCase();ws=(ws==='cp'||ws.includes('partner'))?'CP':'Direct';
+    const assignee=findSales(get(row,'assign_to'));
+    valid.push({name,phone,email:get(row,'email'),project,walkin_source:ws,cp_name:ws==='CP'?get(row,'cp_name'):'',location:get(row,'location'),company_name:get(row,'company'),budget:get(row,'budget'),notes:get(row,'notes'),created_at:normDate(get(row,'walkin_date')),owner_id:assignee?assignee.id:null,ownerName:assignee?assignee.name:'',_assignRaw:get(row,'assign_to')});
+  }
+  bulkParsed=valid;renderBulkPreview(valid,errors);
+}
+function renderBulkPreview(valid,errors){
+  const unmatched=valid.filter(v=>v._assignRaw&&!v.owner_id);
+  const head=valid.slice(0,8).map(v=>`<tr><td><b class="mono">${v.name}</b></td><td>${v.phone}</td><td>${v.project}</td><td>${v.walkin_source==='CP'?('CP'+(v.cp_name?' · '+v.cp_name:'')):'Direct'}</td><td class="mono">${fmtDate(v.created_at)}</td><td>${v.owner_id?v.ownerName:'<span style="color:var(--soft)">Unassigned</span>'}</td></tr>`).join('');
+  let warn='';
+  if(errors.length)warn+=`<div class="banner lost" style="margin-top:12px">${errors.length} row(s) skipped (need name &amp; phone): ${errors.slice(0,5).map(e=>'line '+e.line+' — '+e.why).join('; ')}${errors.length>5?'…':''}</div>`;
+  if(unmatched.length)warn+=`<div class="banner nq" style="margin-top:10px">${unmatched.length} row(s) had an "assign_to" that didn't match a salesperson — they'll import <b>unassigned</b>. Check spelling, or invite that person first.</div>`;
+  document.getElementById('bulkPreview').innerHTML=`
+    <div class="block" style="margin-top:8px"><label>Preview — ${valid.length} walk-in(s) ready</label>
+      ${valid.length?`<table style="box-shadow:none"><thead><tr><th>Name</th><th>Phone</th><th>Project</th><th>Walk-in via</th><th>Date</th><th>Owner</th></tr></thead><tbody>${head}</tbody></table>${valid.length>8?`<div class="ai-tag" style="margin-top:8px">…and ${valid.length-8} more.</div>`:''}`:'<div class="locked-note">No valid rows to import.</div>'}
+      ${warn}</div>`;
+  const btn=document.getElementById('bulkImportBtn');btn.style.display=valid.length?'':'none';btn.textContent='Import '+valid.length+' walk-in'+(valid.length===1?'':'s');
+}
+async function doBulkImport(){
+  if(!bulkParsed||!bulkParsed.length)return;
+  const btn=document.getElementById('bulkImportBtn');btn.disabled=true;btn.textContent='Importing…';
+  const q=!!(document.getElementById('bulkQualified')&&document.getElementById('bulkQualified').checked);
+  const me=currentUser().name;
+  const rows=bulkParsed.map(v=>{
+    let notes=v.notes||'';
+    if(!v.owner_id&&v._assignRaw)notes=('Agent: '+v._assignRaw.trim())+(notes?' · '+notes:'');
+    return {company_id:myCompanyId,project_id:projId(v.project),owner_id:v.owner_id,name:v.name,phone:v.phone||'',email:v.email,source:'walkin',src_detail:v.project,walkin_source:v.walkin_source,cp_name:v.cp_name,location:v.location,company_name:v.company_name,budget:v.budget,notes,stage:q?'qualified':(v.owner_id?'assigned':'new'),qualified:q?true:null,temp:null,next_follow_up:null,assigned_at:v.owner_id?v.created_at:null,created_at:v.created_at};
+  });
+  const {data,error}=await sb.from('leads').insert(rows).select();
+  if(error){alert('Import failed: '+error.message);btn.disabled=false;btn.textContent='Import';return;}
+  const acts=[];(data||[]).forEach((lead,i)=>{const v=bulkParsed[i]||{};const at=(v.created_at||iso(today()))+'T12:00:00';
+    acts.push({company_id:myCompanyId,lead_id:lead.id,kind:'system',body:'Walk-in at '+(v.project||'')+' ('+(v.walkin_source==='CP'?('CP'+(v.cp_name?' · '+v.cp_name:'')):'Direct')+') — bulk import by '+me,author_id:session,created_at:at});
+    if(lead.owner_id)acts.push({company_id:myCompanyId,lead_id:lead.id,kind:'system',body:'Assigned to '+(v.ownerName||'')+' (bulk)',author_id:session,created_at:at});
+    if(q)acts.push({company_id:myCompanyId,lead_id:lead.id,kind:'system',body:'Marked qualified (bulk import)',author_id:session,created_at:at});});
+  if(acts.length){for(let i=0;i<acts.length;i+=200){await sb.from('lead_activity').insert(acts.slice(i,i+200));}}
+  closeBulk();activeTab='pipeline';await refresh();
+  alert('Imported '+(data?data.length:0)+' customer(s) successfully.');
+}
+async function reconcileAgents(){
+  const {data:leads}=await sb.from('leads').select('id,owner_id,notes,stage,created_at').is('owner_id',null).ilike('notes','Agent:%');
+  let n=0;
+  for(const l of (leads||[])){
+    const m=(l.notes||'').match(/^Agent:\s*([^·]+?)(?:\s*·\s*|$)/);
+    if(!m)continue;const nm=m[1].trim();
+    const sp=db.users.find(u=>u.role==='sales'&&nameMatch(u.name,nm));
+    if(!sp)continue;
+    const cleaned=(l.notes||'').replace(/^Agent:\s*[^·]+?(?:\s*·\s*|$)/,'').trim();
+    const {error}=await sb.from('leads').update({owner_id:sp.id,assigned_at:l.created_at,notes:cleaned}).eq('id',l.id);
+    if(error)continue;
+    await addActivityRow(l.id,{kind:'system',body:'Linked to '+sp.name+' from import'});n++;
+  }
+  await loadAll();await renderTeam();
+  alert(n?('Attached '+n+' imported customer(s) to their agents.'):'No unassigned imports matched a current salesperson name. Create or rename the agents to match the sheet, then try again.');
+}
+
+/* ============ handoff requests + cross-project interest ============ */
+function pendingHandoffFor(leadId){return db.transfers.find(t=>t.lead_id===leadId&&t.status==='pending');}
+async function requestHandoff(leadId){
+  const l=db.leads.find(x=>x.id===leadId);if(!l)return;
+  const to=(document.getElementById('ho_to')||{}).value||'';if(!to){alert('Choose a teammate to hand off to.');return;}
+  const note=((document.getElementById('ho_note')||{}).value||'').trim();
+  const {error}=await sb.from('transfer_requests').insert({company_id:myCompanyId,lead_id:leadId,lead_name:l.name,from_member:session,to_member:to,note});
+  if(error){alert('Could not send request: '+error.message);return;}
+  await addActivityRow(leadId,{kind:'system',body:'Handoff requested to '+userName(to)+' (awaiting acceptance)'});
+  await refresh();
+}
+async function acceptTransfer(reqId){const t=db.transfers.find(x=>x.id===reqId);const {error}=await sb.rpc('accept_transfer',{p_request:reqId});if(error){alert(error.message);return;}if(t)await addActivityRow(t.lead_id,{kind:'system',body:'Handoff accepted by '+currentUser().name});closeNotify();await refresh();}
+async function declineTransfer(reqId){const {error}=await sb.rpc('decline_transfer',{p_request:reqId});if(error){alert(error.message);return;}await refresh();}
+async function flagInterest(leadId){
+  const l=db.leads.find(x=>x.id===leadId);if(!l)return;
+  const proj=(document.getElementById('ci_proj')||{}).value||'';if(!proj){alert('Choose a project.');return;}
+  const note=((document.getElementById('ci_note')||{}).value||'').trim();
+  const {error}=await sb.from('cross_interest').insert({company_id:myCompanyId,lead_id:leadId,lead_name:l.name,source_project_id:projId(l.project),target_project_id:projId(proj),note,created_by:session});
+  if(error){alert('Could not flag interest: '+error.message);return;}
+  await addActivityRow(leadId,{kind:'system',body:'Flagged as interested in '+proj+(note?' — '+note:'')});
+  await refresh();
+}
+async function closeInterest(id){const {error}=await sb.from('cross_interest').update({status:'closed'}).eq('id',id);if(error){alert(error.message);return;}await refresh();}
+function handoffBlock(l){
+  const u=currentUser();if(u.role!=='sales'||l.ownerId!==u.id)return '';
+  const pend=pendingHandoffFor(l.id);
+  if(pend)return `<div class="block"><label>Handoff</label><div class="locked-note">⏳ Handoff to <b>${userName(pend.to_member)}</b> — waiting for them to accept.</div></div>`;
+  const mates=salespeople(l.project).filter(r=>r.id!==u.id);
+  if(!mates.length)return '';
+  return `<div class="block"><label>Hand off to a teammate</label>
+    <div class="fu-form"><div class="r" style="gap:8px"><select class="field" id="ho_to"><option value="">Choose a salesperson…</option>${mates.map(r=>`<option value="${r.id}">${r.name}</option>`).join('')}</select></div>
+    <textarea class="field" id="ho_note" placeholder="Why are you handing this over? (optional)" style="margin-top:8px"></textarea>
+    <div style="margin-top:9px"><button class="btn" onclick="requestHandoff('${l.id}')">Send handoff request</button></div>
+    <div class="ai-tag" style="margin-top:8px">They must accept before the lead moves. Until then it stays yours, and the heads are alerted.</div></div></div>`;
+}
+function interestBlock(l){
+  const others=PROJECTS.filter(p=>p!==l.project);
+  const flags=db.crossInterest.filter(c=>c.lead_id===l.id&&c.status==='open');
+  const flagHTML=flags.length?`<div style="margin-top:8px">${flags.map(c=>`<div class="locked-note" style="margin-bottom:6px">✦ Interested in <b>${projName(c.target_project_id)||'—'}</b>${c.note?' — '+c.note:''} · <button class="mini-link" onclick="closeInterest('${c.id}')">clear</button></div>`).join('')}</div>`:'';
+  return `<div class="block"><label>Interested in another B&amp;M project?</label>
+    <div class="fu-form"><div class="r" style="gap:8px"><select class="field" id="ci_proj"><option value="">Choose a project…</option>${others.map(p=>`<option>${p}</option>`).join('')}</select><button class="btn" style="white-space:nowrap" onclick="flagInterest('${l.id}')">Flag interest</button></div>
+    <textarea class="field" id="ci_note" placeholder="What did they say? (optional)" style="margin-top:8px"></textarea>
+    <div class="ai-tag" style="margin-top:8px">Notifies that project's head, and shows in the Sales Head's cross-project bucket.</div></div>${flagHTML}</div>`;
+}
+
+/* ============ scope + filter ============ */
+function scoped(){return db.leads.filter(l=>can('view',l));}
+function visible(){const q=document.getElementById('search').value.trim().toLowerCase();const s=scoped();if(!q)return s;return s.filter(l=>l.name.toLowerCase().includes(q)||l.phone.toLowerCase().includes(q));}
+
+/* ============ render ============ */
+function render(){
+  const u=currentUser();if(!u)return;
+  // header context + identity
+  const scopeTxt=u.role==='sales_head'?'All projects':(u.project||'');
+  document.getElementById('ctx').innerHTML=`<span class="chip">${scopeTxt}</span>`;
+  document.getElementById('whoami').innerHTML=`
+    <div class="u-av ${u.role==='sales_head'?'head':u.role==='project_head'?'ph':'sales'}">${initials(u.name)}</div>
+    <div><div class="nm">${u.name}</div><div class="rl">${ROLE_LABEL[u.role]}</div></div>
+    <button class="bell" onclick="toggleNotify()" title="Alerts">🔔<span class="badge" id="notifyBadge"></span></button>
+    ${u.role==='sales_head'?`<button class="signout" onclick="openTeam()" title="Manage team">Team</button>`:''}
+    <button class="signout" onclick="signOut()">Sign out</button>`;
+  const bb=document.getElementById('bulkBtn');if(bb)bb.style.display=(u.role==='sales_head')?'':'none';
+  // permission banner
+  let note='';
+  if(u.role==='sales')note=`<b>${u.name}</b>, you can enter and edit your own leads &amp; walk-ins — but not delete them. You only see leads assigned to you.`;
+  else if(u.role==='project_head')note=`As <b>Project Head</b> you see every lead across ${u.project}, and can edit, reassign, or delete.`;
+  else note=`As <b>Sales Head</b> you see all leads across every project, and have full access.`;
+  document.getElementById('permNote').innerHTML=`<div class="inner"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/></svg><div>${note}</div></div>`;
+
+  const leads=visible();
+  renderTabs();renderKPIs(leads);
+  const m=document.getElementById('main');
+  if(activeTab==='pipeline')m.innerHTML=boardHTML(leads);
+  else if(activeTab==='followups')m.innerHTML=followupsHTML(leads);
+  else if(activeTab==='stats')m.innerHTML=statsHTML(scoped());
+  else if(activeTab==='funnel')m.innerHTML=funnelHTML();
+  else if(activeTab==='crossproject')m.innerHTML=crossProjectHTML();
+  else m.innerHTML=tableHTML(leads);
+  const total=scoped().length;
+  document.getElementById('count').textContent=total+(u.role==='sales'?' of your leads':' leads in view');
+  refreshNotifyBadge();
+  if(openId)renderDrawer();
+}
+function renderTabs(){
+  const s=scoped();
+  const dueCount=s.filter(l=>l.stage==='qualified'&&l.nextFollowUp&&dueState(l.nextFollowUp).n<=0).length;
+  const cu=currentUser();
+  const tabs=[['pipeline','Pipeline',s.length]];
+  if(cu&&(cu.role==='sales_head'||cu.role==='project_head'))tabs.push(['funnel','Funnel','']);
+  tabs.push(['followups','Follow-ups due',dueCount],['stats','Follow-up stats',''],['all','All leads',s.length]);
+  if(cu&&(cu.role==='sales_head'||cu.role==='project_head')){const ci=(db.crossInterest||[]).filter(c=>c.status==='open'&&(cu.role==='sales_head'||c.target_project_id===myProjId())).length;tabs.push(['crossproject','Cross-project',ci||'']);}
+  document.getElementById('tabs').innerHTML=tabs.map(([k,l,n])=>`<button class="tab ${activeTab===k?'on':''}" onclick="setTab('${k}')">${l}<span class="n">${n}</span></button>`).join('');
+}
+function setTab(t){activeTab=t;render();}
+function renderKPIs(leads){
+  const c=s=>leads.filter(l=>l.stage===s).length;
+  const items=[['New','var(--new)',c('new')],['Assigned','var(--assigned)',c('assigned')],['Qualified','var(--qualified)',c('qualified')],['Booked','var(--booked)',c('booked')],['Lost','var(--lost)',c('lost')],['Not qualified','var(--nq)',c('not_qualified')]];
+  document.getElementById('kpis').innerHTML=items.map(([l,col,n])=>`<div class="kpi"><div class="lab"><i style="background:${col}"></i>${l}</div><div class="val">${n}</div></div>`).join('');
+}
+function cardHTML(l){
+  const st=STAGES[l.stage];let dueHTML='';
+  if(l.stage==='qualified'&&l.nextFollowUp){const d=dueState(l.nextFollowUp);dueHTML=`<span class="pill ${d.cls}">${clock}${d.cls==='over'?'Overdue':d.cls==='today'?'Follow up today':'Follow up '+fmtDate(l.nextFollowUp)}</span>`;}
+  let slaHTML='';const _sla=slaState(l);if(_sla)slaHTML=`<span class="pill ${_sla.over?'slaover':'sla'}">${_sla.over?'Decision overdue '+(-_sla.left)+'d':'Decide in '+_sla.left+'d'}</span>`;const _st=staleQualified(l);if(_st)slaHTML+=`<span class="pill slaover">No follow-up ${_st.days}d</span>`;
+  let reason='';
+  if(l.stage==='not_qualified'&&l.nqReason)reason=`<div class="reason-tag">Disqualified · <b>${l.nqReason}</b>${l.disqualifiedBy?' · by '+l.disqualifiedBy:''}</div>`;
+  if(l.stage==='lost'&&l.lostReason)reason=`<div class="reason-tag">Lost · <b>${l.lostReason}</b></div>`;
+  return `<div class="card" style="--l:${st.color}" onclick="openDrawer('${l.id}')">
+    <div class="top"><div><div class="nm">${l.name}</div><div class="proj">${l.project||'—'}</div></div><span class="src ${l.source}">${l.source==='digital'?'Digital':'Walk-in'}</span></div>
+    <div class="meta">${l.ownerId?`<div class="avatar" title="${userName(l.ownerId)}">${initials(userName(l.ownerId))}</div>`:`<div class="avatar none" title="Unassigned">–</div>`}${l.temp?`<span class="tchip ${l.temp.toLowerCase()}">${l.temp}</span>`:''}${l.assessment?`<span class="tchip" style="background:#EEF1F5;color:var(--soft)">${l.assessment.likelihood}%</span>`:''}${(l.revisits&&l.revisits.length)?`<span class="tchip" style="background:#EDE7F6;color:#5E35B1">↩ ${l.revisits.length}</span>`:''}${slaHTML}${dueHTML}${l.budget?`<span class="budget">₹${l.budget}</span>`:''}</div>
+    ${reason}</div>`;
+}
+function boardHTML(leads){
+  return `<div class="board">`+BOARD_ORDER.map(s=>{const items=leads.filter(l=>l.stage===s);
+    return `<div class="col"><div class="col-head"><i style="background:${STAGES[s].color}"></i><h3>${STAGES[s].label}</h3><span class="ct">${items.length}</span></div>
+    <div class="stack">${items.length?items.map(cardHTML).join(''):'<div class="empty-col">Nothing here</div>'}</div></div>`;}).join('')+`</div>`;
+}
+function followupsHTML(leads){
+  const due=leads.filter(l=>l.stage==='qualified'&&l.nextFollowUp).sort((a,b)=>parseD(a.nextFollowUp)-parseD(b.nextFollowUp));
+  const groups={over:[],today:[],upcoming:[]};
+  due.forEach(l=>{const d=dueState(l.nextFollowUp);groups[d.cls==='over'?'over':d.cls==='today'?'today':'upcoming'].push(l);});
+  const noFU=leads.filter(l=>l.stage==='qualified'&&!l.nextFollowUp);
+  const sec=(title,arr)=>arr.length?`<div class="fu-sec"><h3>${title}<span class="b">${arr.length}</span></h3>`+arr.map(l=>{const last=l.log[l.log.length-1];
+    return `<div class="fu-row" onclick="openDrawer('${l.id}')"><div class="date">${fmtDate(l.nextFollowUp)}<small>${parseD(l.nextFollowUp).toLocaleDateString('en-IN',{weekday:'short'})}</small></div>
+    <div class="who"><b>${l.name}</b><br><span>${userName(l.ownerId)} · ${l.project||'—'}</span></div><div class="note">${last?last.t:''}</div></div>`;}).join('')+`</div>`:'';
+  let inner=sec('Overdue',groups.over)+sec('Today',groups.today)+sec('Upcoming',groups.upcoming)+sec('No date set',noFU);
+  if(!inner)inner='<div class="fu-empty">No follow-ups scheduled. Qualified leads with a next-contact date show up here as reminders.</div>';
+  return `<div class="fu-wrap">${inner}</div>`;
+}
+function tableHTML(leads){
+  const rows=leads.slice().sort((a,b)=>parseD(b.createdAt)-parseD(a.createdAt)).map(l=>{const st=STAGES[l.stage];
+    return `<tr onclick="openDrawer('${l.id}')"><td><b class="mono">${l.name}</b><br><span style="color:var(--soft);font-size:12px">${l.phone}</span></td>
+    <td><span class="src ${l.source}">${l.source==='digital'?'Digital':'Walk-in'}</span><br><span style="color:var(--soft);font-size:12px">${l.srcDetail}</span></td>
+    <td>${l.project||'—'}</td><td>${l.ownerId?userName(l.ownerId):'<span style="color:var(--soft)">Unassigned</span>'}</td>
+    <td><span class="stg" style="background:${st.color}22;color:${st.color}">${st.label}</span></td>
+    <td class="mono">${l.stage==='qualified'&&l.nextFollowUp?fmtDate(l.nextFollowUp):'—'}</td><td class="mono">${l.budget?'₹'+l.budget:'—'}</td></tr>`;}).join('');
+  return `<table><thead><tr><th>Lead</th><th>Source</th><th>Project</th><th>Owner</th><th>Stage</th><th>Next follow-up</th><th>Budget</th></tr></thead><tbody>${rows||'<tr><td colspan=7 style="text-align:center;color:var(--soft);padding:30px">No leads yet.</td></tr>'}</tbody></table>`;
+}
+
+/* ============ drawer ============ */
+function openDrawer(id){openId=id;renderDrawer();document.getElementById('scrim').classList.add('on');document.getElementById('drawer').classList.add('on');}
+function closeDrawer(){openId=null;document.getElementById('scrim').classList.remove('on');document.getElementById('drawer').classList.remove('on');}
+function getLead(){return db.leads.find(l=>l.id===openId);}
+function renderDrawer(){
+  const l=getLead();if(!l)return;
+  const u=currentUser();const st=STAGES[l.stage];
+  const editable=can('edit',l);const canAssign=can('assign');const canDelete=can('delete');
+  const facts=[['Phone',l.phone,true],['Email',l.email||'—',false],['Source',(l.source==='digital'?'Digital · ':'Walk-in · ')+l.srcDetail,false],['Project',l.project||'—',false]];
+  if(l.source==='walkin'){facts.push(['Walk-in via',l.walkinSource==='CP'?('CP · '+(l.cpName||'—')):'Direct',false]);facts.push(['Phase',l.walkinPhase||'—',false]);facts.push(['Location',l.location||'—',false]);facts.push(['Company',l.company||'—',false]);}
+  facts.push(['Budget',l.budget?'₹'+l.budget:'—',true]);facts.push(['Captured',fmtDate(l.createdAt),true]);
+  let flow='';
+  const terminal=['booked','lost','not_qualified'].includes(l.stage);
+  if(editable&&!terminal){
+    // owner
+    if(canAssign){
+      flow+=`<div class="block"><label>Owner</label><select class="field" onchange="assign('${l.id}',this.value)"><option value="">Unassigned</option>${salespeople(l.project).map(r=>`<option value="${r.id}" ${l.ownerId===r.id?'selected':''}>${r.name}</option>`).join('')}</select></div>`;
+    } else {
+      flow+=`<div class="block"><label>Owner</label><div class="locked-note">Owned by you (${userName(l.ownerId)}). Salespeople can't reassign leads.</div></div>`;
+    }
+    if(l.qualified!==true){
+      flow+=`<div class="block"><label>Qualify this lead</label><div class="actions">
+        <button class="act q" onclick="qualify('${l.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Mark qualified</button>
+        <select class="field" style="width:auto;flex:1" onchange="disqualify('${l.id}',this.value)"><option value="">Not qualified — reason…</option>${NQ_REASONS.map(r=>`<option>${r}</option>`).join('')}</select></div></div>`;
+    }
+    if(l.qualified===true){
+      flow+=`<div class="block"><label>Lead temperature</label><div class="temp-seg">${['Hot','Warm','Cold'].map(t=>`<button class="temp-opt ${t.toLowerCase()} ${l.temp===t?'on':''}" onclick="setTemp('${l.id}','${t}')"><span class="d"></span>${t}</button>`).join('')}</div></div>`;
+      flow+=likelihoodBlock(l);
+    }
+    flow+=followBlock(l);
+    flow+=interestBlock(l);
+    flow+=handoffBlock(l);
+    flow+=`<div class="block"><label>Close the lead</label><div class="actions">
+      <button class="act win" onclick="openBooking('${l.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-5h6v5"/></svg>Booked (won)</button>
+      <select class="field" style="width:auto;flex:1" onchange="markLost('${l.id}',this.value)"><option value="">Mark lost — reason…</option>${LOST_REASONS.map(r=>`<option>${r}</option>`).join('')}</select></div></div>`;
+  } else if(terminal){
+    if(l.stage==='booked'){flow+=`<div class="block"><div class="banner win"><span>🎉</span><div>Won — this customer <b>booked an apartment</b>.</div></div></div>`;flow+=bookingFactsHTML(l);}
+    if(l.stage==='lost')flow+=`<div class="block"><div class="banner lost"><span>✕</span><div>Lost — <b>${l.lostReason}</b></div></div></div>`;
+    if(l.stage==='not_qualified'){flow+=`<div class="block"><div class="banner nq"><span>–</span><div>Disqualified — <b>${l.nqReason}</b>${l.disqualifiedBy?' · by '+l.disqualifiedBy:''}. Now in the disqualified pool.</div></div></div>`;
+      if(can('assign'))flow+=`<div class="block"><label>Reassign for follow-up</label><select class="field" onchange="reassignPool('${l.id}',this.value)"><option value="">Assign to a salesperson…</option>${salespeople(l.project).map(r=>`<option value="${r.id}">${r.name}</option>`).join('')}</select><div class="ai-tag">Moves this disqualified walk-in out of the pool into the chosen rep's active bucket for a fresh follow-up.</div></div>`;}
+    if(editable&&l.stage!=='not_qualified')flow+=`<div class="block"><button class="act" onclick="reopen('${l.id}')">↺ Reopen lead</button></div>`;
+  }
+  // delete (privileged only)
+  if(canDelete){
+    flow+=`<div class="block"><button class="act del" onclick="deleteLead('${l.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>Delete ${l.source==='walkin'?'walk-in':'lead'}</button></div>`;
+  } else if(u.role==='sales'){
+    flow+=`<div class="block"><div class="locked-note">You can enter and edit this ${l.source==='walkin'?'walk-in':'lead'}, but only a Project Head or Sales Head can delete it.</div></div>`;
+  }
+
+  document.getElementById('drawer').innerHTML=`
+    <div class="dr-head"><div class="row1"><div><h2>${l.name}</h2><div class="sub">${l.phone}</div></div><button class="x" onclick="closeDrawer()">✕</button></div>
+      <div style="margin-top:12px"><span class="stage-now" style="background:${st.color}1c;color:${st.color}"><i style="background:${st.color}"></i>${st.label}</span></div></div>
+    <div class="dr-body">
+      <div class="block"><div class="facts">${facts.map(([k,v,m])=>`<div class="fact"><div class="k">${k}</div><div class="v ${m?'mono':''}">${v}</div></div>`).join('')}</div></div>
+      ${visitsBlock(l)}
+      ${phaseBlock(l)}
+      ${u.role==='sales_head'&&l.source==='walkin'?editWalkinBlock(l):''}
+      ${flow}
+      <div class="block"><label>Follow-up history &amp; comments</label>${timelineHTML(l)}</div>
+    </div>`;
+}
+function followBlock(l){
+  const d=l.nextFollowUp?dueState(l.nextFollowUp):null;
+  const badge=d?`<span class="pill ${d.cls}" style="margin-left:8px">${clock}${d.cls==='over'?'Overdue':d.cls==='today'?'Today':fmtDate(l.nextFollowUp)}</span>`:'';
+  return `<div class="block"><label>Add a note</label>
+    <div class="fu-form">
+      <textarea class="field" id="note_text" placeholder="Write an update or comment…"></textarea>
+      <div style="margin-top:9px"><button class="btn" onclick="addNote('${l.id}')">＋ Add note</button></div>
+    </div>
+    <label style="margin-top:18px">Set up a follow-up ${badge}</label>
+    <div class="fu-form">
+      <textarea class="field" id="fu_note" placeholder="What's the plan for next contact?"></textarea>
+      <div class="r" style="margin-top:9px;align-items:center;gap:9px"><span style="font-size:12.5px;color:var(--soft);white-space:nowrap">Remind on</span><input type="date" class="field" style="max-width:175px" id="fu_date" value="${l.nextFollowUp||iso(today())}"/><button class="btn" style="white-space:nowrap" onclick="logFollowUp('${l.id}')">Set follow-up</button></div>
+    </div></div>`;
+}
+async function addNote(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const t=document.getElementById('note_text').value.trim();if(!t)return;await addActivityRow(id,{kind:'note',body:t});await refresh();}
+
+/* ============ mutations ============ */
+async function assign(id,repId){if(!can('assign'))return;const l=db.leads.find(x=>x.id===id);const was=l.ownerId;const patch={owner_id:repId||null};if(repId&&l.stage==='new')patch.stage='assigned';if(repId&&repId!==was)patch.assigned_at=iso(today());if(!await updateLead(id,patch))return;if(repId&&repId!==was)await addActivityRow(id,{kind:'system',body:'Assigned to '+userName(repId)});await refresh();}
+async function qualify(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const nf=l.nextFollowUp||addDays(3);if(!await updateLead(id,{qualified:true,stage:'qualified',next_follow_up:nf}))return;await addActivityRow(id,{kind:'system',body:'Marked qualified'});await refresh();}
+async function disqualify(id,reason){if(!reason)return;const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;if(!await updateLead(id,{qualified:false,stage:'not_qualified',nq_reason:reason,disqualified_by:currentUser().name,owner_id:null}))return;await addActivityRow(id,{kind:'system',body:'Disqualified — '+reason+' (moved to disqualified pool)'});await refresh();}
+async function logFollowUp(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const date=document.getElementById('fu_date').value;const note=document.getElementById('fu_note').value.trim();if(!note&&!date)return;if(date){if(!await updateLead(id,{next_follow_up:date}))return;}await addActivityRow(id,{kind:'note',body:note||'Followed up',next:date||null});await refresh();}
+async function setTemp(id,t){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;if(l.temp===t){if(!await updateLead(id,{temp:null}))return;await addActivityRow(id,{kind:'system',body:'Cleared temperature'});}else{if(!await updateLead(id,{temp:t}))return;await addActivityRow(id,{kind:'system',body:'Marked as '+t+' lead'});}await refresh();}
+function likelihoodBlock(l){
+  const a=l.assessment;const notes=l.log.filter(e=>e.kind==='note').length;
+  let inner;
+  if(a){
+    const col=a.likelihood>=66?'var(--booked)':a.likelihood>=33?'var(--amber)':'var(--lost)';
+    inner=`<div class="gauge">
+      <div style="display:flex;align-items:flex-end;gap:10px"><div class="num" style="color:${col}">${a.likelihood}%</div><div style="color:var(--soft);font-size:12.5px;padding-bottom:6px">chance to close · reads as <span class="tchip ${a.temperature.toLowerCase()}">${a.temperature}</span></div></div>
+      <div class="bar"><div class="fill" style="width:${a.likelihood}%;background:${col}"></div></div>
+      <div class="why">${a.rationale}</div>
+      ${a.signals&&a.signals.length?`<div class="signals">${a.signals.map(s=>`<span class="sig">${s}</span>`).join('')}</div>`:''}
+      <div class="ai-tag">✦ Gauged from ${notes} follow-up comment${notes===1?'':'s'} · <button class="mini-link" onclick="assessLikelihood('${l.id}')">Re-assess</button></div>
+    </div>`;
+  } else {
+    inner=`<div class="locked-note">✦ AI closing-likelihood reads the follow-up comments and scores the chance of closing — that runs in the Claude version. In this offline copy it's turned off. The Hot / Warm / Cold buttons above still work.</div>`;
+  }
+  return `<div class="block"><label>Closing likelihood</label>${inner}</div>`;
+}
+async function assessLikelihood(id){
+  const l=db.leads.find(x=>x.id===id);if(!l)return;
+  const btn=document.getElementById('assessBtn');
+  const notes=l.log.filter(e=>e.kind==='note');
+  const comments=notes.length?notes.map(e=>`(${fmtDate(e.d)}) ${e.by}: ${e.t}`).join('\n'):'No follow-up comments logged yet.';
+  const ctx=`Customer: ${l.name}. Project: ${l.project}. Source: ${l.source==='walkin'?'walk-in':'digital lead'}. Budget: ${l.budget||'unknown'}. Salesperson-set temperature: ${l.temp||'unset'}.`;
+  if(btn){btn.innerHTML='<span class="spin"></span> Reading comments…';btn.disabled=true;}
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      model:'claude-sonnet-4-6',max_tokens:1000,
+      messages:[{role:'user',content:`You are a real estate sales analyst. From the salesperson's follow-up comments, estimate how likely this customer is to close (buy an apartment).\n\n${ctx}\n\nFollow-up comments (oldest to newest):\n${comments}\n\nReturn ONLY a JSON object, no markdown fences or preamble, with keys:\n"likelihood": integer 0-100,\n"temperature": one of "Hot","Warm","Cold",\n"rationale": one concise sentence (max 24 words) explaining the score,\n"signals": array of up to 4 short 2-4 word phrases drawn from the comments that drove the score.\nIf there are no comments, give a low-confidence estimate based on source and budget.`}]
+    })});
+    const data=await res.json();
+    let text=data.content.filter(i=>i.type==='text').map(i=>i.text).join('').replace(/\`\`\`json|\`\`\`/g,'').trim();
+    const p=JSON.parse(text);
+    l.assessment={likelihood:Math.max(0,Math.min(100,parseInt(p.likelihood)||0)),temperature:['Hot','Warm','Cold'].includes(p.temperature)?p.temperature:'Warm',rationale:p.rationale||'',signals:Array.isArray(p.signals)?p.signals.slice(0,4):[],at:iso(today())};
+    if(!l.temp)l.temp=l.assessment.temperature;
+    render();
+  }catch(e){console.error(e);if(btn){btn.innerHTML='Couldn\u2019t assess — tap to retry';btn.disabled=false;}else alert('Assessment failed. Please try again.');}
+}
+function visitsBlock(l){
+  const rv=l.revisits||[];const editable=can('edit',l);const terminal=['booked','lost','not_qualified'].includes(l.stage);
+  const total=(l.source==='walkin'?1:0)+rv.length;
+  const hist=rv.length?`<div class="log" style="margin-top:12px">`+rv.slice().reverse().map((r,i)=>`<div class="log-item"><div class="dot" style="background:#7E57C2"></div><div><div class="lt">Revisit ${rv.length-i}</div><div class="lb">${fmtDate(r.date)}${r.by?' · '+r.by:''}</div></div></div>`).join('')+`</div>`:'';
+  const control=(editable&&!terminal)?`<div class="fu-form" style="margin-top:10px"><div class="r" style="margin-bottom:0"><input type="date" class="field" id="rv_date" value="${iso(today())}"/><button class="btn" style="white-space:nowrap" onclick="logRevisit('${l.id}')">↩ Log revisit</button></div></div>`:'';
+  return `<div class="block"><label>Visits &amp; revisits</label>
+    <div class="facts" style="grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fact"><div class="k">Total visits</div><div class="v mono" style="font-size:19px">${total}</div></div>
+      <div class="fact"><div class="k">Revisits</div><div class="v mono" style="font-size:19px">${rv.length}</div></div>
+    </div>${control}${hist}</div>`;
+}
+async function logRevisit(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const date=document.getElementById('rv_date').value||iso(today());const visitNo=(l.source==='walkin'?1:0)+(l.revisits||[]).length+1;await addActivityRow(id,{kind:'revisit',body:'Revisited (visit #'+visitNo+')',date});await refresh();}
+function timelineHTML(l){
+  if(!l.log.length)return '<div class="locked-note">No activity yet. Log a follow-up to start the history.</div>';
+  return `<div class="log">`+l.log.slice().reverse().map(e=>{
+    const isNote=e.kind==='note';const isRev=e.kind==='revisit';
+    const dot=isNote?'background:var(--teal)':isRev?'background:#7E57C2':'';
+    let body;
+    if(isNote)body=`<div class="tl-note"><div class="q">"${e.t}"</div><div class="tl-by">${e.by||''}${e.next?' · next follow-up '+fmtDate(e.next):''}</div></div>`;
+    else if(isRev)body=`<div class="lt" style="color:#5E35B1">↩ ${e.t}</div>`;
+    else body=`<div class="lt">${e.t}</div>`;
+    return `<div class="log-item"><div class="dot" style="${dot}"></div><div style="flex:1;min-width:0">${body}<div class="lb">${fmtDate(e.d)}${(e.by&&!isNote)?' · '+e.by:''}</div></div></div>`;
+  }).join('')+`</div>`;
+}
+function statsHTML(leads){
+  const noteCount=l2=>l2.log.filter(e=>e.kind==='note').length;
+  const totalFu=leads.reduce((a,l)=>a+noteCount(l),0);
+  const dueNow=leads.filter(l=>l.stage==='qualified'&&l.nextFollowUp&&dueState(l.nextFollowUp).n<=0).length;
+  const booked=leads.filter(l=>l.stage==='booked').length;
+  const lost=leads.filter(l=>l.stage==='lost').length;
+  const closed=booked+lost;
+  const winRate=closed?Math.round(booked/closed*100):0;
+  const active=leads.filter(l=>['new','assigned','qualified'].includes(l.stage)).length;
+  const qualified=leads.filter(l=>l.qualified===true).length;
+  const avgFu=qualified?(totalFu/qualified).toFixed(1):'0';
+  // follow-ups by salesperson
+  const bySp={};leads.forEach(l=>l.log.filter(e=>e.kind==='note').forEach(e=>{bySp[e.by]=(bySp[e.by]||0)+1;}));
+  const spRows=Object.entries(bySp).sort((a,b)=>b[1]-a[1]);
+  const spMax=Math.max(1,...spRows.map(r=>r[1]));
+  // temperature split among qualified-active
+  const temps={Hot:0,Warm:0,Cold:0};leads.filter(l=>l.stage==='qualified').forEach(l=>{if(l.temp)temps[l.temp]++;});
+  const tMax=Math.max(1,temps.Hot,temps.Warm,temps.Cold);
+  const tcol={Hot:'#D9534F',Warm:'#E0A32E',Cold:'#4A8FB5'};
+  // outcomes
+  const outs=[['Active',active,'var(--assigned)'],['Booked',booked,'var(--booked)'],['Lost',lost,'var(--lost)'],['Not qualified',leads.filter(l=>l.stage==='not_qualified').length,'var(--nq)']];
+  const oMax=Math.max(1,...outs.map(o=>o[1]));
+  let wiPanel='';const su=currentUser();
+  if(su&&(su.role==='sales_head'||su.role==='project_head')){
+    const wins=leads.filter(l=>l.source==='walkin');
+    const grp=src=>{const a=wins.filter(l=>(l.walkinSource||'Direct')===src);const q=a.filter(l=>l.qualified===true).length;const b=a.filter(l=>l.stage==='booked').length;return{n:a.length,q,b,qr:a.length?Math.round(q/a.length*100):0,cr:a.length?Math.round(b/a.length*100):0};};
+    const D=grp('Direct'),C=grp('CP');
+    const row=(nm,g)=>`<tr><td><b class="mono">${nm}</b></td><td class="mono">${g.n}</td><td class="mono">${g.q} <span style="color:var(--soft)">(${g.qr}%)</span></td><td class="mono">${g.b} <span style="color:var(--soft)">(${g.cr}%)</span></td></tr>`;
+    wiPanel=`<div class="panel"><h3>Walk-ins — Direct vs Channel Partner</h3><table style="box-shadow:none"><thead><tr><th>Source</th><th>Walk-ins</th><th>Qualified</th><th>Booked (conv.)</th></tr></thead><tbody>${row('Direct',D)}${row('CP',C)}</tbody></table><div class="ai-tag" style="margin-top:10px">Qualified % = qualified ÷ walk-ins · Booked % = booked ÷ walk-ins (conversion).</div></div>`;
+    const cpMap={};wins.filter(l=>(l.walkinSource||'')==='CP').forEach(l=>{const k=l.cpName||'(unnamed CP)';(cpMap[k]=cpMap[k]||[]).push(l);});
+    const cpRows=Object.entries(cpMap).sort((a,b)=>b[1].length-a[1].length);
+    if(cpRows.length){wiPanel+=`<div class="panel"><h3>By channel partner</h3><table style="box-shadow:none"><thead><tr><th>CP</th><th>Walk-ins</th><th>Qualified</th><th>Booked</th></tr></thead><tbody>${cpRows.map(([nm,arr])=>{const q=arr.filter(l=>l.qualified===true).length;const b=arr.filter(l=>l.stage==='booked').length;return `<tr><td><b class="mono">${nm}</b></td><td class="mono">${arr.length}</td><td class="mono">${q}</td><td class="mono">${b}</td></tr>`;}).join('')}</tbody></table></div>`;}
+    const sc=(k,v)=>`<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`;
+    const totalRevisits=leads.reduce((a,l)=>a+((l.revisits||[]).length),0);
+    const winRevisitsSum=wins.reduce((a,l)=>a+((l.revisits||[]).length),0);
+    const winRevisited=wins.filter(l=>(l.revisits||[]).length>0).length;
+    const revRate=wins.length?Math.round(winRevisited/wins.length*100):0;
+    const avgRev=wins.length?(winRevisitsSum/wins.length).toFixed(1):'0';
+    const bkR=wins.filter(l=>(l.revisits||[]).length>0&&l.stage==='booked').length;
+    const bkN=wins.filter(l=>(l.revisits||[]).length===0&&l.stage==='booked').length;
+    const convR=winRevisited?Math.round(bkR/winRevisited*100):0;
+    const winsNot=wins.length-winRevisited;const convN=winsNot?Math.round(bkN/winsNot*100):0;
+    wiPanel+=`<div class="panel"><h3>Visits &amp; revisits</h3><div class="stat-grid">${sc('Total revisits',totalRevisits)}${sc('Walk-ins that revisited',winRevisited+' <small>('+revRate+'%)</small>')}${sc('Avg revisits / walk-in',avgRev)}${sc('Booked · revisited vs not',convR+'% <small>vs '+convN+'%</small>')}</div><div class="ai-tag" style="margin-top:4px">Revisiting walk-ins convert at ${convR}% vs ${convN}% for one-time visitors.</div></div>`;
+  }
+  const card=(k,v)=>`<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`;
+  const spPanel=spRows.length?spRows.map(([nm,n])=>`<div class="barrow"><div class="lbl">${nm}</div><div class="track"><div class="fillb" style="width:${Math.round(n/spMax*100)}%;background:var(--brand)">${n}</div></div></div>`).join(''):'<div class="locked-note">No follow-up comments logged yet.</div>';
+  const tPanel=['Hot','Warm','Cold'].map(t=>`<div class="barrow"><div class="lbl"><span class="d" style="background:${tcol[t]}"></span>${t}</div><div class="track"><div class="fillb" style="width:${Math.round(temps[t]/tMax*100)}%;background:${tcol[t]}">${temps[t]}</div></div></div>`).join('');
+  const oPanel=outs.map(([nm,n,c])=>`<div class="barrow"><div class="lbl"><span class="d" style="background:${c}"></span>${nm}</div><div class="track"><div class="fillb" style="width:${Math.round(n/oMax*100)}%;background:${c}">${n}</div></div></div>`).join('');
+  return `<div class="stat-grid">
+      ${card('Follow-ups logged',totalFu)}
+      ${card('Due now',dueNow)}
+      ${card('Avg follow-ups / qualified',avgFu)}
+      ${card('Win rate',winRate+'%')}
+    </div>
+    <div class="split">
+      <div class="panel"><h3>Follow-ups by salesperson</h3>${spPanel}</div>
+      <div class="panel"><h3>Temperature of qualified leads</h3>${tPanel}</div>
+    </div>
+    <div class="panel"><h3>Outcomes</h3>${oPanel}</div>${wiPanel}`;
+}
+async function markBooked(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;if(!await updateLead(id,{stage:'booked',next_follow_up:null}))return;await addActivityRow(id,{kind:'system',body:'Booked an apartment 🎉'});await refresh();}
+let bookingLeadId=null;
+function numOf(v){const n=parseFloat(String(v==null?'':v).replace(/[^0-9.]/g,''));return isNaN(n)?0:n;}
+function calcRealization(){const av=numOf(document.getElementById('bk_av').value);const sz=numOf(document.getElementById('bk_size').value);const r=sz>0?Math.round(av/sz):0;document.getElementById('bk_real').value=r?('₹'+r.toLocaleString('en-IN')+' /sq.ft'):'—';}
+function openBooking(id){
+  const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;bookingLeadId=id;const b=l.booking||{};
+  document.getElementById('bookBody').innerHTML=`
+    <div class="ai-tag" style="margin-bottom:12px">Customer: <b>${l.name}</b> · ${l.project||''}</div>
+    <div class="block"><label>Apartment name / number</label><input class="field" id="bk_apartment" placeholder="e.g. Tower B – 1204" value="${b.apartment||''}"/></div>
+    <div class="block"><label>Location</label><input class="field" id="bk_location" placeholder="e.g. Whitefield" value="${b.location||l.location||''}"/></div>
+    <div class="block"><label>Company</label><input class="field" id="bk_company" placeholder="Customer's company" value="${b.company||l.company||''}"/></div>
+    <div class="facts" style="grid-template-columns:1fr 1fr;gap:12px">
+      <div class="block" style="margin:0"><label>Agreement Value (₹)</label><input class="field" id="bk_av" placeholder="e.g. 12000000" value="${b.agreementValue||''}" oninput="calcRealization()"/></div>
+      <div class="block" style="margin:0"><label>Apartment size (sq.ft)</label><input class="field" id="bk_size" placeholder="e.g. 1200" value="${b.size||''}" oninput="calcRealization()"/></div>
+    </div>
+    <div class="block"><label>Realization (AV ÷ size)</label><input class="field" id="bk_real" readonly style="background:#F3F5F8" value="${b.realization?('₹'+Number(b.realization).toLocaleString('en-IN')+' /sq.ft'):'—'}"/></div>
+    <div class="block"><label>Payment structure</label><select class="field" id="bk_pay">${PAYMENT_STRUCTURES.map(p=>`<option ${b.paymentStructure===p?'selected':''}>${p}</option>`).join('')}</select></div>`;
+  document.getElementById('bookScrim').classList.add('on');
+}
+function closeBooking(){document.getElementById('bookScrim').classList.remove('on');}
+async function saveBooking(){
+  const id=bookingLeadId;const l=db.leads.find(x=>x.id===id);if(!l)return;
+  const av=numOf(document.getElementById('bk_av').value),sz=numOf(document.getElementById('bk_size').value);
+  const booking={apartment:document.getElementById('bk_apartment').value.trim(),location:document.getElementById('bk_location').value.trim(),company:document.getElementById('bk_company').value.trim(),agreementValue:av||null,size:sz||null,realization:(sz>0?Math.round(av/sz):null),paymentStructure:document.getElementById('bk_pay').value,at:iso(today())};
+  if(!await updateLead(id,{stage:'booked',next_follow_up:null,booking}))return;
+  await addActivityRow(id,{kind:'system',body:'Booked 🎉'+(booking.apartment?' — '+booking.apartment:'')+(booking.agreementValue?' · AV ₹'+booking.agreementValue.toLocaleString('en-IN'):'')});
+  closeBooking();await refresh();
+}
+function bookingFactsHTML(l){const b=l.booking;if(!b)return '';
+  const rows=[['Apartment',b.apartment||'—'],['Location',b.location||'—'],['Company',b.company||'—'],['Agreement Value',b.agreementValue?('₹'+Number(b.agreementValue).toLocaleString('en-IN')):'—'],['Size',b.size?(b.size+' sq.ft'):'—'],['Realization',b.realization?('₹'+Number(b.realization).toLocaleString('en-IN')+' /sq.ft'):'—'],['Payment',b.paymentStructure||'—']];
+  return `<div class="block"><label>Booking details</label><div class="facts">${rows.map(([k,v])=>`<div class="fact"><div class="k">${k}</div><div class="v mono">${v}</div></div>`).join('')}</div><div style="margin-top:10px"><button class="act" onclick="openBooking('${l.id}')">Edit booking details</button></div></div>`;}
+async function markLost(id,reason){if(!reason)return;const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;if(!await updateLead(id,{stage:'lost',lost_reason:reason,next_follow_up:null}))return;await addActivityRow(id,{kind:'system',body:'Lost — '+reason});await refresh();}
+async function reopen(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const stage=l.qualified?'qualified':(l.ownerId?'assigned':'new');if(!await updateLead(id,{stage,lost_reason:'',nq_reason:''}))return;await addActivityRow(id,{kind:'system',body:'Reopened'});await refresh();}
+async function deleteLead(id){if(!can('delete'))return;const l=db.leads.find(x=>x.id===id);const kind=l.source==='walkin'?'walk-in':'lead';if(!confirm('Delete this '+kind+' permanently? This cannot be undone.'))return;const {error}=await sb.from('leads').delete().eq('id',id);if(error){alert('Delete failed: '+error.message);return;}closeDrawer();await refresh();}
+
+/* ============ modal ============ */
+function openModal(){
+  const u=currentUser();modalSrc='digital';setSrc('digital');
+  ['m_name','m_phone','m_email','m_budget','m_notes','m_location','m_company','m_cp','m_phase'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('m_wsource').value='Direct';document.getElementById('m_walkindate').value=iso(today());
+  const projSel=document.getElementById('m_project');
+  if(u.role==='sales'){projSel.innerHTML=`<option>${u.project}</option>`;projSel.disabled=true;}
+  else{projSel.disabled=false;projSel.innerHTML=PROJECTS.map(p=>`<option>${p}</option>`).join('');}
+  const ownerFld=document.getElementById('ownerFld'),ownerSel=document.getElementById('m_owner');
+  if(u.role==='sales'){ownerFld.classList.add('hidden');}
+  else{ownerFld.classList.remove('hidden');ownerSel.innerHTML=`<option value="">Unassigned (goes to New)</option>`+salespeople().map(r=>`<option value="${r.id}">${r.name}${r.project?' · '+r.project:''}</option>`).join('');}
+  document.getElementById('modalScrim').classList.add('on');
+}
+function closeModal(){document.getElementById('modalScrim').classList.remove('on');}
+function toggleCP(){document.getElementById('wf_cp').classList.toggle('hidden',document.getElementById('m_wsource').value!=='CP');}
+function setSrc(s){modalSrc=s;document.querySelectorAll('#srcSeg button').forEach(b=>b.classList.toggle('on',b.dataset.s===s));const lab=document.getElementById('srcLabel'),sel=document.getElementById('m_srcdetail');const u=currentUser();
+  if(s==='digital'){lab.textContent='Channel';sel.innerHTML=DIGITAL.map(d=>`<option>${d}</option>`).join('');}
+  else{lab.textContent='Project walked into';const opts=u.role==='sales'?[u.project]:PROJECTS;sel.innerHTML=opts.map(p=>`<option>${p}</option>`).join('');}
+  const walkin=s==='walkin';['wf_wsource','wf_phase','wf_location','wf_company','wf_date'].forEach(id=>document.getElementById(id).classList.toggle('hidden',!walkin));if(walkin){const dt=document.getElementById('m_walkindate');if(!dt.value)dt.value=iso(today());toggleCP();}else{document.getElementById('wf_cp').classList.add('hidden');}}
+async function saveLead(){
+  const u=currentUser();
+  const name=document.getElementById('m_name').value.trim();const phone=document.getElementById('m_phone').value.trim();
+  if(!name||!phone){alert('Name and phone are required.');return;}
+  const srcDetail=document.getElementById('m_srcdetail').value;
+  let project,ownerId,stage;
+  if(u.role==='sales'){project=u.project;ownerId=u.id;stage='assigned';}
+  else{project=document.getElementById('m_project').value;ownerId=document.getElementById('m_owner').value||null;stage=ownerId?'assigned':'new';}
+  const wsource=modalSrc==='walkin'?document.getElementById('m_wsource').value:'';
+  const cpName=(modalSrc==='walkin'&&wsource==='CP')?document.getElementById('m_cp').value.trim():'';
+  const wdate=modalSrc==='walkin'?(document.getElementById('m_walkindate').value||iso(today())):iso(today());
+  const srcTxt=modalSrc==='digital'?('Lead captured from '+srcDetail):('Walk-in at '+srcDetail+' ('+(wsource==='CP'?('CP'+(cpName?' · '+cpName:'')):'Direct')+')');
+  const row={company_id:myCompanyId,project_id:projId(project),owner_id:ownerId,name,phone,email:document.getElementById('m_email').value.trim(),source:modalSrc,src_detail:srcDetail,walkin_source:wsource,cp_name:cpName,location:modalSrc==='walkin'?document.getElementById('m_location').value.trim():'',company_name:modalSrc==='walkin'?document.getElementById('m_company').value.trim():'',budget:document.getElementById('m_budget').value.trim(),notes:document.getElementById('m_notes').value.trim(),stage,qualified:null,temp:null,next_follow_up:null,walkin_phase:modalSrc==='walkin'?(document.getElementById('m_phase').value||null):null,assigned_at:(ownerId?wdate:null),created_at:wdate};
+  const {data,error}=await sb.from('leads').insert(row).select().single();
+  if(error){alert('Could not save the lead: '+error.message);return;}
+  await addActivityRow(data.id,{kind:'system',body:srcTxt+' by '+u.name,date:wdate});
+  if(ownerId&&u.role!=='sales')await addActivityRow(data.id,{kind:'system',body:'Assigned to '+userName(ownerId),date:wdate});
+  closeModal();activeTab='pipeline';await refresh();
+}
+
+/* ============ funnel / analytics / locks ============ */
+let range={mode:'month'};
+function rangeStart(){const d=today();if(range.mode==='month')return new Date(d.getFullYear(),d.getMonth(),1);if(range.mode==='custom')return range.from?parseD(range.from):new Date(2000,0,1);const days=range.mode==='60'?60:range.mode==='90'?90:30;const s=new Date(d);s.setDate(s.getDate()-days+1);return s;}
+function rangeEnd(){if(range.mode==='custom'&&range.to)return parseD(range.to);return today();}
+function inRange(l){const c=parseD(l.createdAt);return c>=rangeStart()&&c<=rangeEnd();}
+function setRange(m){range.mode=m;render();}
+function setRangeCustom(){range.mode='custom';range.from=document.getElementById('rg_from').value;range.to=document.getElementById('rg_to').value;render();}
+function slaState(l){if(l.stage!=='assigned'||l.qualified!==null)return null;const base=l.assignedAt||l.createdAt;const elapsed=Math.round((today()-parseD(base))/86400000);const left=7-elapsed;return{left,over:left<0};}
+async function reassignPool(id,repId){if(!repId||!can('assign'))return;if(!await updateLead(id,{owner_id:repId,stage:'assigned',qualified:null,nq_reason:'',assigned_at:iso(today())}))return;await addActivityRow(id,{kind:'system',body:'Reassigned to '+userName(repId)+' for follow-up'});await refresh();}
+function editWalkinBlock(l){return `<div class="block"><div class="edit-block"><div class="eh">🔒 Sales Head only · walk-in date & source</div><div class="r"><input type="date" class="field" id="ew_date" value="${l.createdAt}" onchange="setWalkinDate('${l.id}',this.value)"/><select class="field" id="ew_src" onchange="setWalkinSource('${l.id}',this.value)"><option value="Direct" ${l.walkinSource!=='CP'?'selected':''}>Direct</option><option value="CP" ${l.walkinSource==='CP'?'selected':''}>Channel Partner</option></select></div><input class="field ${l.walkinSource==='CP'?'':'hidden'}" id="ew_cp" placeholder="CP name" value="${l.cpName||''}" onchange="setCpName('${l.id}',this.value)"/><div class="ai-tag" style="margin-top:8px">Salespeople can't change these once entered.</div></div></div>`;}
+async function setWalkinDate(id,v){if(currentUser().role!=='sales_head'||!v)return;if(!await updateLead(id,{created_at:v}))return;await addActivityRow(id,{kind:'system',body:'Walk-in date changed to '+fmtDate(v)});await refresh();}
+async function setWalkinSource(id,v){if(currentUser().role!=='sales_head')return;const patch={walkin_source:v};if(v!=='CP')patch.cp_name='';if(!await updateLead(id,patch))return;await addActivityRow(id,{kind:'system',body:'Walk-in source changed to '+(v==='CP'?'CP':'Direct')});await refresh();}
+async function setCpName(id,v){if(currentUser().role!=='sales_head')return;if(!await updateLead(id,{cp_name:v.trim()}))return;await refresh();}
+async function setWalkinPhase(id,v){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;if(!await updateLead(id,{walkin_phase:v||null}))return;await addActivityRow(id,{kind:'system',body:v?('Marked as '+v+' walk-in'):'Cleared walk-in phase'});await refresh();}
+function phaseBlock(l){if(l.source!=='walkin')return '';const terminal=['booked','lost','not_qualified'].includes(l.stage);if(!can('edit',l)||terminal)return '';
+  return `<div class="block"><label>Walk-in phase</label><select class="field" onchange="setWalkinPhase('${l.id}',this.value)"><option value="">— not set —</option>${PHASES.map(p=>`<option ${l.walkinPhase===p?'selected':''}>${p}</option>`).join('')}</select></div>`;}
+function funnelHTML(){
+  const all=scoped().filter(l=>l.source==='walkin'&&inRange(l));const N=all.length;const cnt=fn=>all.filter(fn).length;
+  const qualified=cnt(l=>l.qualified===true),disq=cnt(l=>l.stage==='not_qualified'),pending=cnt(l=>l.stage==='assigned'&&l.qualified===null),newp=cnt(l=>l.stage==='new'),activeQ=cnt(l=>l.stage==='qualified'),booked=cnt(l=>l.stage==='booked'),lost=cnt(l=>l.stage==='lost');
+  const overdue=all.filter(l=>{const s=slaState(l);return s&&s.over;}).length;
+  const stalled=all.filter(l=>staleQualified(l)).length;
+  const rb=`<div class="range-bar"><span style="font-weight:600;font-size:13px;color:var(--soft)">Window</span><div class="seg2">${[['month','This month'],['60','60 days'],['90','90 days']].map(([m,lb])=>`<button class="${range.mode===m?'on':''}" onclick="setRange('${m}')">${lb}</button>`).join('')}<button class="${range.mode==='custom'?'on':''}" onclick="setRange('custom')">Custom</button></div>${range.mode==='custom'?`<input type="date" id="rg_from" value="${range.from||''}" onchange="setRangeCustom()"/><span style="color:var(--soft)">to</span><input type="date" id="rg_to" value="${range.to||''}" onchange="setRangeCustom()"/>`:''}<span style="margin-left:auto;color:var(--soft);font-size:12.5px">${N} walk-in${N===1?'':'s'} in window</span></div>`;
+  const slaPanel=`<div class="stat-grid"><div class="stat"><div class="k">Awaiting decision</div><div class="v">${pending}</div></div><div class="stat"><div class="k">Overdue (&gt;7 days)</div><div class="v" style="color:${overdue?'var(--lost)':'inherit'}">${overdue}</div></div><div class="stat"><div class="k">Qualified</div><div class="v">${qualified}</div></div><div class="stat"><div class="k">Disqualified</div><div class="v">${disq}</div></div><div class="stat"><div class="k">Stalled · no follow-up 7d+</div><div class="v" style="color:${stalled?'var(--lost)':'inherit'}">${stalled}</div></div></div>`;
+  const f=(lb,n,col)=>`<div class="funnel-row"><div class="fl">${lb}</div><div class="ft"><div class="ff" style="width:${N?Math.max(5,Math.round(n/N*100)):0}%;background:${col}">${n}${(N&&n)?' · '+Math.round(n/N*100)+'%':''}</div></div></div>`;
+  const funnel=`<div class="panel"><h3>Walk-in funnel</h3>${f('Walk-ins',N,'var(--assigned)')}${f('Qualified',qualified,'var(--qualified)')}${f('Booked',booked,'var(--booked)')}</div>`;
+  const stages=[['New · unassigned',newp,'var(--new)'],['Awaiting decision',pending,'#4A6FA5'],['Qualified · active',activeQ,'var(--qualified)'],['Booked',booked,'var(--booked)'],['Lost',lost,'var(--lost)'],['Disqualified',disq,'var(--nq)']];
+  const smax=Math.max(1,...stages.map(x=>x[1]));
+  const stagePanel=`<div class="panel"><h3>Where the walk-ins are sitting</h3>${stages.map(([lb,n,c])=>`<div class="barrow"><div class="lbl"><span class="d" style="background:${c}"></span>${lb}</div><div class="track"><div class="fillb" style="width:${Math.round(n/smax*100)}%;background:${c}">${n}</div></div></div>`).join('')}</div>`;
+  const qBy={},dBy={};all.forEach(l=>{if(l.qualified===true){const nm=userName(l.ownerId);qBy[nm]=(qBy[nm]||0)+1;}if(l.stage==='not_qualified'){const nm=l.disqualifiedBy||'—';dBy[nm]=(dBy[nm]||0)+1;}});
+  const names=[...new Set([...Object.keys(qBy),...Object.keys(dBy)])].filter(n=>n&&n!=='—');
+  const gmax=Math.max(1,...names.map(n=>Math.max(qBy[n]||0,dBy[n]||0)));
+  const qualPanel=`<div class="panel"><h3>Qualification by salesperson</h3><div class="ai-tag" style="margin-bottom:12px">Green = qualified · Grey = disqualified. Flag anyone disqualifying disproportionately.</div>${names.length?names.map(n=>`<div class="grp"><div class="gl">${n}</div><div class="gbars"><div class="gb" style="width:${Math.round((qBy[n]||0)/gmax*100)}%;background:var(--qualified)">${qBy[n]||0} qualified</div><div class="gb" style="width:${Math.round((dBy[n]||0)/gmax*100)}%;background:var(--nq)">${dBy[n]||0} disqualified</div></div></div>`).join(''):'<div class="locked-note">No decisions in this window yet.</div>'}</div>`;
+  const temps={Hot:0,Warm:0,Cold:0};all.filter(l=>l.qualified===true).forEach(l=>{if(l.temp)temps[l.temp]++;});
+  const tmax=Math.max(1,temps.Hot,temps.Warm,temps.Cold);const tcol={Hot:'#D9534F',Warm:'#E0A32E',Cold:'#4A8FB5'};
+  const tempPanel=`<div class="panel"><h3>Hot / Warm / Cold · qualified</h3>${['Hot','Warm','Cold'].map(t=>`<div class="barrow"><div class="lbl"><span class="d" style="background:${tcol[t]}"></span>${t}</div><div class="track"><div class="fillb" style="width:${Math.round(temps[t]/tmax*100)}%;background:${tcol[t]}">${temps[t]}</div></div></div>`).join('')}</div>`;
+  const rvBy={};all.forEach(l=>{const r=(l.revisits||[]).length;if(r&&l.ownerId){const nm=userName(l.ownerId);rvBy[nm]=(rvBy[nm]||0)+r;}});
+  const rvRows=Object.entries(rvBy).sort((a,b)=>b[1]-a[1]);const rvmax=Math.max(1,...rvRows.map(r=>r[1]));
+  const rvPanel=`<div class="panel"><h3>Revisits by salesperson</h3>${rvRows.length?rvRows.map(([n,v])=>`<div class="barrow"><div class="lbl">${n}</div><div class="track"><div class="fillb" style="width:${Math.round(v/rvmax*100)}%;background:#7E57C2">${v}</div></div></div>`).join(''):'<div class="locked-note">No revisits logged in this window.</div>'}</div>`;
+  return rb+slaPanel+funnel+stagePanel+`<div class="split">${qualPanel}${tempPanel}</div>`+rvPanel;
+}
+function crossProjectHTML(){
+  const u=currentUser();const pid=myProjId();
+  const items=(db.crossInterest||[]).filter(c=>c.status==='open'&&(u.role==='sales_head'||c.target_project_id===pid));
+  if(!items.length)return `<div class="fu-wrap"><div class="fu-empty">No cross-project interest flagged yet. When a salesperson marks a customer as interested in another B&amp;M project, it appears here.</div></div>`;
+  const byTarget={};items.forEach(c=>{const k=projName(c.target_project_id)||'—';(byTarget[k]=byTarget[k]||[]).push(c);});
+  const canOpen=id=>db.leads.some(l=>l.id===id);
+  const sec=(proj,arr)=>`<div class="fu-sec"><h3>Interested in ${proj}<span class="b">${arr.length}</span></h3>`+arr.map(c=>`<div class="fu-row"${canOpen(c.lead_id)?` onclick="openDrawer('${c.lead_id}')"`:''}>
+    <div class="who"><b>${c.lead_name||'—'}</b><br><span>from ${projName(c.source_project_id)||'—'} · flagged by ${userName(c.created_by)} · ${fmtDate((c.created_at||'').slice(0,10))}</span></div>
+    <div class="note">${c.note||''}</div>
+    <button class="act" style="flex:none" onclick="event.stopPropagation();closeInterest('${c.id}')">Clear</button></div>`).join('')+`</div>`;
+  return `<div class="fu-wrap">${Object.entries(byTarget).map(([p,arr])=>sec(p,arr)).join('')}</div>`;
+}
+/* ============ alerts / notifications ============ */
+function staleQualified(l){if(l.stage!=='qualified')return null;let last=parseD(l.createdAt);(l.log||[]).forEach(e=>{const t=parseD(e.d);if(t>last)last=t;});const days=Math.round((today()-last)/86400000);return days>=7?{days}:null;}
+function myProjId(){const u=currentUser();return u&&u.project?projByName[u.project]:null;}
+function notifyItems(){
+  const u=currentUser();const base=scoped();
+  const stale=base.filter(l=>staleQualified(l));
+  const overdue=base.filter(l=>{const s=slaState(l);return s&&s.over;});
+  const incoming=(db.transfers||[]).filter(t=>t.status==='pending'&&t.to_member===session);
+  let pendingT=[],declinedT=[],interests=[];
+  if(u&&(u.role==='sales_head'||u.role==='project_head')){
+    pendingT=(db.transfers||[]).filter(t=>t.status==='pending'&&t.to_member!==session);
+    declinedT=(db.transfers||[]).filter(t=>t.status==='declined'&&t.resolved_at&&(today()-parseD((t.resolved_at||'').slice(0,10)))/86400000<=7);
+    const pid=myProjId();
+    interests=(db.crossInterest||[]).filter(c=>c.status==='open'&&(u.role==='sales_head'||c.target_project_id===pid));
+  }
+  const total=stale.length+overdue.length+incoming.length+pendingT.length+declinedT.length+interests.length;
+  return {stale,overdue,incoming,pendingT,declinedT,interests,total};
+}
+function refreshNotifyBadge(){const b=document.getElementById('notifyBadge');if(!b)return;const t=notifyItems().total;b.textContent=t?t:'';b.style.display=t?'grid':'none';}
+function toggleNotify(){const p=document.getElementById('notifyPanel');if(p.classList.contains('hidden')){renderNotify();p.classList.remove('hidden');}else{p.classList.add('hidden');}}
+function closeNotify(){document.getElementById('notifyPanel').classList.add('hidden');}
+function renderNotify(){const p=document.getElementById('notifyPanel');const it=notifyItems();
+  const row=(l,txt,col)=>`<div class="nrow" onclick="closeNotify();openDrawer('${l.id}')"><div class="ndot" style="background:${col}"></div><div class="nmeta"><b>${l.name}</b><span>${l.project||''} · ${l.ownerId?userName(l.ownerId):'unassigned'} — ${txt}</span></div></div>`;
+  const canOpen=id=>db.leads.some(l=>l.id===id);
+  let html=`<div class="nhead">Alerts</div>`;
+  if(it.incoming.length)html+=`<div class="nsec">Handoffs waiting for you</div>`+it.incoming.map(t=>`<div class="nrow"><div class="ndot" style="background:#4A6FA5"></div><div class="nmeta" style="flex:1"><b>${t.lead_name||'A lead'}</b><span>${userName(t.from_member)} wants to hand this to you${t.note?' — '+t.note:''}</span><div style="margin-top:7px;display:flex;gap:8px"><button class="btn" style="padding:5px 11px" onclick="acceptTransfer('${t.id}')">Accept</button><button class="btn ghost" style="padding:5px 11px" onclick="declineTransfer('${t.id}')">Decline</button></div></div></div>`).join('');
+  if(it.pendingT.length)html+=`<div class="nsec">Handoffs awaiting acceptance</div>`+it.pendingT.map(t=>`<div class="nrow"${canOpen(t.lead_id)?` onclick="closeNotify();openDrawer('${t.lead_id}')"`:''}><div class="ndot" style="background:#E0A32E"></div><div class="nmeta"><b>${t.lead_name||''}</b><span>${userName(t.from_member)} → ${userName(t.to_member)} · not accepted yet</span></div></div>`).join('');
+  if(it.declinedT.length)html+=`<div class="nsec">Handoffs declined</div>`+it.declinedT.map(t=>`<div class="nrow"${canOpen(t.lead_id)?` onclick="closeNotify();openDrawer('${t.lead_id}')"`:''}><div class="ndot" style="background:#C0433A"></div><div class="nmeta"><b>${t.lead_name||''}</b><span>${userName(t.to_member)} declined handoff from ${userName(t.from_member)}</span></div></div>`).join('');
+  if(it.interests.length)html+=`<div class="nsec">Cross-project interest</div>`+it.interests.map(c=>`<div class="nrow"${canOpen(c.lead_id)?` onclick="closeNotify();openDrawer('${c.lead_id}')"`:''}><div class="ndot" style="background:#7E57C2"></div><div class="nmeta"><b>${c.lead_name||''}</b><span>interested in ${projName(c.target_project_id)||'—'}${c.note?' — '+c.note:''}</span></div></div>`).join('');
+  if(it.stale.length)html+=`<div class="nsec">Qualified · no follow-up 7+ days</div>`+it.stale.map(l=>row(l,'no action for '+staleQualified(l).days+'d — book or close it','#C0433A')).join('');
+  if(it.overdue.length)html+=`<div class="nsec">Awaiting qualify/disqualify 7+ days</div>`+it.overdue.map(l=>row(l,'decision overdue '+(-slaState(l).left)+'d','#E0A32E')).join('');
+  if(!it.total)html+=`<div class="nempty">Nothing needs attention right now.</div>`;
+  p.innerHTML=html;}
+/* ============ boot ============ */
+async function boot(){
+  pendingInvite=new URLSearchParams(location.search).get('invite');
+  const {data:{session:s}}=await sb.auth.getSession();
+  if(s){session=s.user.id;const mem=await loadMyMember();
+    if(mem){await afterLogin();}
+    else if(pendingInvite){loginView={step:'join',err:'',email:s.user.email};showLogin();}
+    else{loginView={step:'onboard',err:'',email:s.user.email,company:'Bricks & Milestones'};showLogin();}}
+  else{loginView={step:pendingInvite?'signup':'signin',err:'',email:''};showLogin();}
+}
+boot();
+setInterval(function(){if(session){refreshNotifyBadge();const p=document.getElementById('notifyPanel');if(p&&!p.classList.contains('hidden'))renderNotify();}},60000);
+</script>
+</body>
+</html>

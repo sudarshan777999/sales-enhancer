@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pbcopy)",
+      "Bash(node -e ' *)",
+      "Bash(node --check /tmp/_main.js)",
+      "Bash(open /Users/sudarshandujari/Sales-Enhancer/cloud/web)",
+      "Bash(open -R /Users/sudarshandujari/Sales-Enhancer/cloud/web)",
+      "WebFetch(domain:splendid-panda-91de58.netlify.app)",
+      "WebFetch(domain:bnmsales.netlify.app)",
+      "Bash(grep -n \"function setCpName\\\\|function editWalkinBlock\\\\|l.source==='walkin'\\){facts.push\\\\|\\\\${visitsBlock\\(l\\)}\" /Users/sudarshandujari/Sales-Enhancer/cloud/index.html)",
+      "Bash(git --version)",
+      "Bash(gh --version)",
+      "Bash(gh auth *)",
+      "Bash(git init *)",
+      "Bash(git config *)",
+      "Bash(git add *)",
+      "Bash(git commit -q -m 'Sales Enhancer — cloud app, migrations, and local prototype *)"
+    ]
+  }
+}
