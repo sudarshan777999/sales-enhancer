@@ -25,7 +25,9 @@
       "Bash(git commit -q -m 'Multi-filter builder \\(AND/OR\\) for leads *)",
       "Bash(open -R cloud/web)",
       "Bash(grep -n \"function funnelHTML\\\\|const all=scoped\\(\\)\\\\|const temps={Hot:0,Warm\\\\|return rb+slaPanel\" /Users/sudarshandujari/Sales-Enhancer/cloud/index.html)",
-      "Bash(git commit -q -m 'Deal status pipeline, Met-Project-Head check, funnel breakdowns, comment search + word cloud *)"
+      "Bash(git commit -q -m 'Deal status pipeline, Met-Project-Head check, funnel breakdowns, comment search + word cloud *)",
+      "Bash(curl -s 'https://tadcupqosvvjndxyyerc.supabase.co/rest/v1/leads?select=id,deal_status,labels,walkin_phase,booking,met_project_head&limit=1' -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhZGN1cHFvc3Z2am5keHl5ZXJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1OTQ5MzAsImV4cCI6MjA5OTE3MDkzMH0.CCH5mBZLU0DcEjhX4DcyM0iDWz20JWtOmx9npmAGEsw' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhZGN1cHFvc3Z2am5keHl5ZXJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1OTQ5MzAsImV4cCI6MjA5OTE3MDkzMH0.CCH5mBZLU0DcEjhX4DcyM0iDWz20JWtOmx9npmAGEsw')",
+      "Bash(git commit -q -m 'Env-aware sandbox switch, named saved filters, salesperson custom labels *)"
     ]
   }
 }
