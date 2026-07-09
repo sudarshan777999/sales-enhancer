@@ -21,7 +21,9 @@
       "Bash(curl -s 'https://xhlgwzpbkovqxuxarcoe.supabase.co/rest/v1/leads?select=id,booking,walkin_phase&limit=1' -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhobGd3enBia292cXh1eGFyY29lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NzQ5MTgsImV4cCI6MjA5OTE1MDkxOH0._rCZPfPYG5fseQCDUFELeP1n5YbhIiNI3WqXga7Mubc' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhobGd3enBia292cXh1eGFyY29lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NzQ5MTgsImV4cCI6MjA5OTE1MDkxOH0._rCZPfPYG5fseQCDUFELeP1n5YbhIiNI3WqXga7Mubc')",
       "Bash(brew install *)",
       "Bash(git commit -q -m 'Monthly Sales Review report tab + booking extras \\(co-applicant/ages/companies\\) *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(git commit -q -m 'Multi-filter builder \\(AND/OR\\) for leads *)",
+      "Bash(open -R cloud/web)"
     ]
   }
 }

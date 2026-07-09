@@ -333,6 +333,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
         <input id="search" placeholder="Search name or phone…" oninput="render()" />
       </div>
+      <button class="btn ghost" id="filterBtn" onclick="openFilters()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
+        Filters
+      </button>
       <button class="btn ghost" id="bulkBtn" style="display:none" onclick="openBulk()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
         Bulk walk-ins
@@ -409,6 +413,15 @@
   </div>
 </div>
 
+<!-- Filters modal -->
+<div class="modal-scrim" id="filterScrim">
+  <div class="modal">
+    <div class="modal-h"><h2>Filter leads</h2></div>
+    <div class="modal-b" id="filterBody" style="display:block"></div>
+    <div class="modal-f"><button class="btn ghost" onclick="clearFilters()">Clear all</button><button class="btn" onclick="applyFilters()">Apply</button></div>
+  </div>
+</div>
+
 <!-- Booking details modal -->
 <div class="modal-scrim" id="bookScrim">
   <div class="modal">
@@ -446,6 +459,7 @@ const ROLE_LABEL={sales_head:'Sales Head',project_head:'Project Head',sales:'Sal
 
 let db={instance:INSTANCE,users:[],leads:[],transfers:[],crossInterest:[],reportData:{}};
 let reportMonth=null, reportProject='Earthscape';
+let filters=[], filterMode='AND';
 let session=null, myCompanyId=null, activeTab='pipeline', openId=null, modalSrc='digital', loginView={step:'signin',err:'',email:''};
 let projById={}, projByName={}, pendingInvite=null;
 
@@ -813,7 +827,61 @@ function interestBlock(l){
 
 /* ============ scope + filter ============ */
 function scoped(){return db.leads.filter(l=>can('view',l));}
-function visible(){const q=document.getElementById('search').value.trim().toLowerCase();const s=scoped();if(!q)return s;return s.filter(l=>l.name.toLowerCase().includes(q)||l.phone.toLowerCase().includes(q));}
+function visible(){const q=document.getElementById('search').value.trim().toLowerCase();let s=scoped();if(q)s=s.filter(l=>l.name.toLowerCase().includes(q)||l.phone.toLowerCase().includes(q));return s.filter(passesFilters);}
+/* ---- multi-filter builder ---- */
+const FILTER_FIELDS=[
+  {k:'stage',label:'Stage',type:'select',opts:()=>Object.keys(STAGES).map(s=>[s,STAGES[s].label])},
+  {k:'source',label:'Source',type:'select',opts:()=>[['digital','Digital'],['walkin','Walk-in']]},
+  {k:'walkin',label:'Walk-in via',type:'select',opts:()=>[['Direct','Direct'],['CP','Channel Partner']]},
+  {k:'temp',label:'Temperature',type:'select',opts:()=>[['Hot','Hot'],['Warm','Warm'],['Cold','Cold']]},
+  {k:'phase',label:'Phase',type:'select',opts:()=>PHASES.map(p=>[p,p])},
+  {k:'project',label:'Project',type:'select',opts:()=>PROJECTS.map(p=>[p,p])},
+  {k:'owner',label:'Owner',type:'select',opts:()=>salespeople().map(u=>[u.id,u.name])},
+  {k:'followup',label:'Follow-up',type:'select',opts:()=>[['due','Due / overdue'],['upcoming','Upcoming'],['none','No date set']]},
+  {k:'revisits',label:'Has revisits',type:'select',opts:()=>[['yes','Yes'],['no','No']]},
+  {k:'name',label:'Name contains',type:'text'},
+  {k:'phone',label:'Phone contains',type:'text'},
+  {k:'company',label:'Company contains',type:'text'},
+  {k:'cp',label:'CP name contains',type:'text'},
+  {k:'budget',label:'Budget contains',type:'text'}
+];
+function fieldMeta(k){return FILTER_FIELDS.find(f=>f.k===k)||FILTER_FIELDS[0];}
+function inc(a,v){return String(a||'').toLowerCase().includes(String(v||'').toLowerCase());}
+function matchFilter(l,f){const v=f.value;switch(f.field){
+  case 'stage':return l.stage===v;
+  case 'source':return l.source===v;
+  case 'walkin':return (l.walkinSource||'')===v;
+  case 'temp':return (l.temp||'')===v;
+  case 'phase':return (l.walkinPhase||'')===v;
+  case 'project':return l.project===v;
+  case 'owner':return (l.ownerId||'')===v;
+  case 'followup':return v==='due'?(l.stage==='qualified'&&l.nextFollowUp&&dueState(l.nextFollowUp).n<=0):v==='upcoming'?(l.stage==='qualified'&&l.nextFollowUp&&dueState(l.nextFollowUp).n>0):v==='none'?(l.stage==='qualified'&&!l.nextFollowUp):true;
+  case 'revisits':return v==='yes'?((l.revisits||[]).length>0):((l.revisits||[]).length===0);
+  case 'name':return inc(l.name,v);
+  case 'phone':return inc(l.phone,v);
+  case 'company':return inc(l.company,v);
+  case 'cp':return inc(l.cpName,v);
+  case 'budget':return inc(l.budget,v);
+  default:return true;}}
+function activeFilters(){return filters.filter(f=>f.field&&f.value!=='');}
+function passesFilters(l){const a=activeFilters();if(!a.length)return true;return filterMode==='AND'?a.every(f=>matchFilter(l,f)):a.some(f=>matchFilter(l,f));}
+function openFilters(){document.getElementById('filterScrim').classList.add('on');renderFilterBuilder();}
+function closeFilters(){document.getElementById('filterScrim').classList.remove('on');}
+function renderFilterBuilder(){
+  if(!filters.length)filters=[{field:'stage',value:''}];
+  const fields=FILTER_FIELDS.filter(f=>f.k!=='owner'||currentUser().role!=='sales');
+  const row=(f,i)=>{const meta=fieldMeta(f.field);let val;
+    if(meta.type==='text')val=`<input class="field" placeholder="type text…" value="${(f.value||'').replace(/"/g,'&quot;')}" oninput="filters[${i}].value=this.value"/>`;
+    else val=`<select class="field" onchange="filters[${i}].value=this.value">${['<option value=\"\">any…</option>',...meta.opts().map(o=>`<option value="${o[0]}" ${f.value===o[0]?'selected':''}>${o[1]}</option>`)].join('')}</select>`;
+    return `<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
+      <select class="field" style="max-width:170px" onchange="filters[${i}].field=this.value;filters[${i}].value='';renderFilterBuilder()">${fields.map(fd=>`<option value="${fd.k}" ${f.field===fd.k?'selected':''}>${fd.label}</option>`).join('')}</select>
+      ${val}<button class="x" style="flex:none" onclick="filters.splice(${i},1);renderFilterBuilder()">✕</button></div>`;};
+  document.getElementById('filterBody').innerHTML=`
+    <div class="block"><label>Match</label><div class="seg" style="max-width:300px"><button class="${filterMode==='AND'?'on':''}" onclick="filterMode='AND';renderFilterBuilder()">ALL of these (AND)</button><button class="${filterMode==='OR'?'on':''}" onclick="filterMode='OR';renderFilterBuilder()">ANY of these (OR)</button></div></div>
+    <div class="block"><label>Filters</label>${filters.map(row).join('')}<button class="btn ghost" onclick="filters.push({field:'stage',value:''});renderFilterBuilder()">＋ Add a filter</button></div>`;
+}
+function applyFilters(){closeFilters();render();}
+function clearFilters(){filters=[];filterMode='AND';closeFilters();render();}
 
 /* ============ render ============ */
 function render(){
@@ -828,6 +896,7 @@ function render(){
     ${u.role==='sales_head'?`<button class="signout" onclick="openTeam()" title="Manage team">Team</button>`:''}
     <button class="signout" onclick="signOut()">Sign out</button>`;
   const bb=document.getElementById('bulkBtn');if(bb)bb.style.display=(u.role==='sales_head')?'':'none';
+  const fb=document.getElementById('filterBtn');if(fb){const n=activeFilters().length;fb.classList.toggle('ghost',n===0);fb.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg> Filters${n?' ('+n+')':''}`;}
   // permission banner
   let note='';
   if(u.role==='sales')note=`<b>${u.name}</b>, you can enter and edit your own leads &amp; walk-ins — but not delete them. You only see leads assigned to you.`;
