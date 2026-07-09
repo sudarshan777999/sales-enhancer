@@ -23,7 +23,9 @@
       "Bash(git commit -q -m 'Monthly Sales Review report tab + booking extras \\(co-applicant/ages/companies\\) *)",
       "Bash(git push *)",
       "Bash(git commit -q -m 'Multi-filter builder \\(AND/OR\\) for leads *)",
-      "Bash(open -R cloud/web)"
+      "Bash(open -R cloud/web)",
+      "Bash(grep -n \"function funnelHTML\\\\|const all=scoped\\(\\)\\\\|const temps={Hot:0,Warm\\\\|return rb+slaPanel\" /Users/sudarshandujari/Sales-Enhancer/cloud/index.html)",
+      "Bash(git commit -q -m 'Deal status pipeline, Met-Project-Head check, funnel breakdowns, comment search + word cloud *)"
     ]
   }
 }

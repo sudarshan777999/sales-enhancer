@@ -295,6 +295,10 @@
   .foot{max-width:1360px;margin:0 auto;padding:0 24px 40px;color:var(--soft);font-size:12px;display:flex;align-items:center;gap:14px;}
   .hidden{display:none !important;}
   @media (max-width:820px){.kpis{grid-template-columns:repeat(3,1fr);}.modal-b{grid-template-columns:1fr;}.fu-row .note{display:none;}.search input{width:150px;}}
+  .act.ds-on{background:var(--brand);color:#fff;border-color:var(--brand);}
+  /* word cloud */
+  .wcloud{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;padding:6px 2px;}
+  .wcloud span{font-family:'Space Grotesk';line-height:1.1;color:var(--brand);}
   /* ---------- Monthly report ---------- */
   .report-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;}
   .report-slide{position:relative;background:#FBF4E4;border:1px solid #EADFC2;border-radius:14px;padding:26px 30px;margin-bottom:18px;box-shadow:var(--shadow);}
@@ -448,6 +452,7 @@ const NQ_REASONS=['Budget mismatch','Just browsing / not serious','Wrong locatio
 const LOST_REASONS=['Went with a competitor','Price / negotiation gap','Postponed purchase','Went unresponsive','Location not suitable','Home loan rejected'];
 const PAYMENT_STRUCTURES=['TES Pre EMI','Solcrest Payment Holiday','Normal CLP'];
 const PHASES=['Phase 1','Phase 2'];
+const DEAL_STATUSES=['Prospect','Negotiation','Booked','Closed Won','Closed Lost'];
 
 const DEFAULT_USERS=[
   {id:'head',   name:'You',    role:'sales_head',  title:'Sales Head',            project:null,        pass:null},
@@ -468,7 +473,7 @@ function projName(id){return projById[id]||null;}
 function projId(name){return projByName[name]||null;}
 function memberName(id){const u=user(id);return u?u.name:'';}
 function titleFor(m){const p=projName(m.project_id);if(m.role==='sales_head')return 'Sales Head';if(m.role==='project_head')return 'Project Head'+(p?' · '+p:'');return 'Salesperson'+(p?' · '+p:'');}
-function leadFromRow(r){return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',source:r.source,srcDetail:r.src_detail||'',walkinSource:r.walkin_source||'',cpName:r.cp_name||'',location:r.location||'',company:r.company_name||'',project:projName(r.project_id),budget:r.budget||'',notes:r.notes||'',stage:r.stage,ownerId:r.owner_id||null,qualified:r.qualified,nqReason:r.nq_reason||'',disqualifiedBy:r.disqualified_by||'',lostReason:r.lost_reason||'',temp:r.temp||null,nextFollowUp:r.next_follow_up||null,assignedAt:r.assigned_at||null,createdAt:r.created_at,assessment:null,booking:r.booking||null,walkinPhase:r.walkin_phase||'',revisits:[],log:[]};}
+function leadFromRow(r){return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',source:r.source,srcDetail:r.src_detail||'',walkinSource:r.walkin_source||'',cpName:r.cp_name||'',location:r.location||'',company:r.company_name||'',project:projName(r.project_id),budget:r.budget||'',notes:r.notes||'',stage:r.stage,ownerId:r.owner_id||null,qualified:r.qualified,nqReason:r.nq_reason||'',disqualifiedBy:r.disqualified_by||'',lostReason:r.lost_reason||'',temp:r.temp||null,nextFollowUp:r.next_follow_up||null,assignedAt:r.assigned_at||null,createdAt:r.created_at,assessment:null,booking:r.booking||null,walkinPhase:r.walkin_phase||'',dealStatus:r.deal_status||'',metProjectHead:!!r.met_project_head,phMeetingDate:r.ph_meeting_date||'',revisits:[],log:[]};}
 
 async function loadAll(){
   const {data:projs}=await sb.from('projects').select('*');
@@ -833,7 +838,8 @@ const FILTER_FIELDS=[
   {k:'stage',label:'Stage',type:'select',opts:()=>Object.keys(STAGES).map(s=>[s,STAGES[s].label])},
   {k:'source',label:'Source',type:'select',opts:()=>[['digital','Digital'],['walkin','Walk-in']]},
   {k:'walkin',label:'Walk-in via',type:'select',opts:()=>[['Direct','Direct'],['CP','Channel Partner']]},
-  {k:'temp',label:'Temperature',type:'select',opts:()=>[['Hot','Hot'],['Warm','Warm'],['Cold','Cold']]},
+  {k:'dstatus',label:'Deal status',type:'select',opts:()=>DEAL_STATUSES.map(s=>[s,s])},
+  {k:'metph',label:'Met Project Head',type:'select',opts:()=>[['yes','Yes'],['no','No']]},
   {k:'phase',label:'Phase',type:'select',opts:()=>PHASES.map(p=>[p,p])},
   {k:'project',label:'Project',type:'select',opts:()=>PROJECTS.map(p=>[p,p])},
   {k:'owner',label:'Owner',type:'select',opts:()=>salespeople().map(u=>[u.id,u.name])},
@@ -843,7 +849,8 @@ const FILTER_FIELDS=[
   {k:'phone',label:'Phone contains',type:'text'},
   {k:'company',label:'Company contains',type:'text'},
   {k:'cp',label:'CP name contains',type:'text'},
-  {k:'budget',label:'Budget contains',type:'text'}
+  {k:'budget',label:'Budget contains',type:'text'},
+  {k:'comment',label:'Comment contains',type:'text'}
 ];
 function fieldMeta(k){return FILTER_FIELDS.find(f=>f.k===k)||FILTER_FIELDS[0];}
 function inc(a,v){return String(a||'').toLowerCase().includes(String(v||'').toLowerCase());}
@@ -851,7 +858,9 @@ function matchFilter(l,f){const v=f.value;switch(f.field){
   case 'stage':return l.stage===v;
   case 'source':return l.source===v;
   case 'walkin':return (l.walkinSource||'')===v;
-  case 'temp':return (l.temp||'')===v;
+  case 'dstatus':return (l.dealStatus||'')===v;
+  case 'metph':return v==='yes'?!!l.metProjectHead:!l.metProjectHead;
+  case 'comment':return (l.log||[]).some(e=>inc(e.t,v));
   case 'phase':return (l.walkinPhase||'')===v;
   case 'project':return l.project===v;
   case 'owner':return (l.ownerId||'')===v;
@@ -945,7 +954,7 @@ function cardHTML(l){
   if(l.stage==='lost'&&l.lostReason)reason=`<div class="reason-tag">Lost · <b>${l.lostReason}</b></div>`;
   return `<div class="card" style="--l:${st.color}" onclick="openDrawer('${l.id}')">
     <div class="top"><div><div class="nm">${l.name}</div><div class="proj">${l.project||'—'}</div></div><span class="src ${l.source}">${l.source==='digital'?'Digital':'Walk-in'}</span></div>
-    <div class="meta">${l.ownerId?`<div class="avatar" title="${userName(l.ownerId)}">${initials(userName(l.ownerId))}</div>`:`<div class="avatar none" title="Unassigned">–</div>`}${l.temp?`<span class="tchip ${l.temp.toLowerCase()}">${l.temp}</span>`:''}${l.assessment?`<span class="tchip" style="background:#EEF1F5;color:var(--soft)">${l.assessment.likelihood}%</span>`:''}${(l.revisits&&l.revisits.length)?`<span class="tchip" style="background:#EDE7F6;color:#5E35B1">↩ ${l.revisits.length}</span>`:''}${slaHTML}${dueHTML}${l.budget?`<span class="budget">₹${l.budget}</span>`:''}</div>
+    <div class="meta">${l.ownerId?`<div class="avatar" title="${userName(l.ownerId)}">${initials(userName(l.ownerId))}</div>`:`<div class="avatar none" title="Unassigned">–</div>`}${l.dealStatus?`<span class="tchip" style="background:#E7EEF5;color:#2C5D80">${l.dealStatus}</span>`:''}${(l.metProjectHead===false&&(l.revisits&&l.revisits.length))?`<span class="tchip" style="background:#FBE9E7;color:#A03027" title="Revisited but no Project-Head meeting">No PH mtg</span>`:''}${(l.revisits&&l.revisits.length)?`<span class="tchip" style="background:#EDE7F6;color:#5E35B1">↩ ${l.revisits.length}</span>`:''}${slaHTML}${dueHTML}${l.budget?`<span class="budget">₹${l.budget}</span>`:''}</div>
     ${reason}</div>`;
 }
 function boardHTML(leads){
@@ -1001,18 +1010,15 @@ function renderDrawer(){
         <select class="field" style="width:auto;flex:1" onchange="disqualify('${l.id}',this.value)"><option value="">Not qualified — reason…</option>${NQ_REASONS.map(r=>`<option>${r}</option>`).join('')}</select></div></div>`;
     }
     if(l.qualified===true){
-      flow+=`<div class="block"><label>Lead temperature</label><div class="temp-seg">${['Hot','Warm','Cold'].map(t=>`<button class="temp-opt ${t.toLowerCase()} ${l.temp===t?'on':''}" onclick="setTemp('${l.id}','${t}')"><span class="d"></span>${t}</button>`).join('')}</div></div>`;
-      flow+=likelihoodBlock(l);
+      flow+=dealStatusBlock(l);
     }
+    flow+=metPHBlock(l);
     flow+=followBlock(l);
     flow+=interestBlock(l);
     flow+=handoffBlock(l);
-    flow+=`<div class="block"><label>Close the lead</label><div class="actions">
-      <button class="act win" onclick="openBooking('${l.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-5h6v5"/></svg>Booked (won)</button>
-      <select class="field" style="width:auto;flex:1" onchange="markLost('${l.id}',this.value)"><option value="">Mark lost — reason…</option>${LOST_REASONS.map(r=>`<option>${r}</option>`).join('')}</select></div></div>`;
   } else if(terminal){
-    if(l.stage==='booked'){flow+=`<div class="block"><div class="banner win"><span>🎉</span><div>Won — this customer <b>booked an apartment</b>.</div></div></div>`;flow+=bookingFactsHTML(l);}
-    if(l.stage==='lost')flow+=`<div class="block"><div class="banner lost"><span>✕</span><div>Lost — <b>${l.lostReason}</b></div></div></div>`;
+    if(l.stage==='booked'){flow+=`<div class="block"><div class="banner win"><span>🎉</span><div>Won — <b>${l.dealStatus||'Booked'}</b>.</div></div></div>`;flow+=bookingFactsHTML(l);if(editable)flow+=dealStatusBlock(l);}
+    if(l.stage==='lost'){flow+=`<div class="block"><div class="banner lost"><span>✕</span><div>Lost — <b>${l.lostReason||l.dealStatus||'Closed Lost'}</b></div></div></div>`;if(editable)flow+=dealStatusBlock(l);}
     if(l.stage==='not_qualified'){flow+=`<div class="block"><div class="banner nq"><span>–</span><div>Disqualified — <b>${l.nqReason}</b>${l.disqualifiedBy?' · by '+l.disqualifiedBy:''}. Now in the disqualified pool.</div></div></div>`;
       if(can('assign'))flow+=`<div class="block"><label>Reassign for follow-up</label><select class="field" onchange="reassignPool('${l.id}',this.value)"><option value="">Assign to a salesperson…</option>${salespeople(l.project).map(r=>`<option value="${r.id}">${r.name}</option>`).join('')}</select><div class="ai-tag">Moves this disqualified walk-in out of the pool into the chosen rep's active bucket for a fresh follow-up.</div></div>`;}
     if(editable&&l.stage!=='not_qualified')flow+=`<div class="block"><button class="act" onclick="reopen('${l.id}')">↺ Reopen lead</button></div>`;
@@ -1058,6 +1064,27 @@ async function qualify(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l)
 async function disqualify(id,reason){if(!reason)return;const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;if(!await updateLead(id,{qualified:false,stage:'not_qualified',nq_reason:reason,disqualified_by:currentUser().name,owner_id:null}))return;await addActivityRow(id,{kind:'system',body:'Disqualified — '+reason+' (moved to disqualified pool)'});await refresh();}
 async function logFollowUp(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const date=document.getElementById('fu_date').value;const note=document.getElementById('fu_note').value.trim();if(!note&&!date)return;if(date){if(!await updateLead(id,{next_follow_up:date}))return;}await addActivityRow(id,{kind:'note',body:note||'Followed up',next:date||null});await refresh();}
 async function setTemp(id,t){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;if(l.temp===t){if(!await updateLead(id,{temp:null}))return;await addActivityRow(id,{kind:'system',body:'Cleared temperature'});}else{if(!await updateLead(id,{temp:t}))return;await addActivityRow(id,{kind:'system',body:'Marked as '+t+' lead'});}await refresh();}
+function dealStatusBlock(l){
+  const cur=l.dealStatus||'';const seg=s=>`<button class="act ${cur===s?'ds-on':''}" onclick="setDealStatus('${l.id}','${s}')">${s}</button>`;
+  return `<div class="block"><label>Deal status${cur?` · <span style="color:var(--ink)">${cur}</span>`:''}</label>
+    <div class="actions">
+      ${seg('Prospect')}${seg('Negotiation')}
+      <button class="act ${cur==='Booked'?'ds-on':''}" onclick="openBooking('${l.id}','Booked')">Booked</button>
+      <button class="act win ${cur==='Closed Won'?'ds-on':''}" onclick="openBooking('${l.id}','Closed Won')">Closed Won</button>
+      <select class="field" style="width:auto;flex:1" onchange="closedLost('${l.id}',this.value)"><option value="">Closed Lost — reason…</option>${LOST_REASONS.map(r=>`<option ${l.lostReason===r?'selected':''}>${r}</option>`).join('')}</select>
+    </div></div>`;
+}
+async function setDealStatus(id,s){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const patch={deal_status:s,stage:'qualified'};if(s==='Prospect'||s==='Negotiation')patch.lost_reason='';if(!await updateLead(id,patch))return;await addActivityRow(id,{kind:'system',body:'Deal status → '+s});await refresh();}
+async function closedLost(id,reason){if(!reason)return;const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;if(!await updateLead(id,{stage:'lost',deal_status:'Closed Lost',lost_reason:reason,next_follow_up:null}))return;await addActivityRow(id,{kind:'system',body:'Closed Lost — '+reason});await refresh();}
+function metPHBlock(l){
+  const u=currentUser();const canSet=(u.role==='sales'||u.role==='sales_head');const done=l.metProjectHead;
+  if(!canSet)return `<div class="block"><label>Met Project Head</label><div class="locked-note">${done?('✅ Met'+(l.phMeetingDate?' on '+fmtDate(l.phMeetingDate):'')):'❌ Not yet — you can’t change this (it’s a check on the Project Head).'}</div></div>`;
+  return `<div class="block"><label>Met Project Head</label>
+    <label style="display:flex;align-items:center;gap:9px;text-transform:none;letter-spacing:normal;font-size:14px;color:var(--ink);cursor:pointer"><input type="checkbox" style="width:17px;height:17px" ${done?'checked':''} onchange="toggleMetPH('${l.id}',this.checked)"/> Customer met the Project Head</label>
+    ${done?`<div class="fu-form" style="margin-top:8px"><div class="r" style="margin-bottom:0;gap:9px;align-items:center"><span style="font-size:12.5px;color:var(--soft)">Meeting date</span><input type="date" class="field" style="max-width:175px" value="${l.phMeetingDate||iso(today())}" onchange="setPHDate('${l.id}',this.value)"/></div></div>`:''}</div>`;
+}
+async function toggleMetPH(id,checked){const l=db.leads.find(x=>x.id===id);if(!can('edit',l)||currentUser().role==='project_head')return;if(!await updateLead(id,{met_project_head:checked,ph_meeting_date:checked?(l.phMeetingDate||iso(today())):null}))return;await addActivityRow(id,{kind:'system',body:checked?'Marked: met Project Head':'Unmarked: met Project Head'});await refresh();}
+async function setPHDate(id,v){const l=db.leads.find(x=>x.id===id);if(!can('edit',l)||currentUser().role==='project_head')return;if(!await updateLead(id,{ph_meeting_date:v||null}))return;await refresh();}
 function likelihoodBlock(l){
   const a=l.assessment;const notes=l.log.filter(e=>e.kind==='note').length;
   let inner;
@@ -1165,7 +1192,10 @@ function statsHTML(leads){
   }
   const card=(k,v)=>`<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`;
   const spPanel=spRows.length?spRows.map(([nm,n])=>`<div class="barrow"><div class="lbl">${nm}</div><div class="track"><div class="fillb" style="width:${Math.round(n/spMax*100)}%;background:var(--brand)">${n}</div></div></div>`).join(''):'<div class="locked-note">No follow-up comments logged yet.</div>';
-  const tPanel=['Hot','Warm','Cold'].map(t=>`<div class="barrow"><div class="lbl"><span class="d" style="background:${tcol[t]}"></span>${t}</div><div class="track"><div class="fillb" style="width:${Math.round(temps[t]/tMax*100)}%;background:${tcol[t]}">${temps[t]}</div></div></div>`).join('');
+  const dsc={};DEAL_STATUSES.forEach(s=>dsc[s]=0);leads.forEach(l=>{if(l.dealStatus)dsc[l.dealStatus]=(dsc[l.dealStatus]||0)+1;});
+  const dsMax=Math.max(1,...DEAL_STATUSES.map(s=>dsc[s]));
+  const dsCol={'Prospect':'#6C7A93','Negotiation':'#4A6FA5','Booked':'#2C9C9A','Closed Won':'#2E9E5B','Closed Lost':'#C0524A'};
+  const tPanel=DEAL_STATUSES.map(s=>`<div class="barrow"><div class="lbl"><span class="d" style="background:${dsCol[s]}"></span>${s}</div><div class="track"><div class="fillb" style="width:${Math.round(dsc[s]/dsMax*100)}%;background:${dsCol[s]}">${dsc[s]}</div></div></div>`).join('');
   const oPanel=outs.map(([nm,n,c])=>`<div class="barrow"><div class="lbl"><span class="d" style="background:${c}"></span>${nm}</div><div class="track"><div class="fillb" style="width:${Math.round(n/oMax*100)}%;background:${c}">${n}</div></div></div>`).join('');
   return `<div class="stat-grid">
       ${card('Follow-ups logged',totalFu)}
@@ -1175,16 +1205,25 @@ function statsHTML(leads){
     </div>
     <div class="split">
       <div class="panel"><h3>Follow-ups by salesperson</h3>${spPanel}</div>
-      <div class="panel"><h3>Temperature of qualified leads</h3>${tPanel}</div>
+      <div class="panel"><h3>Deal status</h3>${tPanel}</div>
     </div>
+    <div class="panel"><h3>Comment word cloud</h3>${wordCloudHTML(leads)}<div class="ai-tag" style="margin-top:8px">Tip: use <b>Filters → Comment contains</b> to search follow-up comments by keyword.</div></div>
     <div class="panel"><h3>Outcomes</h3>${oPanel}</div>${wiPanel}`;
 }
+function wordCloudHTML(leads){
+  const stop=new Set('the a an and or but to of in on for with at by from is are was were be been being have has had do does did will would can could should not no yes he she it they them his her their our your you i we as this that these those about into over under out up down very more most also them him her can call called spoke said told want wants need needs get got very just now'.split(' '));
+  const freq={};leads.forEach(l=>(l.log||[]).filter(e=>e.kind==='note').forEach(e=>{String(e.t||'').toLowerCase().split(/[^a-z0-9]+/).forEach(w=>{if(w.length>=3&&!stop.has(w))freq[w]=(freq[w]||0)+1;});}));
+  const words=Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,40);
+  if(!words.length)return '<div class="locked-note">No comment words yet. As the team logs follow-ups, common themes appear here.</div>';
+  const max=words[0][1];
+  return `<div class="wcloud">${words.map(([w,n])=>{const sz=13+Math.round((n/max)*26);const op=(0.55+0.45*(n/max)).toFixed(2);return `<span style="font-size:${sz}px;opacity:${op}" title="${n}×">${w}</span>`;}).join('')}</div>`;
+}
 async function markBooked(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;if(!await updateLead(id,{stage:'booked',next_follow_up:null}))return;await addActivityRow(id,{kind:'system',body:'Booked an apartment 🎉'});await refresh();}
-let bookingLeadId=null;
+let bookingLeadId=null, bookingStatus='Booked';
 function numOf(v){const n=parseFloat(String(v==null?'':v).replace(/[^0-9.]/g,''));return isNaN(n)?0:n;}
 function calcRealization(){const av=numOf(document.getElementById('bk_av').value);const sz=numOf(document.getElementById('bk_size').value);const r=sz>0?Math.round(av/sz):0;document.getElementById('bk_real').value=r?('₹'+r.toLocaleString('en-IN')+' /sq.ft'):'—';}
-function openBooking(id){
-  const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;bookingLeadId=id;const b=l.booking||{};
+function openBooking(id,status){
+  const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;bookingLeadId=id;bookingStatus=status||'Booked';const b=l.booking||{};
   document.getElementById('bookBody').innerHTML=`
     <div class="ai-tag" style="margin-bottom:12px">Customer: <b>${l.name}</b> · ${l.project||''}</div>
     <div class="block"><label>Apartment name / number</label><input class="field" id="bk_apartment" placeholder="e.g. Tower B – 1204" value="${b.apartment||''}"/></div>
@@ -1210,7 +1249,7 @@ async function saveBooking(){
   const av=numOf(document.getElementById('bk_av').value),sz=numOf(document.getElementById('bk_size').value);
   const g=id=>document.getElementById(id).value.trim();
   const booking={apartment:g('bk_apartment'),location:g('bk_location'),company:g('bk_company'),applicantAge:g('bk_appage'),coApplicant:g('bk_coapp'),coApplicantAge:g('bk_coappage'),coApplicantCompany:g('bk_cocompany'),agreementValue:av||null,size:sz||null,realization:(sz>0?Math.round(av/sz):null),paymentStructure:document.getElementById('bk_pay').value,at:iso(today())};
-  if(!await updateLead(id,{stage:'booked',next_follow_up:null,booking}))return;
+  if(!await updateLead(id,{stage:'booked',deal_status:bookingStatus,next_follow_up:null,booking}))return;
   await addActivityRow(id,{kind:'system',body:'Booked 🎉'+(booking.apartment?' — '+booking.apartment:'')+(booking.agreementValue?' · AV ₹'+booking.agreementValue.toLocaleString('en-IN'):'')});
   closeBooking();await refresh();
 }
@@ -1276,8 +1315,13 @@ async function setCpName(id,v){if(currentUser().role!=='sales_head')return;if(!a
 async function setWalkinPhase(id,v){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;if(!await updateLead(id,{walkin_phase:v||null}))return;await addActivityRow(id,{kind:'system',body:v?('Marked as '+v+' walk-in'):'Cleared walk-in phase'});await refresh();}
 function phaseBlock(l){if(l.source!=='walkin')return '';const terminal=['booked','lost','not_qualified'].includes(l.stage);if(!can('edit',l)||terminal)return '';
   return `<div class="block"><label>Walk-in phase</label><select class="field" onchange="setWalkinPhase('${l.id}',this.value)"><option value="">— not set —</option>${PHASES.map(p=>`<option ${l.walkinPhase===p?'selected':''}>${p}</option>`).join('')}</select></div>`;}
+function fnlBuildDS(leads,keyFn){const m={};leads.forEach(l=>{const k=keyFn(l);if(!k)return;m[k]=m[k]||{};if(l.dealStatus)m[k][l.dealStatus]=(m[k][l.dealStatus]||0)+1;const rv=(l.revisits||[]).length;if(rv)m[k].Revisits=(m[k].Revisits||0)+rv;});return m;}
+function fnlDsTable(m,label){const cols=[...DEAL_STATUSES,'Revisits'];const keys=Object.keys(m).sort();if(!keys.length)return '<div class="locked-note">Nothing in this window.</div>';
+  return `<table style="box-shadow:none"><thead><tr><th>${label}</th>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${keys.map(k=>`<tr><td><b class="mono">${k}</b></td>${cols.map(c=>`<td class="mono">${m[k][c]||0}</td>`).join('')}</tr>`).join('')}</tbody></table>`;}
 function funnelHTML(){
-  const all=scoped().filter(l=>l.source==='walkin'&&inRange(l));const N=all.length;const cnt=fn=>all.filter(fn).length;
+  const all=scoped().filter(l=>l.source==='walkin'&&inRange(l)&&passesFilters(l));const N=all.length;const cnt=fn=>all.filter(fn).length;
+  const allLeads=scoped().filter(l=>inRange(l)&&passesFilters(l));
+  const dsCol={'Prospect':'#6C7A93','Negotiation':'#4A6FA5','Booked':'#2C9C9A','Closed Won':'#2E9E5B','Closed Lost':'#C0524A'};
   const qualified=cnt(l=>l.qualified===true),disq=cnt(l=>l.stage==='not_qualified'),pending=cnt(l=>l.stage==='assigned'&&l.qualified===null),newp=cnt(l=>l.stage==='new'),activeQ=cnt(l=>l.stage==='qualified'),booked=cnt(l=>l.stage==='booked'),lost=cnt(l=>l.stage==='lost');
   const overdue=all.filter(l=>{const s=slaState(l);return s&&s.over;}).length;
   const stalled=all.filter(l=>staleQualified(l)).length;
@@ -1292,13 +1336,19 @@ function funnelHTML(){
   const names=[...new Set([...Object.keys(qBy),...Object.keys(dBy)])].filter(n=>n&&n!=='—');
   const gmax=Math.max(1,...names.map(n=>Math.max(qBy[n]||0,dBy[n]||0)));
   const qualPanel=`<div class="panel"><h3>Qualification by salesperson</h3><div class="ai-tag" style="margin-bottom:12px">Green = qualified · Grey = disqualified. Flag anyone disqualifying disproportionately.</div>${names.length?names.map(n=>`<div class="grp"><div class="gl">${n}</div><div class="gbars"><div class="gb" style="width:${Math.round((qBy[n]||0)/gmax*100)}%;background:var(--qualified)">${qBy[n]||0} qualified</div><div class="gb" style="width:${Math.round((dBy[n]||0)/gmax*100)}%;background:var(--nq)">${dBy[n]||0} disqualified</div></div></div>`).join(''):'<div class="locked-note">No decisions in this window yet.</div>'}</div>`;
-  const temps={Hot:0,Warm:0,Cold:0};all.filter(l=>l.qualified===true).forEach(l=>{if(l.temp)temps[l.temp]++;});
-  const tmax=Math.max(1,temps.Hot,temps.Warm,temps.Cold);const tcol={Hot:'#D9534F',Warm:'#E0A32E',Cold:'#4A8FB5'};
-  const tempPanel=`<div class="panel"><h3>Hot / Warm / Cold · qualified</h3>${['Hot','Warm','Cold'].map(t=>`<div class="barrow"><div class="lbl"><span class="d" style="background:${tcol[t]}"></span>${t}</div><div class="track"><div class="fillb" style="width:${Math.round(temps[t]/tmax*100)}%;background:${tcol[t]}">${temps[t]}</div></div></div>`).join('')}</div>`;
+  const dsc={};DEAL_STATUSES.forEach(s=>dsc[s]=0);allLeads.forEach(l=>{if(l.dealStatus)dsc[l.dealStatus]++;});
+  const dsmax=Math.max(1,...DEAL_STATUSES.map(s=>dsc[s]));
+  const tempPanel=`<div class="panel"><h3>Deal status · in window</h3>${DEAL_STATUSES.map(s=>`<div class="barrow"><div class="lbl"><span class="d" style="background:${dsCol[s]}"></span>${s}</div><div class="track"><div class="fillb" style="width:${Math.round(dsc[s]/dsmax*100)}%;background:${dsCol[s]}">${dsc[s]}</div></div></div>`).join('')}</div>`;
+  const spMap=fnlBuildDS(allLeads,l=>l.ownerId?userName(l.ownerId):'Unassigned');
+  const projMap=fnlBuildDS(allLeads,l=>l.project||'—');
+  const noPH={};allLeads.forEach(l=>{if((l.revisits||[]).length>0&&!l.metProjectHead){const nm=l.ownerId?userName(l.ownerId):'Unassigned';noPH[nm]=(noPH[nm]||0)+1;}});
+  const noPHrows=Object.entries(noPH).sort((a,b)=>b[1]-a[1]);const noPHmax=Math.max(1,...noPHrows.map(r=>r[1]));const noPHtot=noPHrows.reduce((a,r)=>a+r[1],0);
+  const noPHPanel=`<div class="panel"><h3>Revisits without a Project-Head meeting</h3><div class="ai-tag" style="margin-bottom:10px">Revisited leads whose customer hasn’t met the Project Head — ${noPHtot} total.</div>${noPHrows.length?noPHrows.map(([n,v])=>`<div class="barrow"><div class="lbl">${n}</div><div class="track"><div class="fillb" style="width:${Math.round(v/noPHmax*100)}%;background:#C0524A">${v}</div></div></div>`).join(''):'<div class="locked-note">All revisited leads have met the Project Head. 👍</div>'}</div>`;
+  const filterNote=activeFilters().length?`<div class="ai-tag" style="margin-bottom:12px">${activeFilters().length} filter(s) applied · match ${filterMode}. Edit via the Filters button.</div>`:'';
   const rvBy={};all.forEach(l=>{const r=(l.revisits||[]).length;if(r&&l.ownerId){const nm=userName(l.ownerId);rvBy[nm]=(rvBy[nm]||0)+r;}});
   const rvRows=Object.entries(rvBy).sort((a,b)=>b[1]-a[1]);const rvmax=Math.max(1,...rvRows.map(r=>r[1]));
   const rvPanel=`<div class="panel"><h3>Revisits by salesperson</h3>${rvRows.length?rvRows.map(([n,v])=>`<div class="barrow"><div class="lbl">${n}</div><div class="track"><div class="fillb" style="width:${Math.round(v/rvmax*100)}%;background:#7E57C2">${v}</div></div></div>`).join(''):'<div class="locked-note">No revisits logged in this window.</div>'}</div>`;
-  return rb+slaPanel+funnel+stagePanel+`<div class="split">${qualPanel}${tempPanel}</div>`+rvPanel;
+  return filterNote+rb+slaPanel+funnel+stagePanel+`<div class="split">${qualPanel}${tempPanel}</div>`+`<div class="panel"><h3>Deal status by salesperson</h3>${fnlDsTable(spMap,'Salesperson')}</div>`+`<div class="panel"><h3>Deal status by project</h3>${fnlDsTable(projMap,'Project')}</div>`+noPHPanel+rvPanel;
 }
 function crossProjectHTML(){
   const u=currentUser();const pid=myProjId();
