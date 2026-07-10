@@ -298,6 +298,12 @@
   .toast .tx{position:absolute;top:7px;right:9px;color:var(--soft);font-size:15px;line-height:1;border:none;background:none;cursor:pointer;}
   @keyframes toastIn{from{opacity:0;transform:translateX(26px);}to{opacity:1;transform:none;}}
   @media(max-width:560px){.toastwrap{left:12px;right:12px;max-width:none;}}
+  .task-row{border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:8px;background:var(--surface);}
+  .task-row.open{border-left:3px solid var(--brand);}
+  .task-row.done{opacity:.72;border-left:3px solid var(--booked);}
+  .task-b{font-size:13.5px;font-weight:500;}
+  .task-resp{font-size:12.5px;color:var(--ink);margin-top:4px;}
+  .task-meta{font-size:11.5px;color:var(--soft);margin-top:3px;}
   @media(max-width:820px){.stat-grid{grid-template-columns:repeat(2,1fr);}.split{flex-direction:column;}}
 
   /* ---------- Modal ---------- */
@@ -542,7 +548,7 @@ const DEFAULT_USERS=[
 ];
 const ROLE_LABEL={sales_head:'Sales Head',project_head:'Project Head',sales:'Salesperson'};
 
-let db={instance:INSTANCE,users:[],leads:[],transfers:[],crossInterest:[],pricingRequests:[],targets:[],promotions:[],reportData:{}};
+let db={instance:INSTANCE,users:[],leads:[],transfers:[],crossInterest:[],pricingRequests:[],targets:[],promotions:[],tasks:[],reportData:{}};
 let reportMonth=null, reportProject='Earthscape';
 let filters=[], filterMode='AND', myPrefs={};
 let session=null, myCompanyId=null, activeTab='pipeline', openId=null, modalSrc='digital', loginView={step:'signin',err:'',email:''};
@@ -581,6 +587,8 @@ async function loadAll(){
   const {data:promos}=await sb.from('promotions').select('*').order('name');
   db.promotions=promos||[];
   await ensurePromotions();
+  const {data:tks}=await sb.from('tasks').select('*').order('created_at',{ascending:false});
+  db.tasks=tks||[];
   const {data:comp}=await sb.from('companies').select('id,name,report_data').eq('id',myCompanyId).maybeSingle();
   db.company=comp||null;db.reportData=(comp&&comp.report_data)||{};
 }
@@ -1250,6 +1258,7 @@ function renderDrawer(){
         <div class="det-body">${facts.map(([k,v,m])=>`<div class="fact"><div class="k">${k}</div><div class="v ${m?'mono':''}">${v}</div></div>`).join('')}</div></div>
       <div class="dr-cols">
         <div class="dr-left">
+          ${taskBlock(l)}
           ${updateBlock(l)}
           ${visitsBlock(l)}
           ${labelsBlock(l)}
@@ -1279,6 +1288,42 @@ function followBlock(l){
     </div></div>`;
 }
 async function addNote(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const t=document.getElementById('note_text').value.trim();if(!t)return;await addActivityRow(id,{kind:'note',body:t});await refresh();}
+function leadTasks(id){return (db.tasks||[]).filter(t=>t.lead_id===id);}
+function canAssignTask(l){const u=currentUser();if(!u||!l.ownerId)return false;if(u.role==='sales_head')return true;if(u.role==='project_head'&&myProjId()&&projId(l.project)===myProjId())return true;return false;}
+function taskBlock(l){
+  const ts=leadTasks(l.id).slice().sort((a,b)=>(a.status===b.status)?0:(a.status==='open'?-1:1));
+  const isHead=canAssignTask(l);
+  const mine=ts.filter(t=>t.assigned_to===session&&t.status==='open');
+  if(!isHead&&!ts.length)return '';
+  const rows=ts.map(t=>{
+    const from=userName(t.assigned_by),to=userName(t.assigned_to);
+    if(t.status==='done')return `<div class="task-row done"><div class="task-b">✓ ${escapeHtml(t.body)}</div>${t.response?`<div class="task-resp">↳ ${escapeHtml(t.response)}</div>`:''}<div class="task-meta">from ${escapeHtml(from)} · done by ${escapeHtml(to)}</div></div>`;
+    let inner=`<div class="task-b">${escapeHtml(t.body)}</div><div class="task-meta">from ${escapeHtml(from)} → ${escapeHtml(to)}</div>`;
+    if(t.assigned_to===session)inner+=`<div class="r" style="margin-top:8px;gap:8px;align-items:center"><input class="field" id="tr_${t.id}" placeholder="Type your answer / info…" value="${(t.response||'').replace(/"/g,'&quot;')}"/><label style="display:flex;align-items:center;gap:6px;white-space:nowrap;font-size:12.5px;cursor:pointer"><input type="checkbox" onchange="if(this.checked)completeTask('${t.id}')"/> Done</label></div>`;
+    else inner+=`<div class="task-meta" style="color:var(--amber)">waiting on ${escapeHtml(to)}</div>`;
+    return `<div class="task-row open">${inner}</div>`;
+  }).join('');
+  const form=isHead?`<div style="margin-top:10px"><textarea class="field" id="task_new" placeholder="e.g. Which competitor did we lose to? Add any details."></textarea>
+      <div style="margin-top:8px"><button class="btn" onclick="assignTask('${l.id}')">Assign task to ${escapeHtml(userName(l.ownerId))}</button></div></div>`:'';
+  return `<div class="block"><label>Tasks${mine.length?` <span class="tchip" style="background:#FBE9E7;color:#A03027">${mine.length} for you</span>`:''}</label>${rows||'<div class="ai-tag">No tasks yet.</div>'}${form}</div>`;
+}
+async function assignTask(id){
+  const l=db.leads.find(x=>x.id===id);if(!l||!canAssignTask(l))return;
+  const el=document.getElementById('task_new');if(!el)return;const body=(el.value||'').trim();
+  if(!body){alert('Type the task first.');el.focus();return;}
+  const {error}=await sb.from('tasks').insert({company_id:myCompanyId,lead_id:l.id,lead_name:l.name,assigned_to:l.ownerId,assigned_by:session,body,status:'open'});
+  if(error){alert('Could not assign: '+error.message);return;}
+  await addActivityRow(id,{kind:'system',body:'Assigned a task to '+userName(l.ownerId)+': '+body});
+  await refresh();
+}
+async function completeTask(tid){
+  const t=(db.tasks||[]).find(x=>x.id===tid);if(!t)return;
+  const resp=((document.getElementById('tr_'+tid)||{}).value||'').trim();
+  const {error}=await sb.from('tasks').update({status:'done',response:resp,done_at:new Date().toISOString()}).eq('id',tid);
+  if(error){alert('Could not update: '+error.message);return;}
+  await addActivityRow(t.lead_id,{kind:'note',body:'Completed task'+(resp?': '+resp:'')});
+  await refresh();
+}
 function updateBlock(l){
   if(!can('edit',l))return '';
   const d=l.nextFollowUp?dueState(l.nextFollowUp):null;
@@ -1872,8 +1917,10 @@ function notifyItems(){
     pendingPricing=(db.pricingRequests||[]).filter(r=>r.status==='pending');
   }
   const pricedForMe=(db.pricingRequests||[]).filter(r=>r.status==='priced'&&r.requested_by===session);
-  const total=stale.length+overdue.length+incoming.length+pendingT.length+declinedT.length+interests.length+pendingPricing.length+pricedForMe.length;
-  return {stale,overdue,incoming,pendingT,declinedT,interests,pendingPricing,pricedForMe,total};
+  const myTasks=(db.tasks||[]).filter(t=>t.status==='open'&&t.assigned_to===session);
+  const doneTasks=(db.tasks||[]).filter(t=>t.status==='done'&&t.assigned_by===session&&t.done_at&&(today()-parseD((t.done_at||'').slice(0,10)))/86400000<=7);
+  const total=stale.length+overdue.length+incoming.length+pendingT.length+declinedT.length+interests.length+pendingPricing.length+pricedForMe.length+myTasks.length+doneTasks.length;
+  return {stale,overdue,incoming,pendingT,declinedT,interests,pendingPricing,pricedForMe,myTasks,doneTasks,total};
 }
 function refreshNotifyBadge(){const b=document.getElementById('notifyBadge');if(!b)return;const t=notifyItems().total;b.textContent=t?t:'';b.style.display=t?'grid':'none';}
 function toggleNotify(){const p=document.getElementById('notifyPanel');if(p.classList.contains('hidden')){renderNotify();p.classList.remove('hidden');}else{p.classList.add('hidden');}}
@@ -1885,6 +1932,8 @@ function renderNotify(){const p=document.getElementById('notifyPanel');const it=
   if(it.incoming.length)html+=`<div class="nsec">Handoffs waiting for you</div>`+it.incoming.map(t=>`<div class="nrow"><div class="ndot" style="background:#4A6FA5"></div><div class="nmeta" style="flex:1"><b>${t.lead_name||'A lead'}</b><span>${userName(t.from_member)} wants to hand this to you${t.note?' — '+t.note:''}</span><div style="margin-top:7px;display:flex;gap:8px"><button class="btn" style="padding:5px 11px" onclick="acceptTransfer('${t.id}')">Accept</button><button class="btn ghost" style="padding:5px 11px" onclick="declineTransfer('${t.id}')">Decline</button></div></div></div>`).join('');
   if(it.pendingPricing&&it.pendingPricing.length)html+=`<div class="nsec">Pricing approvals to set</div>`+it.pendingPricing.map(r=>`<div class="nrow" onclick="closeNotify();openPricing('respond','${r.id}')"><div class="ndot" style="background:#2C9C9A"></div><div class="nmeta"><b>${r.lead_name||''}</b><span>${userName(r.requested_by)} needs prices for ${(r.units||[]).map(x=>x.unit).join(', ')}</span></div></div>`).join('');
   if(it.pricedForMe&&it.pricedForMe.length)html+=`<div class="nsec">Your pricing is ready</div>`+it.pricedForMe.map(r=>`<div class="nrow" onclick="closeNotify();openPricing('view','${r.id}')"><div class="ndot" style="background:#2E9E5B"></div><div class="nmeta"><b>${r.lead_name||''}</b><span>priced by ${userName(r.responded_by)} — tap to view</span></div></div>`).join('');
+  if(it.myTasks&&it.myTasks.length)html+=`<div class="nsec">Tasks assigned to you</div>`+it.myTasks.map(t=>`<div class="nrow" onclick="closeNotify();openDrawer('${t.lead_id}')"><div class="ndot" style="background:#C0524A"></div><div class="nmeta"><b>${t.lead_name||''}</b><span>${userName(t.assigned_by)}: ${escapeHtml(t.body)}</span></div></div>`).join('');
+  if(it.doneTasks&&it.doneTasks.length)html+=`<div class="nsec">Tasks completed</div>`+it.doneTasks.map(t=>`<div class="nrow" onclick="closeNotify();openDrawer('${t.lead_id}')"><div class="ndot" style="background:#2E9E5B"></div><div class="nmeta"><b>${t.lead_name||''}</b><span>${userName(t.assigned_to)} completed${t.response?': '+escapeHtml(t.response):''}</span></div></div>`).join('');
   if(it.pendingT.length)html+=`<div class="nsec">Handoffs awaiting acceptance</div>`+it.pendingT.map(t=>`<div class="nrow"${canOpen(t.lead_id)?` onclick="closeNotify();openDrawer('${t.lead_id}')"`:''}><div class="ndot" style="background:#E0A32E"></div><div class="nmeta"><b>${t.lead_name||''}</b><span>${userName(t.from_member)} → ${userName(t.to_member)} · not accepted yet</span></div></div>`).join('');
   if(it.declinedT.length)html+=`<div class="nsec">Handoffs declined</div>`+it.declinedT.map(t=>`<div class="nrow"${canOpen(t.lead_id)?` onclick="closeNotify();openDrawer('${t.lead_id}')"`:''}><div class="ndot" style="background:#C0433A"></div><div class="nmeta"><b>${t.lead_name||''}</b><span>${userName(t.to_member)} declined handoff from ${userName(t.from_member)}</span></div></div>`).join('');
   if(it.interests.length)html+=`<div class="nsec">Cross-project interest</div>`+it.interests.map(c=>`<div class="nrow"${canOpen(c.lead_id)?` onclick="closeNotify();openDrawer('${c.lead_id}')"`:''}><div class="ndot" style="background:#7E57C2"></div><div class="nmeta"><b>${c.lead_name||''}</b><span>interested in ${projName(c.target_project_id)||'—'}${c.note?' — '+c.note:''}</span></div></div>`).join('');
@@ -1902,6 +1951,8 @@ function notifyEvents(){
   (it.pendingT||[]).forEach(t=>ev.push({key:'pt_'+t.id,title:'Handoff pending · '+(t.lead_name||''),msg:userName(t.from_member)+' → '+userName(t.to_member)+' · not accepted yet',go:toggleNotify}));
   (it.declinedT||[]).forEach(t=>ev.push({key:'dt_'+t.id,title:'Handoff declined · '+(t.lead_name||''),msg:userName(t.to_member)+' declined',go:toggleNotify}));
   (it.interests||[]).forEach(c=>ev.push({key:'ci_'+c.id,title:'Cross-project · '+(c.lead_name||''),msg:'interested in '+(projName(c.target_project_id)||'—'),go:toggleNotify}));
+  (it.myTasks||[]).forEach(t=>ev.push({key:'tk_'+t.id,title:'Task · '+(t.lead_name||''),msg:userName(t.assigned_by)+': '+t.body,go:()=>openDrawer(t.lead_id)}));
+  (it.doneTasks||[]).forEach(t=>ev.push({key:'tkd_'+t.id,title:'Task done · '+(t.lead_name||''),msg:userName(t.assigned_to)+' completed'+(t.response?': '+t.response:''),go:()=>openDrawer(t.lead_id)}));
   return ev;
 }
 function showToast(ev){
