@@ -1232,7 +1232,7 @@ function followupsHTML(leads){
   const noFU=leads.filter(l=>l.stage==='qualified'&&!l.nextFollowUp);
   const sec=(title,arr)=>arr.length?`<div class="fu-sec"><h3>${title}<span class="b">${arr.length}</span></h3>`+arr.map(l=>{const last=l.log[l.log.length-1];
     return `<div class="fu-row" onclick="openDrawer('${l.id}')"><div class="date">${fmtDate(l.nextFollowUp)}<small>${parseD(l.nextFollowUp).toLocaleDateString('en-IN',{weekday:'short'})}</small></div>
-    <div class="who"><b>${l.name}</b><br><span>${userName(l.ownerId)} · ${l.project||'—'}</span></div><div class="note">${last?last.t:''}</div></div>`;}).join('')+`</div>`:'';
+    <div class="who"><b>${l.name}</b><br><span>${userName(l.ownerId)} · ${l.project||'—'} · 📅 ${fmtDate(l.createdAt)}</span></div><div class="note">${last?last.t:''}</div></div>`;}).join('')+`</div>`:'';
   let inner=sec('Overdue',groups.over)+sec('Today',groups.today)+sec('Upcoming',groups.upcoming)+sec('No date set',noFU);
   if(!inner)inner='<div class="fu-empty">No follow-ups scheduled. Qualified leads with a next-contact date show up here as reminders.</div>';
   return `<div class="fu-wrap">${inner}</div>`;
@@ -1243,8 +1243,9 @@ function tableHTML(leads){
     <td><span class="src ${l.source}">${l.source==='digital'?'Digital':'Walk-in'}</span><br><span style="color:var(--soft);font-size:12px">${l.srcDetail}</span></td>
     <td>${l.project||'—'}</td><td>${l.ownerId?userName(l.ownerId):'<span style="color:var(--soft)">Unassigned</span>'}</td>
     <td><span class="stg" style="background:${st.color}22;color:${st.color}">${st.label}</span></td>
+    <td class="mono" style="white-space:nowrap">${fmtDate(l.createdAt)}</td>
     <td class="mono">${l.stage==='qualified'&&l.nextFollowUp?fmtDate(l.nextFollowUp):'—'}</td><td class="mono">${l.budget?'₹'+l.budget:'—'}</td></tr>`;}).join('');
-  return `<table><thead><tr><th>Lead</th><th>Source</th><th>Project</th><th>Owner</th><th>Stage</th><th>Next follow-up</th><th>Budget</th></tr></thead><tbody>${rows||'<tr><td colspan=7 style="text-align:center;color:var(--soft);padding:30px">No leads yet.</td></tr>'}</tbody></table>`;
+  return `<table><thead><tr><th>Lead</th><th>Source</th><th>Project</th><th>Owner</th><th>Stage</th><th>Captured</th><th>Next follow-up</th><th>Budget</th></tr></thead><tbody>${rows||'<tr><td colspan=8 style="text-align:center;color:var(--soft);padding:30px">No leads yet.</td></tr>'}</tbody></table>`;
 }
 
 /* ============ drawer ============ */
