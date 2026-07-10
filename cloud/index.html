@@ -345,6 +345,14 @@
   .filter-banner .fb-chip{background:#fff;border:1px solid #E6CB8E;border-radius:20px;padding:2px 10px;font-weight:600;}
   .filter-banner button{margin-left:auto;border:1px solid #E0A32E;background:#fff;color:#8a6412;border-radius:8px;padding:4px 12px;font-weight:600;cursor:pointer;}
   .filter-banner button:hover{background:#E0A32E;color:#fff;}
+  .pipe-toolbar{display:flex;justify-content:flex-end;margin-bottom:14px;}
+  .pipe-seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;}
+  .pipe-seg button{border:none;background:var(--surface);color:var(--soft);font-family:'Space Grotesk';font-weight:600;font-size:13px;padding:7px 15px;cursor:pointer;}
+  .pipe-seg button.on{background:var(--brand);color:#fff;}
+  .pipe-seg button:not(.on):hover{background:#F1F5F9;}
+  .list-table{width:100%;}
+  .list-table th{white-space:nowrap;}
+  .list-table tbody tr,.list-table tr{cursor:pointer;}
   /* ---------- Monthly report ---------- */
   .report-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;}
   .report-slide{position:relative;background:#FBF4E4;border:1px solid #EADFC2;border-radius:14px;padding:26px 30px;margin-bottom:18px;box-shadow:var(--shadow);}
@@ -555,6 +563,7 @@ const ROLE_LABEL={sales_head:'Sales Head',project_head:'Project Head',sales:'Sal
 let db={instance:INSTANCE,users:[],leads:[],transfers:[],crossInterest:[],pricingRequests:[],targets:[],promotions:[],tasks:[],reportData:{}};
 let reportMonth=null, reportProject='Earthscape';
 let filters=[], filterMode='AND', myPrefs={};
+let pipeView=(function(){try{return localStorage.getItem('bm_pipe_view')||'board';}catch(e){return 'board';}})();
 let session=null, myCompanyId=null, activeTab='pipeline', openId=null, modalSrc='digital', loginView={step:'signin',err:'',email:''};
 let projById={}, projByName={}, pendingInvite=null;
 
@@ -1117,7 +1126,7 @@ function render(){
   const leads=visible();
   renderTabs();renderKPIs(leads);
   const m=document.getElementById('main');
-  if(activeTab==='pipeline')m.innerHTML=boardHTML(leads);
+  if(activeTab==='pipeline')m.innerHTML=pipeToggle()+(pipeView==='list'?pipelineListHTML(leads):boardHTML(leads));
   else if(activeTab==='followups')m.innerHTML=followupsHTML(leads);
   else if(activeTab==='stats')m.innerHTML=statsHTML(scoped());
   else if(activeTab==='funnel')m.innerHTML=funnelHTML();
@@ -1175,6 +1184,33 @@ function cardHTML(l){
     <div class="top"><div><div class="nm">${l.name}</div><div class="proj">${l.project||'—'}</div></div><span class="src ${l.source}">${l.source==='digital'?'Digital':'Walk-in'}</span></div>
     <div class="meta">${l.ownerId?`<div class="avatar" title="${userName(l.ownerId)}">${initials(userName(l.ownerId))}</div>`:`<div class="avatar none" title="Unassigned">–</div>`}${l.dealStatus?`<span class="tchip" style="background:#E7EEF5;color:#2C5D80">${l.dealStatus}</span>`:''}${(l.metProjectHead===false&&(l.revisits&&l.revisits.length))?`<span class="tchip" style="background:#FBE9E7;color:#A03027" title="Revisited but no Project-Head meeting">No PH mtg</span>`:''}${(l.revisits&&l.revisits.length)?`<span class="tchip" style="background:#EDE7F6;color:#5E35B1">↩ ${l.revisits.length}</span>`:''}${(l.labels||[]).map(n=>`<span class="lchip" style="background:${labelColor(n)}">${n}</span>`).join('')}${slaHTML}${dueHTML}${l.budget?`<span class="budget">₹${l.budget}</span>`:''}</div>
     ${reason}</div>`;
+}
+function setPipeView(v){pipeView=v;try{localStorage.setItem('bm_pipe_view',v);}catch(e){}render();}
+function pipeToggle(){return `<div class="pipe-toolbar"><div class="seg pipe-seg"><button class="${pipeView!=='list'?'on':''}" onclick="setPipeView('board')">▦ Board</button><button class="${pipeView==='list'?'on':''}" onclick="setPipeView('list')">☰ List</button></div></div>`;}
+function pipelineListHTML(leads){
+  const rows=leads.slice().sort((a,b)=>parseD(b.createdAt)-parseD(a.createdAt)).map(l=>{const st=STAGES[l.stage];
+    const via=l.source==='walkin'?(l.walkinSource==='CP'?('CP'+(l.cpName?' · '+l.cpName:'')):l.walkinSource==='Referral'?('Referral'+(l.referralName?' · '+l.referralName:'')):'Direct'):'—';
+    const fu=l.stage==='qualified'&&l.nextFollowUp?`<span class="pill ${dueState(l.nextFollowUp).cls}" style="font-size:11px">${fmtDate(l.nextFollowUp)}</span>`:'—';
+    const rv=(l.revisits&&l.revisits.length)?l.revisits.length:'—';
+    const labels=(l.labels||[]).map(n=>`<span class="lchip" style="background:${labelColor(n)}">${n}</span>`).join(' ');
+    const ds=l.dealStatus?`<span class="tchip" style="background:#E7EEF5;color:#2C5D80">${l.dealStatus}</span>`:'—';
+    let extra='';
+    if(l.stage==='lost'&&l.lostTo)extra=`<br><span style="color:var(--lost);font-size:11px">lost to ${escapeHtml(l.lostTo)}</span>`;
+    else if(l.stage==='not_qualified'&&l.nqReason)extra=`<br><span style="color:var(--soft);font-size:11px">NQ · ${escapeHtml(l.nqReason)}</span>`;
+    return `<tr onclick="openDrawer('${l.id}')">
+      <td><b class="mono">${l.name}</b>${labels?'<br>'+labels:''}${extra}</td>
+      <td style="font-size:12px">${l.phone||'—'}${l.email?'<br><span style="color:var(--soft)">'+l.email+'</span>':''}</td>
+      <td><span class="src ${l.source}">${l.source==='digital'?'Digital':'Walk-in'}</span>${l.srcDetail?'<br><span style="color:var(--soft);font-size:11px">'+l.srcDetail+'</span>':''}</td>
+      <td>${l.project||'—'}</td>
+      <td style="font-size:12px">${via}${l.walkinPhase?'<br><span style="color:var(--soft);font-size:11px">'+l.walkinPhase+'</span>':''}</td>
+      <td>${l.ownerId?userName(l.ownerId):'<span style="color:var(--soft)">Unassigned</span>'}</td>
+      <td><span class="stg" style="background:${st.color}22;color:${st.color}">${st.label}</span></td>
+      <td>${ds}</td>
+      <td class="mono" style="font-size:12px;white-space:nowrap">${fmtDate(l.createdAt)}</td>
+      <td style="white-space:nowrap">${fu}</td>
+      <td class="mono" style="text-align:center">${rv}</td>
+      <td class="mono" style="white-space:nowrap">${l.budget?'₹'+l.budget:'—'}</td></tr>`;}).join('');
+  return filterBanner()+`<div style="overflow-x:auto"><table class="list-table"><thead><tr><th>Lead</th><th>Contact</th><th>Source</th><th>Project</th><th>Walk-in via</th><th>Owner</th><th>Stage</th><th>Deal status</th><th>Captured</th><th>Next follow-up</th><th>↩</th><th>Budget</th></tr></thead><tbody>${rows||'<tr><td colspan="12" style="text-align:center;color:var(--soft);padding:30px">No leads in view.</td></tr>'}</tbody></table></div>`;
 }
 function filterBanner(){
   const af=activeFilters();if(!af.length)return '';
