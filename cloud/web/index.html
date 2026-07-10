@@ -1895,7 +1895,7 @@ function showToast(ev){
   let gone=false;const kill=()=>{if(gone)return;gone=true;d.style.opacity='0';d.style.transform='translateX(26px)';setTimeout(()=>d.remove(),260);};
   d.querySelector('.tx').onclick=(e)=>{e.stopPropagation();kill();};
   d.onclick=()=>{kill();try{ev.go&&ev.go();}catch(e){}};
-  wrap.appendChild(d);setTimeout(kill,9000);
+  wrap.appendChild(d);
 }
 function pollNotify(){
   if(!session)return;
