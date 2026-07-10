@@ -173,11 +173,17 @@
   .dr-head .sub{color:var(--soft);font-size:13px;margin-top:2px;}
   .x{margin-left:auto;border:1px solid var(--line);background:var(--surface);width:32px;height:32px;border-radius:8px;color:var(--soft);font-size:17px;display:grid;place-items:center;flex:none;}
   .x:hover{border-color:var(--brand);color:var(--brand);}
-  .dr-body{overflow-y:auto;padding:20px 24px 40px;flex:1;display:grid;grid-template-columns:1fr 1fr;gap:20px 26px;align-items:start;}
-  .dr-body>.block{margin-bottom:0;}
-  .dr-body>.block:first-child,.dr-body>.block:last-child{grid-column:1/-1;}
-  .dr-body>.block:has(.banner),.dr-body>.block:has(.facts),.dr-body>.block:has(.edit-block),.dr-body>.block.upd{grid-column:1/-1;}
-  @media(max-width:760px){.dr-body{grid-template-columns:1fr;}}
+  .dr-body{overflow-y:auto;padding:18px 24px 40px;flex:1;}
+  .dr-cols{display:flex;gap:26px;align-items:flex-start;}
+  .dr-left{flex:1.15;min-width:0;} .dr-right{flex:1;min-width:0;}
+  .det{background:#F7F9FB;border:1px solid var(--line);border-radius:11px;padding:10px 13px;margin-bottom:16px;}
+  .det>label{cursor:pointer;display:flex;align-items:center;gap:6px;margin:0;}
+  .det .det-caret{transition:transform .15s;font-size:11px;color:var(--soft);}
+  .det.open .det-caret{transform:rotate(90deg);}
+  .det .det-body{display:none;margin-top:10px;}
+  .det.open .det-body{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;}
+  .det .fact .k{font-size:10px;} .det .fact .v{font-size:12px;}
+  @media(max-width:760px){.dr-cols{flex-direction:column;}}
   .block{margin-bottom:22px;}
   .block>label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--soft);font-weight:600;display:block;margin-bottom:9px;}
   .facts{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;}
@@ -1172,14 +1178,21 @@ function renderDrawer(){
     <div class="dr-head"><div class="row1"><div><h2>${l.name}</h2><div class="sub">${l.phone||'—'}</div></div>${can('edit',l)?`<button class="x" onclick="openEdit('${l.id}')" title="Edit details" style="margin-left:auto">✎</button><button class="x" onclick="closeDrawer()" title="Close (Esc)">✕</button>`:`<button class="x" onclick="closeDrawer()" title="Close (Esc)">✕</button>`}</div>
       <div style="margin-top:12px"><span class="stage-now" style="background:${st.color}1c;color:${st.color}"><i style="background:${st.color}"></i>${st.label}</span></div></div>
     <div class="dr-body">
-      <div class="block"><div class="facts">${facts.map(([k,v,m])=>`<div class="fact"><div class="k">${k}</div><div class="v ${m?'mono':''}">${v}</div></div>`).join('')}</div></div>
-      ${updateBlock(l)}
-      ${visitsBlock(l)}
-      ${labelsBlock(l)}
-      ${phaseBlock(l)}
-      ${u.role==='sales_head'&&l.source==='walkin'?editWalkinBlock(l):''}
-      ${flow}
-      <div class="block"><label>Follow-up history &amp; comments</label>${timelineHTML(l)}</div>
+      <div class="det"><label onclick="this.closest('.det').classList.toggle('open')"><span class="det-caret">▸</span> Personal details</label>
+        <div class="det-body">${facts.map(([k,v,m])=>`<div class="fact"><div class="k">${k}</div><div class="v ${m?'mono':''}">${v}</div></div>`).join('')}</div></div>
+      <div class="dr-cols">
+        <div class="dr-left">
+          ${updateBlock(l)}
+          ${visitsBlock(l)}
+          ${labelsBlock(l)}
+          ${phaseBlock(l)}
+          ${u.role==='sales_head'&&l.source==='walkin'?editWalkinBlock(l):''}
+          ${flow}
+        </div>
+        <div class="dr-right">
+          <div class="block"><label>Comments &amp; history</label>${timelineHTML(l)}</div>
+        </div>
+      </div>
     </div>`;
   const _nb=document.querySelector('#drawer .dr-body');if(_nb)_nb.scrollTop=_drSc;
 }
