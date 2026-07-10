@@ -438,6 +438,15 @@
   </div>
 </div>
 
+<!-- Team chat modal -->
+<div class="modal-scrim" id="chatScrim">
+  <div class="modal" style="display:flex;flex-direction:column;height:min(620px,86vh)">
+    <div class="modal-h"><h2>Team chat</h2></div>
+    <div id="chatMsgs" style="flex:1;overflow-y:auto;padding:16px 20px;background:#F7F9FB"></div>
+    <div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line)"><input class="field" id="chatInput" placeholder="Message your team…" onkeydown="if(event.key==='Enter')sendMessage()"/><button class="btn" onclick="sendMessage()">Send</button><button class="btn ghost" onclick="closeChat()">Close</button></div>
+  </div>
+</div>
+
 <!-- Pricing-approval modal -->
 <div class="modal-scrim" id="priceScrim">
   <div class="modal">
@@ -496,7 +505,7 @@ function projName(id){return projById[id]||null;}
 function projId(name){return projByName[name]||null;}
 function memberName(id){const u=user(id);return u?u.name:'';}
 function titleFor(m){const p=projName(m.project_id);if(m.role==='sales_head')return 'Sales Head';if(m.role==='project_head')return 'Project Head'+(p?' · '+p:'');return 'Salesperson'+(p?' · '+p:'');}
-function leadFromRow(r){return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',source:r.source,srcDetail:r.src_detail||'',walkinSource:r.walkin_source||'',cpName:r.cp_name||'',location:r.location||'',company:r.company_name||'',project:projName(r.project_id),budget:r.budget||'',notes:r.notes||'',stage:r.stage,ownerId:r.owner_id||null,qualified:r.qualified,nqReason:r.nq_reason||'',disqualifiedBy:r.disqualified_by||'',lostReason:r.lost_reason||'',temp:r.temp||null,nextFollowUp:r.next_follow_up||null,assignedAt:r.assigned_at||null,createdAt:r.created_at,assessment:null,booking:r.booking||null,walkinPhase:r.walkin_phase||'',dealStatus:r.deal_status||'',metProjectHead:!!r.met_project_head,phMeetingDate:r.ph_meeting_date||'',labels:Array.isArray(r.labels)?r.labels:[],coOwners:Array.isArray(r.co_owners)?r.co_owners:[],priceOffered:r.price_offered||'',blocks:Array.isArray(r.blocks)?r.blocks:[],competitors:r.competitors||'',referralName:r.referral_name||'',referralLeadId:r.referral_lead_id||null,wwSuggested:!!r.wonderwall_suggested,wwVisited:!!r.wonderwall_visited,revisits:[],log:[]};}
+function leadFromRow(r){return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',source:r.source,srcDetail:r.src_detail||'',walkinSource:r.walkin_source||'',cpName:r.cp_name||'',location:r.location||'',company:r.company_name||'',project:projName(r.project_id),budget:r.budget||'',notes:r.notes||'',stage:r.stage,ownerId:r.owner_id||null,qualified:r.qualified,nqReason:r.nq_reason||'',disqualifiedBy:r.disqualified_by||'',lostReason:r.lost_reason||'',temp:r.temp||null,nextFollowUp:r.next_follow_up||null,assignedAt:r.assigned_at||null,createdAt:r.created_at,assessment:null,booking:r.booking||null,walkinPhase:r.walkin_phase||'',dealStatus:r.deal_status||'',metProjectHead:!!r.met_project_head,phMeetingDate:r.ph_meeting_date||'',labels:Array.isArray(r.labels)?r.labels:[],coOwners:Array.isArray(r.co_owners)?r.co_owners:[],priceOffered:r.price_offered||'',blocks:Array.isArray(r.blocks)?r.blocks:[],competitors:r.competitors||'',referralName:r.referral_name||'',referralLeadId:r.referral_lead_id||null,wwSuggested:!!r.wonderwall_suggested,wwVisited:!!r.wonderwall_visited,lostTo:r.lost_to||'',revisits:[],log:[]};}
 
 async function loadAll(){
   const {data:projs}=await sb.from('projects').select('*');
@@ -657,7 +666,7 @@ async function authSubmit(){
   if(mem){await afterLogin();}else if(pendingInvite){loginView={step:'join',err:'',email};renderLogin();}else{loginView={step:'onboard',err:'',email,company:'Bricks & Milestones'};renderLogin();}
 }
 async function afterLogin(){await loadAll();showApp();}
-async function signOut(){await sb.auth.signOut();session=null;myCompanyId=null;closeDrawer();loginView={step:'signin',err:'',email:''};showLogin();}
+async function signOut(){closeChat();await sb.auth.signOut();session=null;myCompanyId=null;closeDrawer();loginView={step:'signin',err:'',email:''};showLogin();}
 
 /* ============ team / invites (Sales Head only) ============ */
 function inviteLink(token){return location.origin+location.pathname+'?invite='+token;}
@@ -982,6 +991,7 @@ function render(){
     <div class="u-av ${u.role==='sales_head'?'head':u.role==='project_head'?'ph':'sales'}">${initials(u.name)}</div>
     <div><div class="nm">${u.name}</div><div class="rl">${ROLE_LABEL[u.role]}</div></div>
     <button class="bell" onclick="toggleNotify()" title="Alerts">🔔<span class="badge" id="notifyBadge"></span></button>
+    <button class="bell" onclick="openChat()" title="Team chat">💬</button>
     ${u.role==='sales_head'?`<button class="signout" onclick="openTeam()" title="Manage team">Team</button>`:''}
     <button class="signout" onclick="signOut()">Sign out</button>`;
   const bb=document.getElementById('bulkBtn');if(bb)bb.style.display=(u.role==='sales_head')?'':'none';
@@ -1114,6 +1124,7 @@ function renderDrawer(){
     flow+=`<div class="block"><div class="locked-note">You can enter and edit this ${l.source==='walkin'?'walk-in':'lead'}, but only a Project Head or Sales Head can delete it.</div></div>`;
   }
 
+  const _drSc=(document.querySelector('#drawer .dr-body')||{}).scrollTop||0;
   document.getElementById('drawer').innerHTML=`
     <div class="dr-head"><div class="row1"><div><h2>${l.name}</h2><div class="sub">${l.phone}</div></div><button class="x" onclick="closeDrawer()">✕</button></div>
       <div style="margin-top:12px"><span class="stage-now" style="background:${st.color}1c;color:${st.color}"><i style="background:${st.color}"></i>${st.label}</span></div></div>
@@ -1126,6 +1137,7 @@ function renderDrawer(){
       ${flow}
       <div class="block"><label>Follow-up history &amp; comments</label>${timelineHTML(l)}</div>
     </div>`;
+  const _nb=document.querySelector('#drawer .dr-body');if(_nb)_nb.scrollTop=_drSc;
 }
 function followBlock(l){
   const d=l.nextFollowUp?dueState(l.nextFollowUp):null;
@@ -1156,11 +1168,16 @@ function dealStatusBlock(l){
       ${seg('Prospect')}${seg('Negotiation')}
       <button class="act ${cur==='Booked'?'ds-on':''}" onclick="openBooking('${l.id}','Booked')">Booked</button>
       <button class="act win ${cur==='Closed Won'?'ds-on':''}" onclick="openBooking('${l.id}','Closed Won')">Closed Won</button>
-      <select class="field" style="width:auto;flex:1" onchange="closedLost('${l.id}',this.value)"><option value="">Closed Lost — reason…</option>${LOST_REASONS.map(r=>`<option ${l.lostReason===r?'selected':''}>${r}</option>`).join('')}</select>
-    </div></div>`;
+    </div>
+    <div class="fu-form" style="margin-top:9px"><div class="r" style="margin-bottom:0;gap:8px;flex-wrap:wrap">
+      <select class="field" id="lr_${l.id}" style="flex:1;min-width:150px"><option value="">Closed Lost — reason…</option>${LOST_REASONS.map(r=>`<option>${r}</option>`).join('')}</select>
+      <input class="field" id="lc_${l.id}" style="flex:1;min-width:140px" placeholder="Lost to (competitor)" value="${(l.lostTo||'').replace(/"/g,'&quot;')}"/>
+      <button class="act bad" onclick="closedLostBtn('${l.id}')">Mark Lost</button>
+    </div></div></div>`;
 }
+function closedLostBtn(id){const reason=(document.getElementById('lr_'+id)||{}).value;const comp=((document.getElementById('lc_'+id)||{}).value||'').trim();if(!reason){alert('Pick a reason for the loss.');return;}closedLost(id,reason,comp);}
 async function setDealStatus(id,s){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const patch={deal_status:s,stage:'qualified'};if(s==='Prospect'||s==='Negotiation')patch.lost_reason='';if(!await updateLead(id,patch))return;await addActivityRow(id,{kind:'system',body:'Deal status → '+s});await refresh();}
-async function closedLost(id,reason){if(!reason)return;const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;if(!await updateLead(id,{stage:'lost',deal_status:'Closed Lost',lost_reason:reason,next_follow_up:null}))return;await addActivityRow(id,{kind:'system',body:'Closed Lost — '+reason});await refresh();}
+async function closedLost(id,reason,comp){if(!reason)return;const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;comp=(comp||'').trim();const rtxt=reason+(comp?' — '+comp:'');if(!await updateLead(id,{stage:'lost',deal_status:'Closed Lost',lost_reason:rtxt,lost_to:comp||null,next_follow_up:null}))return;await addActivityRow(id,{kind:'system',body:'Closed Lost — '+rtxt});await refresh();}
 function metPHBlock(l){
   const u=currentUser();const canSet=(u.role==='sales'||u.role==='sales_head');const done=l.metProjectHead;
   if(!canSet)return `<div class="block"><label>Met Project Head</label><div class="locked-note">${done?('✅ Met'+(l.phMeetingDate?' on '+fmtDate(l.phMeetingDate):'')):'❌ Not yet — you can’t change this (it’s a check on the Project Head).'}</div></div>`;
@@ -1214,11 +1231,10 @@ async function setWonderwall(id,which,checked){const l=db.leads.find(x=>x.id===i
 /* ---- pricing-approval requests ---- */
 let pricingMode='new', pricingReqId=null, pricingLeadId=null;
 function pricingBlock(l){
-  const u=currentUser();if(u.role!=='sales')return '';
-  if(!(l.ownerId===u.id||(l.coOwners||[]).includes(u.id)))return '';
+  if(!can('edit',l))return '';
   const reqs=(db.pricingRequests||[]).filter(r=>r.lead_id===l.id);
-  const list=reqs.map(r=>`<div class="locked-note" style="margin-bottom:6px;cursor:pointer" onclick="openPricing('view','${r.id}')">${r.status==='priced'?'✅ Priced':'⏳ Awaiting price'} · ${(r.units||[]).map(x=>x.unit).join(', ')}</div>`).join('');
-  return `<div class="block"><label>Pricing approval</label>${list}<button class="btn ghost" onclick="openPricing('new','${l.id}')">Request pricing (3 unit options)</button></div>`;
+  const list=reqs.map(r=>`<div class="locked-note" style="margin-bottom:6px;cursor:pointer" onclick="openPricing('${r.status==='pending'&&(currentUser().role==='sales_head'||currentUser().role==='project_head')?'respond':'view'}','${r.id}')">${r.status==='priced'?'✅ Priced':'⏳ Awaiting price'} · ${(r.units||[]).map(x=>x.unit).join(', ')}${r.status==='pending'&&(currentUser().role==='sales_head'||currentUser().role==='project_head')?' · tap to set price':''}</div>`).join('');
+  return `<div class="block"><label>Pricing approval — 3 unit options</label>${list}<button class="btn ghost" onclick="openPricing('new','${l.id}')">Request pre-final &amp; final price</button><div class="ai-tag" style="margin-top:8px">Sends 3 unit options to the Project Head &amp; Sales Head; they reply with pre-final and final price.</div></div>`;
 }
 function openPricing(mode,ref){
   pricingMode=mode;const body=document.getElementById('priceBody');const btn=document.getElementById('priceSaveBtn');
@@ -1538,10 +1554,13 @@ function funnelHTML(){
   const wwNP={};allLeads.forEach(l=>{if(!l.wwSuggested){const nm=l.ownerId?userName(l.ownerId):'Unassigned';wwNP[nm]=(wwNP[nm]||0)+1;}});
   const wwNPr=Object.entries(wwNP).sort((a,b)=>b[1]-a[1]);const wwNPm=Math.max(1,...wwNPr.map(r=>r[1]));const wwNPtot=wwNPr.reduce((a,r)=>a+r[1],0);
   const wwNPPanel=`<div class="panel"><h3>Wonderwall not yet proposed</h3><div class="ai-tag" style="margin-bottom:10px">Leads where Wonderwall hasn't been proposed — ${wwNPtot} total (pitch it on the first visit).</div>${wwNPr.length?wwNPr.map(([n,v])=>`<div class="barrow"><div class="lbl">${n}</div><div class="track"><div class="fillb" style="width:${Math.round(v/wwNPm*100)}%;background:#D9982B">${v}</div></div></div>`).join(''):'<div class="locked-note">Wonderwall proposed to everyone in this window. 👍</div>'}</div>`;
+  const lt={};allLeads.filter(l=>l.stage==='lost'&&l.lostTo).forEach(l=>{lt[l.lostTo]=(lt[l.lostTo]||0)+1;});
+  const ltr=Object.entries(lt).sort((a,b)=>b[1]-a[1]);const ltm=Math.max(1,...ltr.map(r=>r[1]));
+  const ltPanel=ltr.length?`<div class="panel"><h3>Lost to competitors</h3>${ltr.map(([n,v])=>`<div class="barrow"><div class="lbl">${n}</div><div class="track"><div class="fillb" style="width:${Math.round(v/ltm*100)}%;background:#C0433A">${v}</div></div></div>`).join('')}</div>`:'';
   const rvBy={};all.forEach(l=>{const r=(l.revisits||[]).length;if(r&&l.ownerId){const nm=userName(l.ownerId);rvBy[nm]=(rvBy[nm]||0)+r;}});
   const rvRows=Object.entries(rvBy).sort((a,b)=>b[1]-a[1]);const rvmax=Math.max(1,...rvRows.map(r=>r[1]));
   const rvPanel=`<div class="panel"><h3>Revisits by salesperson</h3>${rvRows.length?rvRows.map(([n,v])=>`<div class="barrow"><div class="lbl">${n}</div><div class="track"><div class="fillb" style="width:${Math.round(v/rvmax*100)}%;background:#7E57C2">${v}</div></div></div>`).join(''):'<div class="locked-note">No revisits logged in this window.</div>'}</div>`;
-  return filterNote+rb+slaPanel+funnel+stagePanel+`<div class="split">${qualPanel}${tempPanel}</div>`+`<div class="panel"><h3>Deal status by salesperson</h3>${fnlDsTable(spMap,'Salesperson')}</div>`+`<div class="panel"><h3>Deal status by project</h3>${fnlDsTable(projMap,'Project')}</div>`+wwPanel+wwNPPanel+noPHPanel+rvPanel;
+  return filterNote+rb+slaPanel+funnel+stagePanel+`<div class="split">${qualPanel}${tempPanel}</div>`+`<div class="panel"><h3>Deal status by salesperson</h3>${fnlDsTable(spMap,'Salesperson')}</div>`+`<div class="panel"><h3>Deal status by project</h3>${fnlDsTable(projMap,'Project')}</div>`+wwPanel+wwNPPanel+ltPanel+noPHPanel+rvPanel;
 }
 function crossProjectHTML(){
   const u=currentUser();const pid=myProjId();
@@ -1674,6 +1693,17 @@ function renderNotify(){const p=document.getElementById('notifyPanel');const it=
   if(it.overdue.length)html+=`<div class="nsec">Awaiting qualify/disqualify 7+ days</div>`+it.overdue.map(l=>row(l,'decision overdue '+(-slaState(l).left)+'d','#E0A32E')).join('');
   if(!it.total)html+=`<div class="nempty">Nothing needs attention right now.</div>`;
   p.innerHTML=html;}
+/* ============ team chat ============ */
+let chatTimer=null;
+function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function fmtTime(ts){try{return new Date(ts).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});}catch(e){return '';}}
+async function openChat(){document.getElementById('chatScrim').classList.add('on');await loadMessages();const inp=document.getElementById('chatInput');if(inp)inp.focus();if(chatTimer)clearInterval(chatTimer);chatTimer=setInterval(loadMessages,4000);}
+function closeChat(){document.getElementById('chatScrim').classList.remove('on');if(chatTimer){clearInterval(chatTimer);chatTimer=null;}}
+async function loadMessages(){const {data}=await sb.from('messages').select('*').order('created_at',{ascending:true}).limit(300);renderMessages(data||[]);}
+function renderMessages(msgs){const box=document.getElementById('chatMsgs');if(!box)return;const atBottom=box.scrollHeight-box.scrollTop-box.clientHeight<80;
+  box.innerHTML=msgs.length?msgs.map(m=>{const mine=m.member_id===session;return `<div style="display:flex;margin-bottom:8px;${mine?'justify-content:flex-end':''}"><div style="max-width:76%;background:${mine?'var(--brand)':'#fff'};color:${mine?'#fff':'var(--ink)'};border:1px solid ${mine?'var(--brand)':'var(--line)'};padding:8px 12px;border-radius:12px"><div style="font-size:11px;opacity:.75;margin-bottom:2px">${escapeHtml(memberName(m.member_id)||'—')} · ${fmtTime(m.created_at)}</div><div style="font-size:13.5px;white-space:pre-wrap;word-break:break-word">${escapeHtml(m.body)}</div></div></div>`;}).join(''):'<div class="locked-note">No messages yet. Say hello 👋</div>';
+  if(atBottom)box.scrollTop=box.scrollHeight;}
+async function sendMessage(){const inp=document.getElementById('chatInput');const t=(inp.value||'').trim();if(!t)return;inp.value='';const {error}=await sb.from('messages').insert({company_id:myCompanyId,member_id:session,body:t});if(error){alert('Could not send: '+error.message);inp.value=t;return;}await loadMessages();}
 /* ============ boot ============ */
 async function boot(){
   if(IS_SANDBOX){const b=document.createElement('div');b.textContent='● SANDBOX — test environment · not your live data';b.style.cssText='position:fixed;bottom:0;left:0;right:0;background:#C0524A;color:#fff;text-align:center;font-family:Inter,sans-serif;font-weight:600;font-size:12px;letter-spacing:.04em;padding:5px;z-index:200';document.body.appendChild(b);document.title='[SANDBOX] '+document.title;}
