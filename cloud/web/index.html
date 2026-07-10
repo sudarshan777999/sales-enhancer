@@ -368,6 +368,8 @@
   .rc-log-row{display:flex;justify-content:space-between;gap:10px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:7px;background:var(--surface);font-size:13px;}
   .rc-log-row span{color:var(--soft);font-size:12px;text-align:right;}
   @media(max-width:560px){.rc-row{flex-direction:column;gap:0;}}
+  .rc-check{display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:500;color:var(--ink);font-size:13.5px;}
+  .rc-check input{width:17px;height:17px;}
   /* ---------- Monthly report ---------- */
   .report-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;}
   .report-slide{position:relative;background:#FBF4E4;border:1px solid #EADFC2;border-radius:14px;padding:26px 30px;margin-bottom:18px;box-shadow:var(--shadow);}
@@ -587,7 +589,7 @@ function projName(id){return projById[id]||null;}
 function projId(name){return projByName[name]||null;}
 function memberName(id){const u=user(id);return u?u.name:'';}
 function titleFor(m){const p=projName(m.project_id);if(m.role==='sales_head')return 'Sales Head';if(m.role==='project_head')return 'Project Head'+(p?' · '+p:'');if(m.role==='reception')return 'Receptionist';return 'Salesperson'+(p?' · '+p:'');}
-function leadFromRow(r){return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',source:r.source,srcDetail:r.src_detail||'',walkinSource:r.walkin_source||'',cpName:r.cp_name||'',location:r.location||'',company:r.company_name||'',project:projName(r.project_id),budget:r.budget||'',notes:r.notes||'',stage:r.stage,ownerId:r.owner_id||null,qualified:r.qualified,nqReason:r.nq_reason||'',disqualifiedBy:r.disqualified_by||'',lostReason:r.lost_reason||'',temp:r.temp||null,nextFollowUp:r.next_follow_up||null,assignedAt:r.assigned_at||null,createdAt:r.created_at,assessment:null,booking:r.booking||null,walkinPhase:r.walkin_phase||'',dealStatus:r.deal_status||'',metProjectHead:!!r.met_project_head,phMeetingDate:r.ph_meeting_date||'',labels:Array.isArray(r.labels)?r.labels:[],coOwners:Array.isArray(r.co_owners)?r.co_owners:[],priceOffered:r.price_offered||'',blocks:Array.isArray(r.blocks)?r.blocks:[],competitors:r.competitors||'',referralName:r.referral_name||'',referralLeadId:r.referral_lead_id||null,wwSuggested:!!r.wonderwall_suggested,wwVisited:!!r.wonderwall_visited,lostTo:r.lost_to||'',lastQuote:r.last_quote||null,revisits:[],log:[]};}
+function leadFromRow(r){return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',source:r.source,srcDetail:r.src_detail||'',walkinSource:r.walkin_source||'',cpName:r.cp_name||'',location:r.location||'',company:r.company_name||'',project:projName(r.project_id),budget:r.budget||'',notes:r.notes||'',stage:r.stage,ownerId:r.owner_id||null,qualified:r.qualified,nqReason:r.nq_reason||'',disqualifiedBy:r.disqualified_by||'',lostReason:r.lost_reason||'',temp:r.temp||null,nextFollowUp:r.next_follow_up||null,assignedAt:r.assigned_at||null,createdAt:r.created_at,assessment:null,booking:r.booking||null,walkinPhase:r.walkin_phase||'',dealStatus:r.deal_status||'',metProjectHead:!!r.met_project_head,phMeetingDate:r.ph_meeting_date||'',labels:Array.isArray(r.labels)?r.labels:[],coOwners:Array.isArray(r.co_owners)?r.co_owners:[],priceOffered:r.price_offered||'',blocks:Array.isArray(r.blocks)?r.blocks:[],competitors:r.competitors||'',referralName:r.referral_name||'',referralLeadId:r.referral_lead_id||null,wwSuggested:!!r.wonderwall_suggested,wwVisited:!!r.wonderwall_visited,lostTo:r.lost_to||'',lastQuote:r.last_quote||null,pendingRevisit:!!r.pending_revisit,mergedInto:r.merged_into||null,revisits:[],log:[]};}
 
 async function loadAll(){
   const {data:projs}=await sb.from('projects').select('*');
@@ -1027,7 +1029,7 @@ function interestBlock(l){
 }
 
 /* ============ scope + filter ============ */
-function scoped(){return db.leads.filter(l=>can('view',l));}
+function scoped(){return db.leads.filter(l=>!l.mergedInto&&can('view',l));}
 function visible(){const q=document.getElementById('search').value.trim().toLowerCase();let s=scoped();if(q)s=s.filter(l=>l.name.toLowerCase().includes(q)||l.phone.toLowerCase().includes(q));return s.filter(passesFilters);}
 /* ---- multi-filter builder ---- */
 const FILTER_FIELDS=[
@@ -1167,7 +1169,7 @@ function receptionFormHTML(){
   const reps=salespeople();
   const ownerOpts=`<option value="">Choose salesperson…</option>`+reps.map(r=>`<option value="${r.id}" ${rcLastOwner===r.id?'selected':''}>${r.name}${r.project?' · '+r.project:''}</option>`).join('');
   const subOpts=RC_SUBSOURCES.map(s=>`<option>${s}</option>`).join('');
-  const sessionHTML=rcSession.length?`<div class="rc-log"><div class="rc-log-h">Entered today (${rcSession.length})</div>${rcSession.map(e=>`<div class="rc-log-row"><b>${escapeHtml(e.name)}</b><span>${escapeHtml(e.src)} · 📅 ${fmtDate(e.date)} → ${escapeHtml(e.owner)}</span></div>`).join('')}</div>`:'';
+  const sessionHTML=rcSession.length?`<div class="rc-log"><div class="rc-log-h">Entered today (${rcSession.length})</div>${rcSession.map(e=>`<div class="rc-log-row"><b>${escapeHtml(e.name)}${e.revisit?' <span style="color:#B26A00">↩ revisit</span>':''}</b><span>${escapeHtml(e.src)} · 📅 ${fmtDate(e.date)} → ${escapeHtml(e.owner)}</span></div>`).join('')}</div>`:'';
   const noReps=reps.length?'':`<div class="rc-warn">No salespeople have a login yet. Ask the Sales Head to add them before entering walk-ins.</div>`;
   return `<div class="rc-wrap">
     <form class="rc-card" onsubmit="event.preventDefault();rcSubmit();return false;">
@@ -1185,6 +1187,7 @@ function receptionFormHTML(){
         <div class="rc-field hidden" id="rc_cp_wrap"><label>Channel Partner name</label><input class="field" id="rc_cp" autocomplete="off" placeholder="CP / agent name"/></div>
       </div>
       <div class="rc-field"><label>Location (optional)</label><input class="field" id="rc_location" autocomplete="off" placeholder="Where they came from / area of interest"/></div>
+      <div class="rc-field"><label class="rc-check"><input type="checkbox" id="rc_revisit"/> This customer has visited before (revisit)</label></div>
       <div class="rc-field"><label>Assign to salesperson *</label><select class="field" id="rc_owner">${ownerOpts}</select></div>
       <button class="btn rc-submit" type="submit">＋ Add walk-in</button>
     </form>
@@ -1203,13 +1206,14 @@ async function rcSubmit(){
   const date=v('rc_date')||iso(today());
   const walkin_source=src==='CP'?'CP':'Direct';
   const src_detail=src==='CP'?'Channel Partner':(sub||'Direct');
-  const row={company_id:myCompanyId,project_id:projId(owner?owner.project:null),owner_id:ownerId,name,phone:v('rc_phone'),email:'',source:'walkin',src_detail,walkin_source,cp_name:src==='CP'?cp:'',location:v('rc_location'),company_name:'',budget:'',notes:'',stage:'assigned',qualified:null,temp:null,next_follow_up:null,assigned_at:date,created_at:date};
+  const revisit=!!(document.getElementById('rc_revisit')||{}).checked;
+  const row={company_id:myCompanyId,project_id:projId(owner?owner.project:null),owner_id:ownerId,name,phone:v('rc_phone'),email:'',source:'walkin',src_detail,walkin_source,cp_name:src==='CP'?cp:'',location:v('rc_location'),company_name:'',budget:'',notes:'',stage:'assigned',qualified:null,temp:null,next_follow_up:null,pending_revisit:revisit,assigned_at:date,created_at:date};
   const btn=document.querySelector('.rc-submit');if(btn){btn.disabled=true;btn.textContent='Saving…';}
   const {error}=await sb.from('leads').insert(row);
   if(btn){btn.disabled=false;btn.textContent='＋ Add walk-in';}
   if(error){alert('Could not add the walk-in: '+error.message);return;}
   rcLastOwner=ownerId;
-  rcSession.unshift({name,owner:owner?owner.name:'',date,src:walkin_source==='CP'?('CP'+(cp?' · '+cp:'')):src_detail});
+  rcSession.unshift({name,owner:owner?owner.name:'',date,revisit,src:walkin_source==='CP'?('CP'+(cp?' · '+cp:'')):src_detail});
   renderReception();
   showToast({title:'Walk-in added',msg:name+' → '+(owner?owner.name:''),go:()=>{}});
 }
@@ -1296,7 +1300,7 @@ function cardHTML(l){
   if(l.stage==='lost'&&l.lostReason)reason=`<div class="reason-tag">Lost · <b>${l.lostReason}</b></div>`;
   return `<div class="card" style="--l:${st.color}" onclick="openDrawer('${l.id}')">
     <div class="top"><div><div class="nm">${l.name}</div><div class="proj">${l.project||'—'} · <span title="${l.source==='walkin'?'Walk-in date':'Captured'}">📅 ${fmtDate(l.createdAt)}</span></div></div><span class="src ${l.source}">${l.source==='digital'?'Digital':'Walk-in'}</span></div>
-    <div class="meta">${l.ownerId?`<div class="avatar" title="${userName(l.ownerId)}">${initials(userName(l.ownerId))}</div>`:`<div class="avatar none" title="Unassigned">–</div>`}${l.dealStatus?`<span class="tchip" style="background:#E7EEF5;color:#2C5D80">${l.dealStatus}</span>`:''}${(l.metProjectHead===false&&(l.revisits&&l.revisits.length))?`<span class="tchip" style="background:#FBE9E7;color:#A03027" title="Revisited but no Project-Head meeting">No PH mtg</span>`:''}${(l.revisits&&l.revisits.length)?`<span class="tchip" style="background:#EDE7F6;color:#5E35B1">↩ ${l.revisits.length}</span>`:''}${(l.labels||[]).map(n=>`<span class="lchip" style="background:${labelColor(n)}">${n}</span>`).join('')}${slaHTML}${dueHTML}${l.budget?`<span class="budget">₹${l.budget}</span>`:''}</div>
+    <div class="meta">${l.ownerId?`<div class="avatar" title="${userName(l.ownerId)}">${initials(userName(l.ownerId))}</div>`:`<div class="avatar none" title="Unassigned">–</div>`}${l.pendingRevisit?`<span class="tchip" style="background:#FFF3E0;color:#B26A00" title="Marked as a revisit by the front desk — needs merge">↩ Revisit · merge</span>`:''}${l.dealStatus?`<span class="tchip" style="background:#E7EEF5;color:#2C5D80">${l.dealStatus}</span>`:''}${(l.metProjectHead===false&&(l.revisits&&l.revisits.length))?`<span class="tchip" style="background:#FBE9E7;color:#A03027" title="Revisited but no Project-Head meeting">No PH mtg</span>`:''}${(l.revisits&&l.revisits.length)?`<span class="tchip" style="background:#EDE7F6;color:#5E35B1">↩ ${l.revisits.length}</span>`:''}${(l.labels||[]).map(n=>`<span class="lchip" style="background:${labelColor(n)}">${n}</span>`).join('')}${slaHTML}${dueHTML}${l.budget?`<span class="budget">₹${l.budget}</span>`:''}</div>
     ${reason}</div>`;
 }
 function setPipeView(v){pipeView=v;try{localStorage.setItem('bm_pipe_view',v);}catch(e){}render();}
@@ -1418,6 +1422,7 @@ function renderDrawer(){
         <div class="det-body">${facts.map(([k,v,m])=>`<div class="fact"><div class="k">${k}</div><div class="v ${m?'mono':''}">${v}</div></div>`).join('')}</div></div>
       <div class="dr-cols">
         <div class="dr-left">
+          ${revisitMergeBlock(l)}
           ${taskBlock(l)}
           ${updateBlock(l)}
           ${visitsBlock(l)}
@@ -1483,6 +1488,31 @@ async function completeTask(tid){
   if(error){alert('Could not update: '+error.message);return;}
   await addActivityRow(t.lead_id,{kind:'note',body:'Completed task'+(resp?': '+resp:'')});
   await refresh();
+}
+function digits(s){return String(s||'').replace(/\D/g,'');}
+function revisitMergeBlock(l){
+  if(!l.pendingRevisit||!can('edit',l))return '';
+  const ph=digits(l.phone);
+  const cands=ph?db.leads.filter(x=>x.id!==l.id&&!x.mergedInto&&!x.pendingRevisit&&digits(x.phone)===ph):[];
+  let inner;
+  if(!ph){
+    inner=`<div class="ai-tag">Add the customer's phone number to <b>this</b> walk-in and to their <b>earlier</b> walk-in (tap ✎ to edit), then come back here to merge.</div>`;
+  } else if(!cands.length){
+    inner=`<div class="ai-tag">No earlier walk-in found with phone <b>${escapeHtml(l.phone)}</b>. Open their earlier walk-in, set the same phone number, then merge from here.</div>`;
+  } else {
+    inner=cands.map(t=>`<div class="task-row open"><div class="task-b">${escapeHtml(t.name)}</div><div class="task-meta">${t.project||'—'} · captured ${fmtDate(t.createdAt)} · ${(t.revisits||[]).length} revisit(s)</div><div style="margin-top:8px"><button class="btn" onclick="mergeRevisit('${l.id}','${t.id}')">Merge into this walk-in</button></div></div>`).join('');
+  }
+  return `<div class="block"><label>↩ Revisit — merge with earlier walk-in</label><div class="ai-tag" style="margin-bottom:8px">The front desk marked this as a revisit. Merge it into the customer's earlier walk-in (matched by phone number).</div>${inner}</div>`;
+}
+async function mergeRevisit(rId,tId){
+  const r=db.leads.find(x=>x.id===rId),t=db.leads.find(x=>x.id===tId);
+  if(!r||!t)return;
+  if(!can('edit',r)||!can('edit',t)){alert('You can only merge walk-ins you own. If the earlier walk-in belongs to someone else, ask a Project Head or Sales Head to merge.');return;}
+  if(!confirm('Merge this revisit into "'+t.name+'"? It will be logged as a revisit on that walk-in and this duplicate entry will be tucked away.'))return;
+  const note='Revisit (via front desk)'+(r.location?' · '+r.location:'')+(r.walkinSource==='CP'&&r.cpName?' · CP '+r.cpName:'');
+  await addActivityRow(tId,{kind:'revisit',body:note,date:r.createdAt});
+  if(!await updateLead(rId,{merged_into:tId,pending_revisit:false}))return;
+  await refresh();openDrawer(tId);
 }
 function updateBlock(l){
   if(!can('edit',l))return '';
