@@ -341,6 +341,11 @@
   .wcloud{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;padding:6px 2px;}
   .wcloud span{font-family:'Space Grotesk';line-height:1.1;color:var(--brand);cursor:pointer;transition:color .12s,transform .12s;}
   .wcloud span:hover{color:var(--lost);text-decoration:underline;transform:translateY(-1px);}
+  .th-sec{margin-bottom:14px;}
+  .th-h{font-family:'Space Grotesk';font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--soft);margin-bottom:7px;}
+  .thchip{display:inline-flex;align-items:center;gap:5px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:3px 11px;text-decoration:none!important;line-height:1.3;}
+  .thchip:hover{border-color:currentColor;transform:translateY(-1px);opacity:1;}
+  .thchip b{opacity:.55;font-size:11px;font-weight:700;}
   .filter-banner{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:#FFF7E8;border:1px solid #F0D9A8;color:#7A5B12;border-radius:10px;padding:9px 13px;margin-bottom:14px;font-size:13px;}
   .filter-banner .fb-chip{background:#fff;border:1px solid #E6CB8E;border-radius:20px;padding:2px 10px;font-weight:600;}
   .filter-banner button{margin-left:auto;border:1px solid #E0A32E;background:#fff;color:#8a6412;border-radius:8px;padding:4px 12px;font-weight:600;cursor:pointer;}
@@ -1852,8 +1857,41 @@ function statsHTML(leads){
       <div class="panel"><h3>Follow-ups by salesperson</h3>${spPanel}</div>
       <div class="panel"><h3>Deal status</h3>${tPanel}</div>
     </div>
-    <div class="panel"><h3>Comment word cloud</h3>${wordCloudHTML(leads)}<div class="ai-tag" style="margin-top:8px">Tip: use <b>Filters → Comment contains</b> to search follow-up comments by keyword.</div></div>
+    <div class="panel"><h3>Comment themes</h3>${themesHTML(leads)}<div class="ai-tag" style="margin-top:8px">Auto-grouped from your data — competitors, locations &amp; projects, unit types, then other common words. Click any term to see those walk-ins (with comments &amp; assign-task).</div></div>
     <div class="panel"><h3>Outcomes</h3>${oPanel}</div>${wiPanel}`;
+}
+const THEME_STOP=new Set(('the a an and or but to of in on for with at by from is are was were be been being have has had do does did will would can could should shall may might must not no yes ok okay he she it they them his her their our your you i we us as this that these those there here then than so if else when while about into over under out up down off again once very more most also both each few other some such own same too call called calling spoke speak talk talked told tell said say says ask asked meet met meeting visit visited visiting follow followup followed following revisit revisited discuss discussed discussing customer client lead leads walkin walkins today tomorrow yesterday morning evening back next last week weeks day days month time still going want wants wanted need needs needed interested interest looking look see seen show showed shared send sent give given get got take took come came went make made done per via etc sir madam mr mrs ms number phone email name update details detail info soon later still yet done good great fine sure maybe pls please thanks thank just near option options comparing compare important tight also thing things bit lot able around').split(/\s+/));
+function dedupeTerms(items){const seen=new Set(),out=[];items.forEach(x=>{const k=x.term.toLowerCase();if(!seen.has(k)){seen.add(k);out.push(x);}});return out;}
+function themeChip(term,arr,mx,col){const k='d'+(drillSeq++);drillReg[k]={leads:arr,label:'Comments · '+term};const sz=13+Math.round((arr.length/Math.max(1,mx))*18);return `<span class="drill thchip" style="font-size:${sz}px;color:${col}" title="${arr.length} walk-in(s) · “${escapeHtml(term)}”" onclick="openDrill('${k}')">${escapeHtml(term)}<b>${arr.length}</b></span>`;}
+function themesHTML(leads){
+  drillReg={};drillSeq=0;
+  const commentsOf=l=>(l.log||[]).filter(e=>e.kind==='note'||e.kind==='revisit').map(e=>String(e.t||'')).join('  ').toLowerCase();
+  const C={};leads.forEach(l=>C[l.id]=commentsOf(l));
+  const norm=s=>String(s||'').toLowerCase().trim();
+  const title=s=>String(s).replace(/\b\w/g,c=>c.toUpperCase());
+  // Competitors — from lost-to / competitor fields, matched in fields + comments
+  const compSet=new Set();
+  leads.forEach(l=>[l.lostTo,l.competitors].forEach(v=>String(v||'').split(/[,/;&]|\band\b/i).forEach(x=>{x=x.trim();if(x.length>=2)compSet.add(x);})));
+  let comp=[...compSet].map(nm=>{const nl=nm.toLowerCase();const arr=leads.filter(l=>(((l.lostTo||'')+' '+(l.competitors||'')).toLowerCase().includes(nl))||(C[l.id]||'').includes(nl));return {term:title(nm),arr};}).filter(x=>x.arr.length);
+  comp=dedupeTerms(comp).sort((a,b)=>b.arr.length-a.arr.length).slice(0,14);
+  // Locations & projects — from project + location fields, matched in fields + comments
+  const locSet=new Set(PROJECTS);
+  leads.forEach(l=>{if(l.location)String(l.location).split(/[,/;]/).forEach(x=>{x=x.trim();if(x.length>=3)locSet.add(x);});});
+  let loc=[...locSet].map(nm=>{const nl=nm.toLowerCase();const arr=leads.filter(l=>norm(l.project)===nl||(l.location||'').toLowerCase().includes(nl)||(C[l.id]||'').includes(nl));return {term:title(nm),arr};}).filter(x=>x.arr.length);
+  loc=dedupeTerms(loc).sort((a,b)=>b.arr.length-a.arr.length).slice(0,14);
+  // Unit types — BHK regex + dictionary + blocks
+  const unit={};const bump=(k,l)=>{(unit[k]=unit[k]||new Set()).add(l);};
+  const UNIT_WORDS=['studio','villa','penthouse','duplex','row house','plot','jodi','simplex'];
+  leads.forEach(l=>{const t=C[l.id]||'';const m=t.match(/\b([1-9])\s?bhk\b/g);if(m)m.forEach(x=>bump(x.match(/([1-9])/)[1]+' BHK',l));
+    UNIT_WORDS.forEach(w=>{if(t.includes(w))bump(title(w),l);});(l.blocks||[]).forEach(b=>bump('Block '+String(b).toUpperCase(),l));});
+  const units=Object.entries(unit).map(([term,set])=>({term,arr:[...set]})).sort((a,b)=>b.arr.length-a.arr.length).slice(0,14);
+  // Other themes — cleaned frequency, excluding words already captured above
+  const captured=new Set();[...comp,...loc,...units].forEach(x=>x.term.toLowerCase().split(/\s+/).forEach(w=>captured.add(w)));
+  const freq={};leads.forEach(l=>(C[l.id]||'').split(/[^a-z0-9]+/).forEach(w=>{if(w.length>=3&&!THEME_STOP.has(w)&&!captured.has(w)&&!/^\d+$/.test(w)&&!/bhk/.test(w))freq[w]=(freq[w]||0)+1;}));
+  const other=Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,26).map(([w])=>({term:w,arr:leads.filter(l=>(C[l.id]||'').includes(w))}));
+  const sect=(t,items,col)=>{if(!items.length)return '';const mx=items[0].arr.length;return `<div class="th-sec"><div class="th-h">${t}</div><div class="wcloud">${items.map(it=>themeChip(it.term,it.arr,mx,col)).join('')}</div></div>`;};
+  if(!(comp.length||loc.length||units.length||other.length))return '<div class="locked-note">No comment themes yet. As the team logs follow-ups, real-estate themes appear here.</div>';
+  return sect('Competitors',comp,'#C0433A')+sect('Locations &amp; projects',loc,'#2C5D80')+sect('Unit types',units,'#2E7D32')+sect('Other themes',other,'var(--brand)');
 }
 function wordCloudHTML(leads){
   const stop=new Set('the a an and or but to of in on for with at by from is are was were be been being have has had do does did will would can could should not no yes he she it they them his her their our your you i we as this that these those about into over under out up down very more most also them him her can call called spoke said told want wants need needs get got very just now'.split(' '));
