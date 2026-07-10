@@ -283,7 +283,11 @@
   .bell:hover{border-color:var(--brand);}
   .bell .badge{position:absolute;top:-6px;right:-6px;background:var(--lost);color:#fff;font-family:'Space Grotesk';font-size:10px;font-weight:700;min-width:17px;height:17px;border-radius:9px;display:none;place-items:center;padding:0 4px;}
   .notify-panel{position:absolute;right:24px;top:62px;width:344px;max-height:70vh;overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 44px rgba(21,34,56,.18);z-index:55;}
-  .notify-panel .nhead{padding:14px 16px;font-family:'Space Grotesk';font-weight:600;border-bottom:1px solid var(--line);}
+  .notify-panel .nhead{padding:14px 16px;font-family:'Space Grotesk';font-weight:600;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .notify-panel .nclear{border:none;background:none;color:var(--brand);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;padding:2px 4px;}
+  .notify-panel .nclear:hover{text-decoration:underline;}
+  .notify-panel .nx{margin-left:8px;border:none;background:none;color:var(--soft);font-size:17px;line-height:1;cursor:pointer;flex:none;padding:0 2px;align-self:flex-start;}
+  .notify-panel .nx:hover{color:var(--lost);}
   .notify-panel .nsec{padding:11px 16px 4px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--soft);font-weight:600;}
   .notify-panel .nrow{display:flex;gap:11px;padding:10px 16px;cursor:pointer;align-items:flex-start;border-top:1px solid var(--line2);}
   .notify-panel .nrow:hover{background:#F8FAFC;}
@@ -1922,24 +1926,44 @@ function notifyItems(){
   const total=stale.length+overdue.length+incoming.length+pendingT.length+declinedT.length+interests.length+pendingPricing.length+pricedForMe.length+myTasks.length+doneTasks.length;
   return {stale,overdue,incoming,pendingT,declinedT,interests,pendingPricing,pricedForMe,myTasks,doneTasks,total};
 }
-function refreshNotifyBadge(){const b=document.getElementById('notifyBadge');if(!b)return;const t=notifyItems().total;b.textContent=t?t:'';b.style.display=t?'grid':'none';}
+let dismissedNotif=null;
+function dismKey(){return 'bm_dismissed_notif_'+(session||'x');}
+function ensureDismissed(){if(dismissedNotif===null){try{dismissedNotif=new Set(JSON.parse(localStorage.getItem(dismKey())||'[]'));}catch(e){dismissedNotif=new Set();}}return dismissedNotif;}
+function saveDismissed(){try{localStorage.setItem(dismKey(),JSON.stringify([...ensureDismissed()]));}catch(e){}}
+function notifyKeyList(){const it=notifyItems();const ks=[];
+  it.myTasks.forEach(t=>ks.push('tk_'+t.id));it.incoming.forEach(t=>ks.push('in_'+t.id));
+  it.pendingPricing.forEach(r=>ks.push('pp_'+r.id));it.pricedForMe.forEach(r=>ks.push('pf_'+r.id));
+  it.doneTasks.forEach(t=>ks.push('tkd_'+t.id));it.pendingT.forEach(t=>ks.push('pt_'+t.id));
+  it.declinedT.forEach(t=>ks.push('dt_'+t.id));it.interests.forEach(c=>ks.push('ci_'+c.id));
+  it.stale.forEach(l=>ks.push('st_'+l.id));it.overdue.forEach(l=>ks.push('ov_'+l.id));
+  return ks;}
+function refreshNotifyBadge(){const b=document.getElementById('notifyBadge');if(!b)return;
+  const dm=ensureDismissed();const ks=notifyKeyList();const cur=new Set(ks);
+  let changed=false;[...dm].forEach(k=>{if(!cur.has(k)){dm.delete(k);changed=true;}});if(changed)saveDismissed();
+  const t=ks.filter(k=>!dm.has(k)).length;b.textContent=t?t:'';b.style.display=t?'grid':'none';}
+function dismissNotif(key){ensureDismissed().add(key);saveDismissed();renderNotify();refreshNotifyBadge();}
+function clearAllNotif(){const dm=ensureDismissed();notifyKeyList().forEach(k=>dm.add(k));saveDismissed();renderNotify();refreshNotifyBadge();}
 function toggleNotify(){const p=document.getElementById('notifyPanel');if(p.classList.contains('hidden')){renderNotify();p.classList.remove('hidden');}else{p.classList.add('hidden');}}
 function closeNotify(){document.getElementById('notifyPanel').classList.add('hidden');}
-function renderNotify(){const p=document.getElementById('notifyPanel');const it=notifyItems();
-  const row=(l,txt,col)=>`<div class="nrow" onclick="closeNotify();openDrawer('${l.id}')"><div class="ndot" style="background:${col}"></div><div class="nmeta"><b>${l.name}</b><span>${l.project||''} · ${l.ownerId?userName(l.ownerId):'unassigned'} — ${txt}</span></div></div>`;
+function renderNotify(){const p=document.getElementById('notifyPanel');const it=notifyItems();const dm=ensureDismissed();
+  const keep=k=>!dm.has(k);
+  const nx=k=>`<button class="nx" title="Dismiss" onclick="event.stopPropagation();dismissNotif('${k}')">×</button>`;
   const canOpen=id=>db.leads.some(l=>l.id===id);
-  let html=`<div class="nhead">Alerts</div>`;
-  if(it.incoming.length)html+=`<div class="nsec">Handoffs waiting for you</div>`+it.incoming.map(t=>`<div class="nrow"><div class="ndot" style="background:#4A6FA5"></div><div class="nmeta" style="flex:1"><b>${t.lead_name||'A lead'}</b><span>${userName(t.from_member)} wants to hand this to you${t.note?' — '+t.note:''}</span><div style="margin-top:7px;display:flex;gap:8px"><button class="btn" style="padding:5px 11px" onclick="acceptTransfer('${t.id}')">Accept</button><button class="btn ghost" style="padding:5px 11px" onclick="declineTransfer('${t.id}')">Decline</button></div></div></div>`).join('');
-  if(it.pendingPricing&&it.pendingPricing.length)html+=`<div class="nsec">Pricing approvals to set</div>`+it.pendingPricing.map(r=>`<div class="nrow" onclick="closeNotify();openPricing('respond','${r.id}')"><div class="ndot" style="background:#2C9C9A"></div><div class="nmeta"><b>${r.lead_name||''}</b><span>${userName(r.requested_by)} needs prices for ${(r.units||[]).map(x=>x.unit).join(', ')}</span></div></div>`).join('');
-  if(it.pricedForMe&&it.pricedForMe.length)html+=`<div class="nsec">Your pricing is ready</div>`+it.pricedForMe.map(r=>`<div class="nrow" onclick="closeNotify();openPricing('view','${r.id}')"><div class="ndot" style="background:#2E9E5B"></div><div class="nmeta"><b>${r.lead_name||''}</b><span>priced by ${userName(r.responded_by)} — tap to view</span></div></div>`).join('');
-  if(it.myTasks&&it.myTasks.length)html+=`<div class="nsec">Tasks assigned to you</div>`+it.myTasks.map(t=>`<div class="nrow" onclick="closeNotify();openDrawer('${t.lead_id}')"><div class="ndot" style="background:#C0524A"></div><div class="nmeta"><b>${t.lead_name||''}</b><span>${userName(t.assigned_by)}: ${escapeHtml(t.body)}</span></div></div>`).join('');
-  if(it.doneTasks&&it.doneTasks.length)html+=`<div class="nsec">Tasks completed</div>`+it.doneTasks.map(t=>`<div class="nrow" onclick="closeNotify();openDrawer('${t.lead_id}')"><div class="ndot" style="background:#2E9E5B"></div><div class="nmeta"><b>${t.lead_name||''}</b><span>${userName(t.assigned_to)} completed${t.response?': '+escapeHtml(t.response):''}</span></div></div>`).join('');
-  if(it.pendingT.length)html+=`<div class="nsec">Handoffs awaiting acceptance</div>`+it.pendingT.map(t=>`<div class="nrow"${canOpen(t.lead_id)?` onclick="closeNotify();openDrawer('${t.lead_id}')"`:''}><div class="ndot" style="background:#E0A32E"></div><div class="nmeta"><b>${t.lead_name||''}</b><span>${userName(t.from_member)} → ${userName(t.to_member)} · not accepted yet</span></div></div>`).join('');
-  if(it.declinedT.length)html+=`<div class="nsec">Handoffs declined</div>`+it.declinedT.map(t=>`<div class="nrow"${canOpen(t.lead_id)?` onclick="closeNotify();openDrawer('${t.lead_id}')"`:''}><div class="ndot" style="background:#C0433A"></div><div class="nmeta"><b>${t.lead_name||''}</b><span>${userName(t.to_member)} declined handoff from ${userName(t.from_member)}</span></div></div>`).join('');
-  if(it.interests.length)html+=`<div class="nsec">Cross-project interest</div>`+it.interests.map(c=>`<div class="nrow"${canOpen(c.lead_id)?` onclick="closeNotify();openDrawer('${c.lead_id}')"`:''}><div class="ndot" style="background:#7E57C2"></div><div class="nmeta"><b>${c.lead_name||''}</b><span>interested in ${projName(c.target_project_id)||'—'}${c.note?' — '+c.note:''}</span></div></div>`).join('');
-  if(it.stale.length)html+=`<div class="nsec">Qualified · no follow-up 7+ days</div>`+it.stale.map(l=>row(l,'no action for '+staleQualified(l).days+'d — book or close it','#C0433A')).join('');
-  if(it.overdue.length)html+=`<div class="nsec">Awaiting qualify/disqualify 7+ days</div>`+it.overdue.map(l=>row(l,'decision overdue '+(-slaState(l).left)+'d','#E0A32E')).join('');
-  if(!it.total)html+=`<div class="nempty">Nothing needs attention right now.</div>`;
+  const row=(l,txt,col,key)=>`<div class="nrow" onclick="closeNotify();openDrawer('${l.id}')"><div class="ndot" style="background:${col}"></div><div class="nmeta"><b>${l.name}</b><span>${l.project||''} · ${l.ownerId?userName(l.ownerId):'unassigned'} — ${txt}</span></div>${nx(key)}</div>`;
+  const myTasks=it.myTasks.filter(t=>keep('tk_'+t.id)),incoming=it.incoming.filter(t=>keep('in_'+t.id)),pendingPricing=it.pendingPricing.filter(r=>keep('pp_'+r.id)),pricedForMe=it.pricedForMe.filter(r=>keep('pf_'+r.id)),doneTasks=it.doneTasks.filter(t=>keep('tkd_'+t.id)),pendingT=it.pendingT.filter(t=>keep('pt_'+t.id)),declinedT=it.declinedT.filter(t=>keep('dt_'+t.id)),interests=it.interests.filter(c=>keep('ci_'+c.id)),stale=it.stale.filter(l=>keep('st_'+l.id)),overdue=it.overdue.filter(l=>keep('ov_'+l.id));
+  const total=myTasks.length+incoming.length+pendingPricing.length+pricedForMe.length+doneTasks.length+pendingT.length+declinedT.length+interests.length+stale.length+overdue.length;
+  let html=`<div class="nhead">Alerts${total?`<button class="nclear" onclick="clearAllNotif()">Clear all</button>`:''}</div>`;
+  if(incoming.length)html+=`<div class="nsec">Handoffs waiting for you</div>`+incoming.map(t=>`<div class="nrow"><div class="ndot" style="background:#4A6FA5"></div><div class="nmeta" style="flex:1"><b>${t.lead_name||'A lead'}</b><span>${userName(t.from_member)} wants to hand this to you${t.note?' — '+t.note:''}</span><div style="margin-top:7px;display:flex;gap:8px"><button class="btn" style="padding:5px 11px" onclick="acceptTransfer('${t.id}')">Accept</button><button class="btn ghost" style="padding:5px 11px" onclick="declineTransfer('${t.id}')">Decline</button></div></div>${nx('in_'+t.id)}</div>`).join('');
+  if(myTasks.length)html+=`<div class="nsec">Tasks assigned to you</div>`+myTasks.map(t=>`<div class="nrow" onclick="closeNotify();openDrawer('${t.lead_id}')"><div class="ndot" style="background:#C0524A"></div><div class="nmeta"><b>${t.lead_name||''}</b><span>${userName(t.assigned_by)}: ${escapeHtml(t.body)}</span></div>${nx('tk_'+t.id)}</div>`).join('');
+  if(pendingPricing.length)html+=`<div class="nsec">Pricing approvals to set</div>`+pendingPricing.map(r=>`<div class="nrow" onclick="closeNotify();openPricing('respond','${r.id}')"><div class="ndot" style="background:#2C9C9A"></div><div class="nmeta"><b>${r.lead_name||''}</b><span>${userName(r.requested_by)} needs prices for ${(r.units||[]).map(x=>x.unit).join(', ')}</span></div>${nx('pp_'+r.id)}</div>`).join('');
+  if(pricedForMe.length)html+=`<div class="nsec">Your pricing is ready</div>`+pricedForMe.map(r=>`<div class="nrow" onclick="closeNotify();openPricing('view','${r.id}')"><div class="ndot" style="background:#2E9E5B"></div><div class="nmeta"><b>${r.lead_name||''}</b><span>priced by ${userName(r.responded_by)} — tap to view</span></div>${nx('pf_'+r.id)}</div>`).join('');
+  if(doneTasks.length)html+=`<div class="nsec">Tasks completed</div>`+doneTasks.map(t=>`<div class="nrow" onclick="closeNotify();openDrawer('${t.lead_id}')"><div class="ndot" style="background:#2E9E5B"></div><div class="nmeta"><b>${t.lead_name||''}</b><span>${userName(t.assigned_to)} completed${t.response?': '+escapeHtml(t.response):''}</span></div>${nx('tkd_'+t.id)}</div>`).join('');
+  if(pendingT.length)html+=`<div class="nsec">Handoffs awaiting acceptance</div>`+pendingT.map(t=>`<div class="nrow"${canOpen(t.lead_id)?` onclick="closeNotify();openDrawer('${t.lead_id}')"`:''}><div class="ndot" style="background:#E0A32E"></div><div class="nmeta"><b>${t.lead_name||''}</b><span>${userName(t.from_member)} → ${userName(t.to_member)} · not accepted yet</span></div>${nx('pt_'+t.id)}</div>`).join('');
+  if(declinedT.length)html+=`<div class="nsec">Handoffs declined</div>`+declinedT.map(t=>`<div class="nrow"${canOpen(t.lead_id)?` onclick="closeNotify();openDrawer('${t.lead_id}')"`:''}><div class="ndot" style="background:#C0433A"></div><div class="nmeta"><b>${t.lead_name||''}</b><span>${userName(t.to_member)} declined handoff from ${userName(t.from_member)}</span></div>${nx('dt_'+t.id)}</div>`).join('');
+  if(interests.length)html+=`<div class="nsec">Cross-project interest</div>`+interests.map(c=>`<div class="nrow"${canOpen(c.lead_id)?` onclick="closeNotify();openDrawer('${c.lead_id}')"`:''}><div class="ndot" style="background:#7E57C2"></div><div class="nmeta"><b>${c.lead_name||''}</b><span>interested in ${projName(c.target_project_id)||'—'}${c.note?' — '+c.note:''}</span></div>${nx('ci_'+c.id)}</div>`).join('');
+  if(stale.length)html+=`<div class="nsec">Qualified · no follow-up 7+ days</div>`+stale.map(l=>row(l,'no action for '+staleQualified(l).days+'d — book or close it','#C0433A','st_'+l.id)).join('');
+  if(overdue.length)html+=`<div class="nsec">Awaiting qualify/disqualify 7+ days</div>`+overdue.map(l=>row(l,'decision overdue '+(-slaState(l).left)+'d','#E0A32E','ov_'+l.id)).join('');
+  if(!total)html+=`<div class="nempty">You're all caught up. 🎉</div>`;
   p.innerHTML=html;}
 /* ============ floating notification labels (toasts) ============ */
 let seenNotif=null;
