@@ -682,7 +682,7 @@ function can(action,lead){
 
 /* ============ AUTH ============ */
 function showLogin(){document.getElementById('appRoot').classList.add('hidden');document.getElementById('authRoot').classList.remove('hidden');renderLogin();}
-function showApp(){document.getElementById('authRoot').classList.add('hidden');document.getElementById('appRoot').classList.remove('hidden');activeTab='pipeline';openId=null;render();}
+function showApp(){document.getElementById('authRoot').classList.add('hidden');document.getElementById('appRoot').classList.remove('hidden');activeTab='pipeline';openId=null;render();setTimeout(function(){try{pollNotify();}catch(e){}},1200);}
 
 function authField(id,label,type,ph,val){return `<div class="auth-field"><label>${label}</label><input type="${type}" id="${id}" placeholder="${ph}" value="${val||''}" onkeydown="if(event.key==='Enter')authSubmit()"/></div>`;}
 function renderLogin(){
@@ -1945,13 +1945,13 @@ function renderNotify(){const p=document.getElementById('notifyPanel');const it=
 let seenNotif=null;
 function notifyEvents(){
   const it=notifyItems();const ev=[];
+  (it.myTasks||[]).forEach(t=>ev.push({key:'tk_'+t.id,title:'Task · '+(t.lead_name||''),msg:userName(t.assigned_by)+': '+t.body,go:()=>openDrawer(t.lead_id)}));
   (it.incoming||[]).forEach(t=>ev.push({key:'in_'+t.id,title:'Handoff to you · '+(t.lead_name||'a lead'),msg:userName(t.from_member)+' wants to hand this to you',go:toggleNotify}));
   (it.pendingPricing||[]).forEach(r=>ev.push({key:'pp_'+r.id,title:'Pricing request · '+(r.lead_name||''),msg:userName(r.requested_by)+' needs prices'+(r.scheme?' ('+r.scheme+')':''),go:()=>openPricing('respond',r.id)}));
   (it.pricedForMe||[]).forEach(r=>ev.push({key:'pf_'+r.id,title:'Prices ready · '+(r.lead_name||''),msg:'priced by '+userName(r.responded_by)+' — tap to view',go:()=>openPricing('view',r.id)}));
   (it.pendingT||[]).forEach(t=>ev.push({key:'pt_'+t.id,title:'Handoff pending · '+(t.lead_name||''),msg:userName(t.from_member)+' → '+userName(t.to_member)+' · not accepted yet',go:toggleNotify}));
   (it.declinedT||[]).forEach(t=>ev.push({key:'dt_'+t.id,title:'Handoff declined · '+(t.lead_name||''),msg:userName(t.to_member)+' declined',go:toggleNotify}));
   (it.interests||[]).forEach(c=>ev.push({key:'ci_'+c.id,title:'Cross-project · '+(c.lead_name||''),msg:'interested in '+(projName(c.target_project_id)||'—'),go:toggleNotify}));
-  (it.myTasks||[]).forEach(t=>ev.push({key:'tk_'+t.id,title:'Task · '+(t.lead_name||''),msg:userName(t.assigned_by)+': '+t.body,go:()=>openDrawer(t.lead_id)}));
   (it.doneTasks||[]).forEach(t=>ev.push({key:'tkd_'+t.id,title:'Task done · '+(t.lead_name||''),msg:userName(t.assigned_to)+' completed'+(t.response?': '+t.response:''),go:()=>openDrawer(t.lead_id)}));
   return ev;
 }
@@ -1964,14 +1964,20 @@ function showToast(ev){
   d.onclick=()=>{kill();try{ev.go&&ev.go();}catch(e){}};
   wrap.appendChild(d);
 }
+function seenKey(){return 'bm_seen_notif_'+(session||'x');}
+function loadSeen(){try{return new Set(JSON.parse(localStorage.getItem(seenKey())||'[]'));}catch(e){return new Set();}}
+function saveSeen(s){try{localStorage.setItem(seenKey(),JSON.stringify([...s]));}catch(e){}}
 function pollNotify(){
   if(!session)return;
   refreshNotifyBadge();
   const p=document.getElementById('notifyPanel');if(p&&!p.classList.contains('hidden'))renderNotify();
+  if(seenNotif===null)seenNotif=loadSeen();               // remember across reloads (per user)
   const ev=notifyEvents();const cur=new Set(ev.map(e=>e.key));
-  if(seenNotif===null){seenNotif=cur;return;}      // first pass: remember, don't toast the backlog
-  ev.forEach(e=>{if(!seenNotif.has(e.key))showToast(e);});
-  seenNotif=cur;
+  const fresh=ev.filter(e=>!seenNotif.has(e.key));         // anything never shown before — even on first open
+  fresh.slice(0,6).forEach(showToast);                     // show a few, avoid a wall
+  fresh.forEach(e=>seenNotif.add(e.key));
+  [...seenNotif].forEach(k=>{if(!cur.has(k))seenNotif.delete(k);}); // forget resolved ones
+  saveSeen(seenNotif);
 }
 /* ============ team chat ============ */
 let chatTimer=null;
