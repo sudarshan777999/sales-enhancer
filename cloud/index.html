@@ -356,6 +356,20 @@
   .list-table .cmt-cell{max-width:320px;min-width:190px;}
   .cmt{font-size:12px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px;line-height:1.55;}
   .cmt-d{color:var(--soft);font-size:10.5px;margin-right:4px;}
+  .ask-bar{display:flex;align-items:center;gap:9px;margin-bottom:10px;}
+  .ask-bar .ask-ic{color:var(--brand);font-size:15px;flex:none;}
+  .ask-bar input{flex:1;min-width:0;}
+  .drill{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;}
+  .drill:hover{opacity:.72;}
+  .mini-lead{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;background:var(--surface);}
+  .mini-top{display:flex;justify-content:space-between;align-items:center;gap:10px;}
+  .mini-top b{font-family:'Space Grotesk';}
+  .mini-sub{font-size:12px;color:var(--soft);margin-top:4px;}
+  .mini-cmts{margin-top:8px;}
+  .mini-cmt{font-size:12.5px;color:var(--ink);line-height:1.5;}
+  .mini-cmt span{color:var(--soft);font-size:10.5px;margin-right:4px;}
+  .mini-assign{display:flex;gap:8px;margin-top:10px;}
+  .mini-assign input{flex:1;min-width:0;}
   .rc-wrap{max-width:620px;margin:26px auto;padding:0 16px;}
   .rc-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:26px 26px 22px;box-shadow:0 12px 36px rgba(21,34,56,.08);}
   .rc-card h2{font-family:'Space Grotesk';font-size:22px;margin:0 0 4px;}
@@ -485,6 +499,15 @@
     <div class="modal-h"><h2>Your team</h2></div>
     <div class="modal-b" style="display:block" id="teamBody"></div>
     <div class="modal-f"><button class="btn ghost" onclick="closeTeam()">Close</button></div>
+  </div>
+</div>
+
+<!-- Walk-ins drill-down list (from funnel numbers / ask box) -->
+<div class="modal-scrim" id="listScrim">
+  <div class="modal">
+    <div class="modal-h"><h2 id="listTitle">Walk-ins</h2></div>
+    <div class="modal-b" style="display:block" id="listBody"></div>
+    <div class="modal-f"><button class="btn ghost" onclick="closeLeadList()">Close</button></div>
   </div>
 </div>
 
@@ -1127,7 +1150,8 @@ function renderSavedBar(){
   const qv=(days,label)=>{const val=addDays(-days)+'|'+addDays(0);const on=filters.length===2&&filters.some(f=>f.field==='captured'&&f.value===val)&&filters.some(f=>f.field==='source'&&f.value==='walkin');return `<button class="sfchip ${on?'on':''}" onclick="applyQuickView(${days})">${label}</button>`;};
   const quick=qv(15,'Last 15 days')+qv(30,'Last 30 days');
   const chips=list.map((sf,i)=>{const on=JSON.stringify({m:sf.mode||'AND',f:sf.filters})===cur;return `<button class="sfchip ${on?'on':''}" onclick="applySaved(${i})">${sf.name}</button>`;}).join('');
-  el.innerHTML=`<div class="sfbar">${quick}${chips}${active?`<button class="sfchip clear" onclick="clearFilters()">✕ Clear filters (${active})</button>`:''}<button class="sfchip add" onclick="openFilters()">＋ Filter / save</button></div>`;
+  const ask=`<div class="ask-bar"><span class="ask-ic">✦</span><input class="field" id="askBox" autocomplete="off" placeholder="Ask in plain words… e.g. revisited and project head didn't meet and lost" value="${(lastAsk||'').replace(/"/g,'&quot;')}" onkeydown="if(event.key==='Enter')runAsk()"/><button class="btn" onclick="runAsk()">Show walk-ins</button></div>`;
+  el.innerHTML=ask+`<div class="sfbar">${quick}${chips}${active?`<button class="sfchip clear" onclick="clearFilters()">✕ Clear filters (${active})</button>`:''}<button class="sfchip add" onclick="openFilters()">＋ Filter / save</button></div>`;
 }
 /* ---- custom labels ---- */
 const LABEL_COLORS=['#2C5D80','#2E9E5B','#D9982B','#C0524A','#7E57C2','#2C9C9A','#4A6FA5','#98A2B0'];
@@ -1955,47 +1979,128 @@ function phaseBlock(l){if(l.source!=='walkin')return '';const terminal=['booked'
 function fnlBuildDS(leads,keyFn){const m={};leads.forEach(l=>{const k=keyFn(l);if(!k)return;m[k]=m[k]||{};if(l.dealStatus)m[k][l.dealStatus]=(m[k][l.dealStatus]||0)+1;const rv=(l.revisits||[]).length;if(rv)m[k].Revisits=(m[k].Revisits||0)+rv;});return m;}
 function fnlDsTable(m,label){const cols=[...DEAL_STATUSES,'Revisits'];const keys=Object.keys(m).sort();if(!keys.length)return '<div class="locked-note">Nothing in this window.</div>';
   return `<table style="box-shadow:none"><thead><tr><th>${label}</th>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${keys.map(k=>`<tr><td><b class="mono">${k}</b></td>${cols.map(c=>`<td class="mono">${m[k][c]||0}</td>`).join('')}</tr>`).join('')}</tbody></table>`;}
+/* ---- drill-down list popup (shared by funnel numbers + ask box) ---- */
+let drillReg={},drillSeq=0;
+function drillN(arr,label){const k='d'+(drillSeq++);drillReg[k]={leads:arr,label};return `<span class="drill" onclick="event.stopPropagation();openDrill('${k}')">${arr.length}</span>`;}
+function openDrill(k){const d=drillReg[k];if(!d)return;openLeadList(d.label,d.leads);}
+function leadRowMini(l){
+  const st=STAGES[l.stage];
+  const cmts=(l.log||[]).filter(e=>(e.kind==='note'||e.kind==='revisit')&&e.t&&String(e.t).trim()).slice(-2).reverse();
+  const cmtHTML=cmts.length?cmts.map(e=>`<div class="mini-cmt"><span>${fmtDate(e.d)}</span> ${escapeHtml(e.t)}</div>`).join(''):'<div class="mini-cmt" style="color:var(--soft)">No comments yet.</div>';
+  const assign=canAssignTask(l)?`<div class="mini-assign"><input class="field" id="qt_${l.id}" placeholder="Assign a task to ${escapeHtml(userName(l.ownerId))}…" onkeydown="if(event.key==='Enter')quickAssignTask('${l.id}')"/><button class="btn" onclick="quickAssignTask('${l.id}')">Send</button></div>`:'';
+  return `<div class="mini-lead">
+    <div class="mini-top"><div><b>${escapeHtml(l.name)}</b> <span class="tchip" style="background:${st.color}1c;color:${st.color}">${st.label}</span>${l.dealStatus?` <span class="tchip" style="background:#E7EEF5;color:#2C5D80">${l.dealStatus}</span>`:''}</div><button class="btn ghost" style="padding:5px 11px" onclick="closeLeadList();openDrawer('${l.id}')">Open</button></div>
+    <div class="mini-sub">${l.project||'—'} · ${l.ownerId?escapeHtml(userName(l.ownerId)):'Unassigned'} · 📅 ${fmtDate(l.createdAt)}${(l.revisits||[]).length?' · ↩ '+l.revisits.length:''}${(l.metProjectHead===false&&(l.revisits||[]).length)?' · <span style="color:#A03027">no PH mtg</span>':''}${l.lostTo?' · lost to '+escapeHtml(l.lostTo):''}</div>
+    <div class="mini-cmts">${cmtHTML}</div>${assign}</div>`;
+}
+function openLeadList(title,leads){
+  document.getElementById('listTitle').textContent=title+' · '+leads.length;
+  document.getElementById('listBody').innerHTML=leads.length?leads.map(leadRowMini).join(''):'<div class="locked-note">No walk-ins match.</div>';
+  document.getElementById('listScrim').classList.add('on');
+}
+function closeLeadList(){document.getElementById('listScrim').classList.remove('on');}
+async function quickAssignTask(leadId){
+  const l=db.leads.find(x=>x.id===leadId);if(!l||!canAssignTask(l))return;
+  const el=document.getElementById('qt_'+leadId);if(!el)return;const body=(el.value||'').trim();if(!body){el.focus();return;}
+  el.disabled=true;
+  const {error}=await sb.from('tasks').insert({company_id:myCompanyId,lead_id:l.id,lead_name:l.name,assigned_to:l.ownerId,assigned_by:session,body,status:'open'});
+  if(error){alert('Could not assign: '+error.message);el.disabled=false;return;}
+  await addActivityRow(l.id,{kind:'system',body:'Assigned a task to '+userName(l.ownerId)+': '+body});
+  el.value='';el.disabled=false;el.placeholder='✓ Task sent to '+userName(l.ownerId);
+  await loadAll();
+}
+/* ---- natural-language ask box (all users) ---- */
+let lastAsk='';
+function parseAsk(q){
+  let t=' '+q.toLowerCase().replace(/[’']/g,"'")+' ';
+  t=t.replace(/did\s*n'?o?t|didnt|didnot/g,' did not ').replace(/does\s*n'?t|doesnt/g,' does not ').replace(/has\s*n'?t|hasnt/g,' has not ').replace(/have\s*n'?t|havent/g,' have not ').replace(/was\s*n'?t/g,' was not ').replace(/\s+/g,' ');
+  const preds=[],labels=[],add=(fn,lb)=>{preds.push(fn);labels.push(lb);};
+  if(/revisit|came back|come back|second visit/.test(t))add(l=>(l.revisits||[]).length>0,'revisited');
+  if(t.includes('project head')||t.includes(' ph ')||t.includes('projecthead')){
+    if(/not met|did not meet|did not met|not meet|without meeting|no ph|never met|no meeting/.test(t))add(l=>!l.metProjectHead,"project head didn't meet");
+    else add(l=>!!l.metProjectHead,'project head met');
+  }
+  if(/\blost\b|lost the sale|lost sale|closed lost/.test(t))add(l=>l.stage==='lost','lost');
+  if(/\bbooked\b|\bwon\b|closed won/.test(t))add(l=>l.stage==='booked','booked / won');
+  if(/not qualified|disqualif/.test(t))add(l=>l.stage==='not_qualified','not qualified');
+  else if(/qualified/.test(t))add(l=>l.qualified===true,'qualified');
+  if(/negotiat/.test(t))add(l=>l.dealStatus==='Negotiation','in negotiation');
+  if(/\bprospect\b/.test(t))add(l=>l.dealStatus==='Prospect','prospect');
+  if(/wonderwall|wonder wall/.test(t)){
+    if(/(not|no |without|has not|have not)/.test(t)&&/propos|suggest/.test(t))add(l=>!l.wwSuggested,'wonderwall not proposed');
+    else if(/visit/.test(t))add(l=>!!l.wwVisited,'wonderwall visited');
+    else add(l=>!!l.wwSuggested,'wonderwall proposed');
+  }
+  if(/channel partner|\bcp\b/.test(t))add(l=>l.walkinSource==='CP','via CP');
+  if(/referral/.test(t))add(l=>l.walkinSource==='Referral','referral');
+  if(/phase\s*1/.test(t))add(l=>l.walkinPhase==='Phase 1','phase 1');
+  if(/phase\s*2/.test(t))add(l=>l.walkinPhase==='Phase 2','phase 2');
+  if(/overdue/.test(t))add(l=>{const s=slaState(l);return !!(s&&s.over);},'decision overdue');
+  if(/stall|no follow/.test(t))add(l=>!!staleQualified(l),'stalled');
+  if(/competitor|lost to/.test(t)){
+    const m=t.match(/(?:competitor|lost to)\s+([a-z][a-z0-9&.\- ]{1,18})/);
+    let nm=m?m[1].trim().replace(/\b(and|or|with|who|that|the|in|for|we|did|not|but)\b.*$/,'').trim():'';
+    if(nm)add(l=>(((l.lostTo||'')+' '+(l.competitors||'')).toLowerCase()).includes(nm),'competitor: '+nm);
+    else add(l=>!!(l.lostTo||l.competitors),'has a competitor');
+  }
+  const dm=t.match(/last\s+(\d{1,3})\s*day/);
+  if(dm){const n=parseInt(dm[1]);const from=addDays(-n);add(l=>l.createdAt>=from,'last '+n+' days');}
+  else if(/last month|past month/.test(t)){const from=addDays(-30);add(l=>l.createdAt>=from,'last 30 days');}
+  PROJECTS.forEach(p=>{if(t.includes(' '+p.toLowerCase()))add(l=>l.project===p,p);});
+  (db.users||[]).filter(u=>u.role==='sales').forEach(u=>{const fn=(u.name||'').toLowerCase().split(' ')[0];if(fn&&fn.length>2&&t.includes(' '+fn))add(l=>l.ownerId===u.id,u.name);});
+  return {preds,labels};
+}
+function runAsk(){
+  const box=document.getElementById('askBox');if(!box)return;const q=(box.value||'').trim();lastAsk=q;
+  if(!q)return;
+  const {preds,labels}=parseAsk(q);
+  if(!preds.length){alert("I couldn't spot a filter in that. Try words like: revisited · project head not met · lost · booked · qualified · competitor · wonderwall not proposed · last 30 days · phase 1 · Earthscape · a salesperson's name.");return;}
+  const res=scoped().filter(l=>!l.mergedInto&&preds.every(p=>p(l)));
+  openLeadList('“'+q+'”'+(labels.length?' — '+labels.join(' + '):''),res);
+}
 function funnelHTML(){
   const all=scoped().filter(l=>l.source==='walkin'&&inRange(l)&&passesFilters(l));const N=all.length;const cnt=fn=>all.filter(fn).length;
   const allLeads=scoped().filter(l=>inRange(l)&&passesFilters(l));
   const dsCol={'Prospect':'#6C7A93','Negotiation':'#4A6FA5','Booked':'#2C9C9A','Closed Won':'#2E9E5B','Closed Lost':'#C0524A'};
   const qualified=cnt(l=>l.qualified===true),disq=cnt(l=>l.stage==='not_qualified'),pending=cnt(l=>l.stage==='assigned'&&l.qualified===null),newp=cnt(l=>l.stage==='new'),activeQ=cnt(l=>l.stage==='qualified'),booked=cnt(l=>l.stage==='booked'),lost=cnt(l=>l.stage==='lost');
-  const overdue=all.filter(l=>{const s=slaState(l);return s&&s.over;}).length;
-  const stalled=all.filter(l=>staleQualified(l)).length;
+  drillReg={};drillSeq=0;
+  const A={pending:all.filter(l=>l.stage==='assigned'&&l.qualified===null),overdue:all.filter(l=>{const s=slaState(l);return s&&s.over;}),qualified:all.filter(l=>l.qualified===true),disq:all.filter(l=>l.stage==='not_qualified'),stalled:all.filter(l=>staleQualified(l)),newp:all.filter(l=>l.stage==='new'),activeQ:all.filter(l=>l.stage==='qualified'),booked:all.filter(l=>l.stage==='booked'),lost:all.filter(l=>l.stage==='lost')};
+  const overdue=A.overdue.length;
+  const stalled=A.stalled.length;
   const rb=`<div class="range-bar"><span style="font-weight:600;font-size:13px;color:var(--soft)">Window</span><div class="seg2">${[['month','This month'],['60','60 days'],['90','90 days']].map(([m,lb])=>`<button class="${range.mode===m?'on':''}" onclick="setRange('${m}')">${lb}</button>`).join('')}<button class="${range.mode==='custom'?'on':''}" onclick="setRange('custom')">Custom</button></div>${range.mode==='custom'?`<input type="date" id="rg_from" value="${range.from||''}" onchange="setRangeCustom()"/><span style="color:var(--soft)">to</span><input type="date" id="rg_to" value="${range.to||''}" onchange="setRangeCustom()"/>`:''}<span style="margin-left:auto;color:var(--soft);font-size:12.5px">${N} walk-in${N===1?'':'s'} in window</span></div>`;
-  const slaPanel=`<div class="stat-grid"><div class="stat"><div class="k">Awaiting decision</div><div class="v">${pending}</div></div><div class="stat"><div class="k">Overdue (&gt;7 days)</div><div class="v" style="color:${overdue?'var(--lost)':'inherit'}">${overdue}</div></div><div class="stat"><div class="k">Qualified</div><div class="v">${qualified}</div></div><div class="stat"><div class="k">Disqualified</div><div class="v">${disq}</div></div><div class="stat"><div class="k">Stalled · no follow-up 7d+</div><div class="v" style="color:${stalled?'var(--lost)':'inherit'}">${stalled}</div></div></div>`;
-  const f=(lb,n,col)=>`<div class="funnel-row"><div class="fl">${lb}</div><div class="ft"><div class="ff" style="width:${N?Math.max(5,Math.round(n/N*100)):0}%;background:${col}">${n}${(N&&n)?' · '+Math.round(n/N*100)+'%':''}</div></div></div>`;
-  const funnel=`<div class="panel"><h3>Walk-in funnel</h3>${f('Walk-ins',N,'var(--assigned)')}${f('Qualified',qualified,'var(--qualified)')}${f('Booked',booked,'var(--booked)')}</div>`;
-  const stages=[['New · unassigned',newp,'var(--new)'],['Awaiting decision',pending,'#4A6FA5'],['Qualified · active',activeQ,'var(--qualified)'],['Booked',booked,'var(--booked)'],['Lost',lost,'var(--lost)'],['Disqualified',disq,'var(--nq)']];
-  const smax=Math.max(1,...stages.map(x=>x[1]));
-  const stagePanel=`<div class="panel"><h3>Where the walk-ins are sitting</h3>${stages.map(([lb,n,c])=>`<div class="barrow"><div class="lbl"><span class="d" style="background:${c}"></span>${lb}</div><div class="track"><div class="fillb" style="width:${Math.round(n/smax*100)}%;background:${c}">${n}</div></div></div>`).join('')}</div>`;
-  const qBy={},dBy={};all.forEach(l=>{if(l.qualified===true){const nm=userName(l.ownerId);qBy[nm]=(qBy[nm]||0)+1;}if(l.stage==='not_qualified'){const nm=l.disqualifiedBy||'—';dBy[nm]=(dBy[nm]||0)+1;}});
-  const names=[...new Set([...Object.keys(qBy),...Object.keys(dBy)])].filter(n=>n&&n!=='—');
-  const gmax=Math.max(1,...names.map(n=>Math.max(qBy[n]||0,dBy[n]||0)));
-  const qualPanel=`<div class="panel"><h3>Qualification by salesperson</h3><div class="ai-tag" style="margin-bottom:12px">Green = qualified · Grey = disqualified. Flag anyone disqualifying disproportionately.</div>${names.length?names.map(n=>`<div class="grp"><div class="gl">${n}</div><div class="gbars"><div class="gb" style="width:${Math.round((qBy[n]||0)/gmax*100)}%;background:var(--qualified)">${qBy[n]||0} qualified</div><div class="gb" style="width:${Math.round((dBy[n]||0)/gmax*100)}%;background:var(--nq)">${dBy[n]||0} disqualified</div></div></div>`).join(''):'<div class="locked-note">No decisions in this window yet.</div>'}</div>`;
-  const dsc={};DEAL_STATUSES.forEach(s=>dsc[s]=0);allLeads.forEach(l=>{if(l.dealStatus)dsc[l.dealStatus]++;});
-  const dsmax=Math.max(1,...DEAL_STATUSES.map(s=>dsc[s]));
-  const tempPanel=`<div class="panel"><h3>Deal status · in window</h3>${DEAL_STATUSES.map(s=>`<div class="barrow"><div class="lbl"><span class="d" style="background:${dsCol[s]}"></span>${s}</div><div class="track"><div class="fillb" style="width:${Math.round(dsc[s]/dsmax*100)}%;background:${dsCol[s]}">${dsc[s]}</div></div></div>`).join('')}</div>`;
+  const slaPanel=`<div class="stat-grid"><div class="stat"><div class="k">Awaiting decision</div><div class="v">${drillN(A.pending,'Awaiting decision')}</div></div><div class="stat"><div class="k">Overdue (&gt;7 days)</div><div class="v" style="color:${overdue?'var(--lost)':'inherit'}">${drillN(A.overdue,'Overdue decisions')}</div></div><div class="stat"><div class="k">Qualified</div><div class="v">${drillN(A.qualified,'Qualified')}</div></div><div class="stat"><div class="k">Disqualified</div><div class="v">${drillN(A.disq,'Disqualified')}</div></div><div class="stat"><div class="k">Stalled · no follow-up 7d+</div><div class="v" style="color:${stalled?'var(--lost)':'inherit'}">${drillN(A.stalled,'Stalled · no follow-up 7d+')}</div></div></div>`;
+  const f=(lb,arr,col)=>{const n=arr.length;return `<div class="funnel-row"><div class="fl">${lb}</div><div class="ft"><div class="ff" style="width:${N?Math.max(5,Math.round(n/N*100)):0}%;background:${col}">${drillN(arr,lb)}${(N&&n)?' · '+Math.round(n/N*100)+'%':''}</div></div></div>`;};
+  const funnel=`<div class="panel"><h3>Walk-in funnel</h3>${f('Walk-ins',all,'var(--assigned)')}${f('Qualified',A.qualified,'var(--qualified)')}${f('Booked',A.booked,'var(--booked)')}</div>`;
+  const stages=[['New · unassigned',A.newp,'var(--new)'],['Awaiting decision',A.pending,'#4A6FA5'],['Qualified · active',A.activeQ,'var(--qualified)'],['Booked',A.booked,'var(--booked)'],['Lost',A.lost,'var(--lost)'],['Disqualified',A.disq,'var(--nq)']];
+  const smax=Math.max(1,...stages.map(x=>x[1].length));
+  const stagePanel=`<div class="panel"><h3>Where the walk-ins are sitting</h3>${stages.map(([lb,arr,c])=>`<div class="barrow"><div class="lbl"><span class="d" style="background:${c}"></span>${lb}</div><div class="track"><div class="fillb" style="width:${Math.round(arr.length/smax*100)}%;background:${c}">${drillN(arr,lb)}</div></div></div>`).join('')}</div>`;
+  const qByA={},dByA={};all.forEach(l=>{if(l.qualified===true){const nm=userName(l.ownerId);(qByA[nm]=qByA[nm]||[]).push(l);}if(l.stage==='not_qualified'){const nm=l.disqualifiedBy||'—';(dByA[nm]=dByA[nm]||[]).push(l);}});
+  const names=[...new Set([...Object.keys(qByA),...Object.keys(dByA)])].filter(n=>n&&n!=='—');
+  const gmax=Math.max(1,...names.map(n=>Math.max((qByA[n]||[]).length,(dByA[n]||[]).length)));
+  const qualPanel=`<div class="panel"><h3>Qualification by salesperson</h3><div class="ai-tag" style="margin-bottom:12px">Green = qualified · Grey = disqualified. Flag anyone disqualifying disproportionately.</div>${names.length?names.map(n=>{const qa=qByA[n]||[],da=dByA[n]||[];return `<div class="grp"><div class="gl">${n}</div><div class="gbars"><div class="gb" style="width:${Math.round(qa.length/gmax*100)}%;background:var(--qualified)">${drillN(qa,'Qualified · '+n)} qualified</div><div class="gb" style="width:${Math.round(da.length/gmax*100)}%;background:var(--nq)">${drillN(da,'Disqualified · '+n)} disqualified</div></div></div>`;}).join(''):'<div class="locked-note">No decisions in this window yet.</div>'}</div>`;
+  const dsArr={};DEAL_STATUSES.forEach(s=>dsArr[s]=allLeads.filter(l=>l.dealStatus===s));
+  const dsmax=Math.max(1,...DEAL_STATUSES.map(s=>dsArr[s].length));
+  const tempPanel=`<div class="panel"><h3>Deal status · in window</h3>${DEAL_STATUSES.map(s=>`<div class="barrow"><div class="lbl"><span class="d" style="background:${dsCol[s]}"></span>${s}</div><div class="track"><div class="fillb" style="width:${Math.round(dsArr[s].length/dsmax*100)}%;background:${dsCol[s]}">${drillN(dsArr[s],'Deal status · '+s)}</div></div></div>`).join('')}</div>`;
   const spMap=fnlBuildDS(allLeads,l=>l.ownerId?userName(l.ownerId):'Unassigned');
   const projMap=fnlBuildDS(allLeads,l=>l.project||'—');
-  const noPH={};allLeads.forEach(l=>{if((l.revisits||[]).length>0&&!l.metProjectHead){const nm=l.ownerId?userName(l.ownerId):'Unassigned';noPH[nm]=(noPH[nm]||0)+1;}});
-  const noPHrows=Object.entries(noPH).sort((a,b)=>b[1]-a[1]);const noPHmax=Math.max(1,...noPHrows.map(r=>r[1]));const noPHtot=noPHrows.reduce((a,r)=>a+r[1],0);
-  const noPHPanel=`<div class="panel"><h3>Revisits without a Project-Head meeting</h3><div class="ai-tag" style="margin-bottom:10px">Revisited leads whose customer hasn’t met the Project Head — ${noPHtot} total.</div>${noPHrows.length?noPHrows.map(([n,v])=>`<div class="barrow"><div class="lbl">${n}</div><div class="track"><div class="fillb" style="width:${Math.round(v/noPHmax*100)}%;background:#C0524A">${v}</div></div></div>`).join(''):'<div class="locked-note">All revisited leads have met the Project Head. 👍</div>'}</div>`;
+  const noPHA={};allLeads.forEach(l=>{if((l.revisits||[]).length>0&&!l.metProjectHead){const nm=l.ownerId?userName(l.ownerId):'Unassigned';(noPHA[nm]=noPHA[nm]||[]).push(l);}});
+  const noPHrows=Object.entries(noPHA).sort((a,b)=>b[1].length-a[1].length);const noPHmax=Math.max(1,...noPHrows.map(r=>r[1].length));const noPHall=allLeads.filter(l=>(l.revisits||[]).length>0&&!l.metProjectHead);
+  const noPHPanel=`<div class="panel"><h3>Revisits without a Project-Head meeting</h3><div class="ai-tag" style="margin-bottom:10px">Revisited leads whose customer hasn’t met the Project Head — ${drillN(noPHall,'Revisits · no PH meeting')} total.</div>${noPHrows.length?noPHrows.map(([n,arr])=>`<div class="barrow"><div class="lbl">${n}</div><div class="track"><div class="fillb" style="width:${Math.round(arr.length/noPHmax*100)}%;background:#C0524A">${drillN(arr,'No PH meeting · '+n)}</div></div></div>`).join(''):'<div class="locked-note">All revisited leads have met the Project Head. 👍</div>'}</div>`;
   const filterNote=activeFilters().length?`<div class="ai-tag" style="margin-bottom:12px">${activeFilters().length} filter(s) applied · match ${filterMode}. Edit via the Filters button.</div>`:'';
   // Wonderwall funnel + conversion
-  const wwProp=allLeads.filter(l=>l.wwSuggested).length, wwVis=allLeads.filter(l=>l.wwVisited).length;
-  const wwVisBk=allLeads.filter(l=>l.wwVisited&&l.stage==='booked').length;
+  const wwPropA=allLeads.filter(l=>l.wwSuggested),wwVisA=allLeads.filter(l=>l.wwVisited),wwVisBkA=allLeads.filter(l=>l.wwVisited&&l.stage==='booked');
+  const wwVis=wwVisA.length,wwVisBk=wwVisBkA.length;
   const wwNotVis=allLeads.filter(l=>!l.wwVisited);const wwNotVisBk=wwNotVis.filter(l=>l.stage==='booked').length;
   const convVis=wwVis?Math.round(wwVisBk/wwVis*100):0, convNot=wwNotVis.length?Math.round(wwNotVisBk/wwNotVis.length*100):0;
   const wwBase=Math.max(1,allLeads.length);
-  const wwf=(lb,n,col)=>`<div class="funnel-row"><div class="fl">${lb}</div><div class="ft"><div class="ff" style="width:${Math.max(5,Math.round(n/wwBase*100))}%;background:${col}">${n}</div></div></div>`;
-  const wwPanel=`<div class="panel"><h3>Wonderwall funnel</h3>${wwf('Proposed',wwProp,'#4A6FA5')}${wwf('Visited',wwVis,'#2C9C9A')}${wwf('Booked after visiting',wwVisBk,'var(--booked)')}<div class="ai-tag" style="margin-top:10px">Booking rate — <b>visited Wonderwall: ${convVis}%</b> vs did not: ${convNot}%.</div></div>`;
-  const wwNP={};allLeads.forEach(l=>{if(!l.wwSuggested){const nm=l.ownerId?userName(l.ownerId):'Unassigned';wwNP[nm]=(wwNP[nm]||0)+1;}});
-  const wwNPr=Object.entries(wwNP).sort((a,b)=>b[1]-a[1]);const wwNPm=Math.max(1,...wwNPr.map(r=>r[1]));const wwNPtot=wwNPr.reduce((a,r)=>a+r[1],0);
-  const wwNPPanel=`<div class="panel"><h3>Wonderwall not yet proposed</h3><div class="ai-tag" style="margin-bottom:10px">Leads where Wonderwall hasn't been proposed — ${wwNPtot} total (pitch it on the first visit).</div>${wwNPr.length?wwNPr.map(([n,v])=>`<div class="barrow"><div class="lbl">${n}</div><div class="track"><div class="fillb" style="width:${Math.round(v/wwNPm*100)}%;background:#D9982B">${v}</div></div></div>`).join(''):'<div class="locked-note">Wonderwall proposed to everyone in this window. 👍</div>'}</div>`;
-  const lt={};allLeads.filter(l=>l.stage==='lost'&&l.lostTo).forEach(l=>{lt[l.lostTo]=(lt[l.lostTo]||0)+1;});
-  const ltr=Object.entries(lt).sort((a,b)=>b[1]-a[1]);const ltm=Math.max(1,...ltr.map(r=>r[1]));
-  const ltPanel=ltr.length?`<div class="panel"><h3>Lost to competitors</h3>${ltr.map(([n,v])=>`<div class="barrow"><div class="lbl">${n}</div><div class="track"><div class="fillb" style="width:${Math.round(v/ltm*100)}%;background:#C0433A">${v}</div></div></div>`).join('')}</div>`:'';
+  const wwf=(lb,arr,col)=>`<div class="funnel-row"><div class="fl">${lb}</div><div class="ft"><div class="ff" style="width:${Math.max(5,Math.round(arr.length/wwBase*100))}%;background:${col}">${drillN(arr,lb)}</div></div></div>`;
+  const wwPanel=`<div class="panel"><h3>Wonderwall funnel</h3>${wwf('Proposed',wwPropA,'#4A6FA5')}${wwf('Visited',wwVisA,'#2C9C9A')}${wwf('Booked after visiting',wwVisBkA,'var(--booked)')}<div class="ai-tag" style="margin-top:10px">Booking rate — <b>visited Wonderwall: ${convVis}%</b> vs did not: ${convNot}%.</div></div>`;
+  const wwNPa={};allLeads.forEach(l=>{if(!l.wwSuggested){const nm=l.ownerId?userName(l.ownerId):'Unassigned';(wwNPa[nm]=wwNPa[nm]||[]).push(l);}});
+  const wwNPr=Object.entries(wwNPa).sort((a,b)=>b[1].length-a[1].length);const wwNPm=Math.max(1,...wwNPr.map(r=>r[1].length));const wwNPall=allLeads.filter(l=>!l.wwSuggested);
+  const wwNPPanel=`<div class="panel"><h3>Wonderwall not yet proposed</h3><div class="ai-tag" style="margin-bottom:10px">Leads where Wonderwall hasn't been proposed — ${drillN(wwNPall,'Wonderwall not proposed')} total (pitch it on the first visit).</div>${wwNPr.length?wwNPr.map(([n,arr])=>`<div class="barrow"><div class="lbl">${n}</div><div class="track"><div class="fillb" style="width:${Math.round(arr.length/wwNPm*100)}%;background:#D9982B">${drillN(arr,'Wonderwall not proposed · '+n)}</div></div></div>`).join(''):'<div class="locked-note">Wonderwall proposed to everyone in this window. 👍</div>'}</div>`;
+  const ltA={};allLeads.filter(l=>l.stage==='lost'&&l.lostTo).forEach(l=>{(ltA[l.lostTo]=ltA[l.lostTo]||[]).push(l);});
+  const ltr=Object.entries(ltA).sort((a,b)=>b[1].length-a[1].length);const ltm=Math.max(1,...ltr.map(r=>r[1].length));
+  const ltPanel=ltr.length?`<div class="panel"><h3>Lost to competitors</h3>${ltr.map(([n,arr])=>`<div class="barrow"><div class="lbl">${n}</div><div class="track"><div class="fillb" style="width:${Math.round(arr.length/ltm*100)}%;background:#C0433A">${drillN(arr,'Lost to '+n)}</div></div></div>`).join('')}</div>`:'';
   const rvBy={};all.forEach(l=>{const r=(l.revisits||[]).length;if(r&&l.ownerId){const nm=userName(l.ownerId);rvBy[nm]=(rvBy[nm]||0)+r;}});
   const rvRows=Object.entries(rvBy).sort((a,b)=>b[1]-a[1]);const rvmax=Math.max(1,...rvRows.map(r=>r[1]));
   const rvPanel=`<div class="panel"><h3>Revisits by salesperson</h3>${rvRows.length?rvRows.map(([n,v])=>`<div class="barrow"><div class="lbl">${n}</div><div class="track"><div class="fillb" style="width:${Math.round(v/rvmax*100)}%;background:#7E57C2">${v}</div></div></div>`).join(''):'<div class="locked-note">No revisits logged in this window.</div>'}</div>`;
