@@ -978,6 +978,7 @@ function visible(){const q=document.getElementById('search').value.trim().toLowe
 const FILTER_FIELDS=[
   {k:'stage',label:'Stage',type:'select',opts:()=>Object.keys(STAGES).map(s=>[s,STAGES[s].label])},
   {k:'source',label:'Source',type:'select',opts:()=>[['digital','Digital'],['walkin','Walk-in']]},
+  {k:'captured',label:'Captured between',type:'daterange'},
   {k:'walkin',label:'Walk-in via',type:'select',opts:()=>[['Direct','Direct'],['CP','Channel Partner']]},
   {k:'dstatus',label:'Deal status',type:'select',opts:()=>DEAL_STATUSES.map(s=>[s,s])},
   {k:'metph',label:'Met Project Head',type:'select',opts:()=>[['yes','Yes'],['no','No']]},
@@ -999,6 +1000,7 @@ const FILTER_FIELDS=[
   {k:'wwvis',label:'Wonderwall visited',type:'select',opts:()=>[['yes','Yes'],['no','No']]}
 ];
 function fieldMeta(k){return FILTER_FIELDS.find(f=>f.k===k)||FILTER_FIELDS[0];}
+function setDateRange(i,which,v){if(!filters[i])return;const p=(filters[i].value||'').split('|');let from=p[0]||'',to=p[1]||'';if(which==='from')from=v;else to=v;filters[i].value=(from||to)?(from+'|'+to):'';}
 function inc(a,v){return String(a||'').toLowerCase().includes(String(v||'').toLowerCase());}
 function matchFilter(l,f){const v=f.value;switch(f.field){
   case 'stage':return l.stage===v;
@@ -1006,6 +1008,7 @@ function matchFilter(l,f){const v=f.value;switch(f.field){
   case 'walkin':return (l.walkinSource||'')===v;
   case 'dstatus':return (l.dealStatus||'')===v;
   case 'metph':return v==='yes'?!!l.metProjectHead:!l.metProjectHead;
+  case 'captured':{const p=String(v||'').split('|');const from=p[0]||'',to=p[1]||'';const d=l.createdAt||'';if(!d)return false;if(from&&d<from)return false;if(to&&d>to)return false;return true;}
   case 'comment':return (l.log||[]).some(e=>inc(e.t,v));
   case 'label':return (l.labels||[]).some(x=>inc(x,v));
   case 'block':return (l.blocks||[]).includes(v);
@@ -1032,6 +1035,8 @@ function renderFilterBuilder(){
   const fields=FILTER_FIELDS.filter(f=>f.k!=='owner'||currentUser().role!=='sales');
   const row=(f,i)=>{const meta=fieldMeta(f.field);let val;
     if(meta.type==='text')val=`<input class="field" placeholder="type text…" value="${(f.value||'').replace(/"/g,'&quot;')}" oninput="filters[${i}].value=this.value"/>`;
+    else if(meta.type==='daterange'){const p=(f.value||'').split('|');const from=p[0]||'',to=p[1]||'';
+      val=`<input type="date" class="field" style="max-width:150px" value="${from}" onchange="setDateRange(${i},'from',this.value)"/><span style="color:var(--soft);font-size:12px;white-space:nowrap">to</span><input type="date" class="field" style="max-width:150px" value="${to}" onchange="setDateRange(${i},'to',this.value)"/>`;}
     else val=`<select class="field" onchange="filters[${i}].value=this.value">${['<option value=\"\">any…</option>',...meta.opts().map(o=>`<option value="${o[0]}" ${f.value===o[0]?'selected':''}>${o[1]}</option>`)].join('')}</select>`;
     return `<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
       <select class="field" style="max-width:170px" onchange="filters[${i}].field=this.value;filters[${i}].value='';renderFilterBuilder()">${fields.map(fd=>`<option value="${fd.k}" ${f.field===fd.k?'selected':''}>${fd.label}</option>`).join('')}</select>
@@ -1173,7 +1178,7 @@ function cardHTML(l){
 }
 function filterBanner(){
   const af=activeFilters();if(!af.length)return '';
-  const chips=af.map(f=>`<span class="fb-chip">${fieldMeta(f.field).label}: “${String(f.value)}”</span>`).join(' ');
+  const chips=af.map(f=>{let v=String(f.value);if(fieldMeta(f.field).type==='daterange'){const p=v.split('|');v=(p[0]?fmtDate(p[0]):'any')+' → '+(p[1]?fmtDate(p[1]):'any');}return `<span class="fb-chip">${fieldMeta(f.field).label}: “${v}”</span>`;}).join(' ');
   return `<div class="filter-banner">Filtered — showing ${chips}<button onclick="bannerClear()">✕ Clear filter</button></div>`;
 }
 function boardHTML(leads){
