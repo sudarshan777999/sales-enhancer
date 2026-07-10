@@ -370,6 +370,7 @@
 
   <div class="perm-note" id="permNote"></div>
   <div class="band"><div class="kpis" id="kpis"></div></div>
+  <div class="band" id="myTarget"></div>
   <div class="band" id="savedBar"></div>
   <main id="main"></main>
   <div class="foot"><span id="count"></span></div>
@@ -498,7 +499,7 @@ const DEFAULT_USERS=[
 ];
 const ROLE_LABEL={sales_head:'Sales Head',project_head:'Project Head',sales:'Salesperson'};
 
-let db={instance:INSTANCE,users:[],leads:[],transfers:[],crossInterest:[],pricingRequests:[],reportData:{}};
+let db={instance:INSTANCE,users:[],leads:[],transfers:[],crossInterest:[],pricingRequests:[],targets:[],reportData:{}};
 let reportMonth=null, reportProject='Earthscape';
 let filters=[], filterMode='AND', myPrefs={};
 let session=null, myCompanyId=null, activeTab='pipeline', openId=null, modalSrc='digital', loginView={step:'signin',err:'',email:''};
@@ -532,6 +533,8 @@ async function loadAll(){
   db.transfers=trs||[];db.crossInterest=cis||[];
   const {data:prs}=await sb.from('pricing_requests').select('*').order('created_at',{ascending:false});
   db.pricingRequests=prs||[];
+  const {data:tgs}=await sb.from('targets').select('*');
+  db.targets=tgs||[];
   const {data:comp}=await sb.from('companies').select('id,name,report_data').eq('id',myCompanyId).maybeSingle();
   db.company=comp||null;db.reportData=(comp&&comp.report_data)||{};
 }
@@ -1019,9 +1022,27 @@ function render(){
   else m.innerHTML=tableHTML(leads);
   const total=scoped().length;
   document.getElementById('count').textContent=total+(u.role==='sales'?' of your leads':' leads in view');
-  refreshNotifyBadge();renderSavedBar();
+  refreshNotifyBadge();renderSavedBar();renderMyTarget();
   if(openId)renderDrawer();
 }
+function bookedThisMonth(memberId,m){return db.leads.filter(l=>l.ownerId===memberId&&l.stage==='booked'&&l.booking&&(l.booking.at||'').slice(0,7)===m).length;}
+function renderMyTarget(){
+  const el=document.getElementById('myTarget');if(!el)return;const u=currentUser();
+  if(!u||u.role!=='sales'){el.innerHTML='';return;}
+  const m=iso(today()).slice(0,7);const t=db.targets.find(x=>x.member_id===u.id&&x.month===m)||{target:0,incentive:0};
+  const actual=bookedThisMonth(u.id,m);const earned=t.target>0?Math.round((Number(t.incentive)||0)*Math.min(actual/t.target,1)):0;
+  const pct=t.target>0?Math.min(100,Math.round(actual/t.target*100)):0;
+  const card=(k,v,sub)=>`<div class="kpi"><div class="lab">${k}</div><div class="val">${v}${sub?`<small style="font-size:13px;color:var(--soft);font-weight:500"> ${sub}</small>`:''}</div></div>`;
+  el.innerHTML=`<div style="font-family:'Space Grotesk';font-weight:600;font-size:13px;color:var(--soft);margin:14px 0 6px">My month — bookings & incentive</div><div class="kpis" style="grid-template-columns:repeat(4,1fr);margin:0 0 4px">${card('Target',t.target||0,'bookings')}${card('Actual',actual,pct+'%')}${card('Potential ₹',Number(t.incentive||0).toLocaleString('en-IN'))}${card('Earned ₹',earned.toLocaleString('en-IN'))}</div>`;
+}
+function targetsPanel(){
+  const u=currentUser();const m=iso(today()).slice(0,7);
+  const reps=salespeople(u.role==='project_head'?u.project:null);
+  const rows=reps.map(r=>{const t=db.targets.find(x=>x.member_id===r.id&&x.month===m)||{target:0,incentive:0};const actual=bookedThisMonth(r.id,m);const earned=t.target>0?Math.round((Number(t.incentive)||0)*Math.min(actual/t.target,1)):0;
+    return `<tr><td><b class="mono">${r.name}</b></td><td><input class="field" style="width:78px" id="tg_t_${r.id}" value="${t.target||0}"/></td><td><input class="field" style="width:130px" id="tg_i_${r.id}" value="${t.incentive||0}"/></td><td class="mono">${actual}</td><td class="mono">₹${earned.toLocaleString('en-IN')}</td><td><button class="act" onclick="saveTarget('${r.id}')">Save</button></td></tr>`;}).join('');
+  return `<div class="panel"><h3>Targets &amp; incentives · ${rMonthLabel(m)}</h3><div style="overflow-x:auto"><table style="box-shadow:none"><thead><tr><th>Salesperson</th><th>Target (bookings)</th><th>Potential incentive ₹</th><th>Actual</th><th>Earned</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" style="color:var(--soft)">No salespeople yet.</td></tr>'}</tbody></table></div><div class="ai-tag" style="margin-top:8px">Earned = potential × (actual ÷ target), capped at the full amount.</div></div>`;
+}
+async function saveTarget(memberId){const m=iso(today()).slice(0,7);const target=parseInt(document.getElementById('tg_t_'+memberId).value)||0;const incentive=parseFloat(document.getElementById('tg_i_'+memberId).value)||0;const {error}=await sb.from('targets').upsert({company_id:myCompanyId,member_id:memberId,month:m,target,incentive},{onConflict:'member_id,month'});if(error){alert('Could not save target: '+error.message);return;}await refresh();}
 function renderTabs(){
   const s=scoped();
   const dueCount=s.filter(l=>l.stage==='qualified'&&l.nextFollowUp&&dueState(l.nextFollowUp).n<=0).length;
@@ -1578,7 +1599,7 @@ function funnelHTML(){
   const rvBy={};all.forEach(l=>{const r=(l.revisits||[]).length;if(r&&l.ownerId){const nm=userName(l.ownerId);rvBy[nm]=(rvBy[nm]||0)+r;}});
   const rvRows=Object.entries(rvBy).sort((a,b)=>b[1]-a[1]);const rvmax=Math.max(1,...rvRows.map(r=>r[1]));
   const rvPanel=`<div class="panel"><h3>Revisits by salesperson</h3>${rvRows.length?rvRows.map(([n,v])=>`<div class="barrow"><div class="lbl">${n}</div><div class="track"><div class="fillb" style="width:${Math.round(v/rvmax*100)}%;background:#7E57C2">${v}</div></div></div>`).join(''):'<div class="locked-note">No revisits logged in this window.</div>'}</div>`;
-  return filterNote+rb+slaPanel+funnel+stagePanel+`<div class="split">${qualPanel}${tempPanel}</div>`+`<div class="panel"><h3>Deal status by salesperson</h3>${fnlDsTable(spMap,'Salesperson')}</div>`+`<div class="panel"><h3>Deal status by project</h3>${fnlDsTable(projMap,'Project')}</div>`+wwPanel+wwNPPanel+ltPanel+noPHPanel+rvPanel;
+  return filterNote+rb+slaPanel+targetsPanel()+funnel+stagePanel+`<div class="split">${qualPanel}${tempPanel}</div>`+`<div class="panel"><h3>Deal status by salesperson</h3>${fnlDsTable(spMap,'Salesperson')}</div>`+`<div class="panel"><h3>Deal status by project</h3>${fnlDsTable(projMap,'Project')}</div>`+wwPanel+wwNPPanel+ltPanel+noPHPanel+rvPanel;
 }
 function crossProjectHTML(){
   const u=currentUser();const pid=myProjId();
