@@ -1031,8 +1031,8 @@ function renderFilterBuilder(){
     <div class="block"><label>Filters</label>${filters.map(row).join('')}<button class="btn ghost" onclick="filters.push({field:'stage',value:''});renderFilterBuilder()">＋ Add a filter</button></div>
     <div class="block"><label>Save this filter</label><div style="display:flex;gap:8px"><input class="field" id="sf_name" placeholder="e.g. Hot walk-ins to call"/><button class="btn" onclick="saveCurrentFilter()">Save</button></div></div>`;
 }
-function applyFilters(){closeFilters();render();}
-function clearFilters(){filters=[];filterMode='AND';closeFilters();render();}
+function applyFilters(){_returnTab=null;closeFilters();render();}
+function clearFilters(){_returnTab=null;filters=[];filterMode='AND';closeFilters();render();}
 function savedFilters(){return myPrefs.savedFilters||[];}
 async function saveCurrentFilter(){
   const name=(document.getElementById('sf_name').value||'').trim();if(!name){alert('Name your filter first.');return;}
@@ -1040,7 +1040,7 @@ async function saveCurrentFilter(){
   const list=savedFilters().slice();list.push({name,mode:filterMode,filters:JSON.parse(JSON.stringify(a))});
   if(await savePrefs(Object.assign({},myPrefs,{savedFilters:list}))){renderFilterBuilder();render();}
 }
-function applySaved(i){const sf=savedFilters()[i];if(!sf)return;filters=JSON.parse(JSON.stringify(sf.filters));filterMode=sf.mode||'AND';closeFilters();render();}
+function applySaved(i){const sf=savedFilters()[i];if(!sf)return;_returnTab=null;filters=JSON.parse(JSON.stringify(sf.filters));filterMode=sf.mode||'AND';closeFilters();render();}
 async function deleteSaved(i){const list=savedFilters().slice();list.splice(i,1);if(await savePrefs(Object.assign({},myPrefs,{savedFilters:list}))){renderFilterBuilder();render();}}
 function renderSavedBar(){
   const el=document.getElementById('savedBar');if(!el)return;
@@ -1162,7 +1162,7 @@ function cardHTML(l){
 function filterBanner(){
   const af=activeFilters();if(!af.length)return '';
   const chips=af.map(f=>`<span class="fb-chip">${fieldMeta(f.field).label}: “${String(f.value)}”</span>`).join(' ');
-  return `<div class="filter-banner">Filtered — showing ${chips}<button onclick="clearFilters()">✕ Clear filter</button></div>`;
+  return `<div class="filter-banner">Filtered — showing ${chips}<button onclick="bannerClear()">✕ Clear filter</button></div>`;
 }
 function boardHTML(leads){
   return filterBanner()+`<div class="board">`+BOARD_ORDER.map(s=>{const items=leads.filter(l=>l.stage===s);
@@ -1584,10 +1584,12 @@ function wordCloudHTML(leads){
   const max=words[0][1];
   return `<div class="wcloud">${words.map(([w,n])=>{const sz=13+Math.round((n/max)*26);const op=(0.55+0.45*(n/max)).toFixed(2);return `<span style="font-size:${sz}px;opacity:${op}" title="Click to show walk-ins mentioning “${w}” (${n}×)" onclick="wordFilter('${w}')">${w}</span>`;}).join('')}</div>`;
 }
+let _returnTab=null;
 function wordFilter(w){
-  filters=[{field:'comment',value:w}];filterMode='AND';activeTab='pipeline';render();
+  filters=[{field:'comment',value:w}];filterMode='AND';_returnTab='stats';activeTab='pipeline';render();
   const sc=document.querySelector('.scroll')||document.scrollingElement;if(sc)sc.scrollTop=0;
 }
+function bannerClear(){const rt=_returnTab;_returnTab=null;filters=[];filterMode='AND';if(rt)activeTab=rt;render();}
 async function markBooked(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;if(!await updateLead(id,{stage:'booked',next_follow_up:null}))return;await addActivityRow(id,{kind:'system',body:'Booked an apartment 🎉'});await refresh();}
 let bookingLeadId=null, bookingStatus='Booked', editLeadId=null;
 function openEdit(id){const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;editLeadId=id;const u=currentUser();
