@@ -28,13 +28,16 @@ create index if not exists idx_pr_company on public.pricing_requests(company_id)
 alter table public.pricing_requests enable row level security;
 
 -- Visible to: Sales Head, the request's Project Head, and the requester
+drop policy if exists pr_select on public.pricing_requests;
 create policy pr_select on public.pricing_requests for select
   using (company_id = public.auth_company_id() and (
     public.auth_role() = 'sales_head'
     or (public.auth_role() = 'project_head' and project_id = public.auth_project_id())
     or requested_by = auth.uid()));
+drop policy if exists pr_insert on public.pricing_requests;
 create policy pr_insert on public.pricing_requests for insert
   with check (company_id = public.auth_company_id() and requested_by = auth.uid());
+drop policy if exists pr_update on public.pricing_requests;
 create policy pr_update on public.pricing_requests for update
   using (company_id = public.auth_company_id() and (
     public.auth_role() = 'sales_head'

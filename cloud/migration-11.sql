@@ -12,6 +12,8 @@ create table if not exists public.messages (
 );
 create index if not exists idx_msg on public.messages(company_id, created_at);
 alter table public.messages enable row level security;
+drop policy if exists msg_select on public.messages;
 create policy msg_select on public.messages for select using (company_id = public.auth_company_id());
+drop policy if exists msg_insert on public.messages;
 create policy msg_insert on public.messages for insert with check (company_id = public.auth_company_id() and member_id = auth.uid());
 grant select, insert, update, delete on public.messages to authenticated;

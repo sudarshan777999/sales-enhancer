@@ -535,13 +535,16 @@ create index if not exists idx_pr_company on public.pricing_requests(company_id)
 alter table public.pricing_requests enable row level security;
 
 -- Visible to: Sales Head, the request's Project Head, and the requester
+drop policy if exists pr_select on public.pricing_requests;
 create policy pr_select on public.pricing_requests for select
   using (company_id = public.auth_company_id() and (
     public.auth_role() = 'sales_head'
     or (public.auth_role() = 'project_head' and project_id = public.auth_project_id())
     or requested_by = auth.uid()));
+drop policy if exists pr_insert on public.pricing_requests;
 create policy pr_insert on public.pricing_requests for insert
   with check (company_id = public.auth_company_id() and requested_by = auth.uid());
+drop policy if exists pr_update on public.pricing_requests;
 create policy pr_update on public.pricing_requests for update
   using (company_id = public.auth_company_id() and (
     public.auth_role() = 'sales_head'
@@ -572,6 +575,8 @@ create table if not exists public.messages (
 );
 create index if not exists idx_msg on public.messages(company_id, created_at);
 alter table public.messages enable row level security;
+drop policy if exists msg_select on public.messages;
 create policy msg_select on public.messages for select using (company_id = public.auth_company_id());
+drop policy if exists msg_insert on public.messages;
 create policy msg_insert on public.messages for insert with check (company_id = public.auth_company_id() and member_id = auth.uid());
 grant select, insert, update, delete on public.messages to authenticated;
