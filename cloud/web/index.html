@@ -740,7 +740,7 @@ function renderLogin(){
   } else {
     const signup=st==='signup';
     body=`<div class="auth-body"><p>${signup?'Create your account.':'Sign in to your account.'}</p>
-      ${authField('em','Email','email','you@company.com',loginView.email)}
+      ${authField('em','Email or username','text','Email or username',loginView.email)}
       ${authField('pw','Password','password',signup?'At least 6 characters':'Your password','')}
       ${err}
       <div class="auth-actions"><button class="btn wide" onclick="authSubmit()">${signup?'Create account':'Sign in'}</button></div>
@@ -753,6 +753,8 @@ function renderLogin(){
   const f=document.getElementById('em')||document.getElementById('ob_company');if(f)f.focus();
 }
 function gotoAuth(step){loginView={step,err:'',email:loginView.email||'',name:loginView.name||'',company:loginView.company||''};renderLogin();}
+const LOGIN_DOMAIN='bnm.local';
+function toEmail(id){id=(id||'').trim();return id.includes('@')?id:(id?id.toLowerCase()+'@'+LOGIN_DOMAIN:'');}
 async function authSubmit(){
   const st=loginView.step;
   if(st==='onboard'){
@@ -772,7 +774,7 @@ async function authSubmit(){
     if(error){loginView.err=error.message;return renderLogin();}
     pendingInvite=null;await afterLogin();return;
   }
-  const email=(document.getElementById('em').value||'').trim();loginView.email=email;
+  const email=toEmail(document.getElementById('em').value);loginView.email=email;
   if(st==='reset'){
     if(!email){loginView.err='Enter your email first.';return renderLogin();}
     const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.href});
@@ -820,6 +822,12 @@ async function renderTeam(){
         <div class="r" style="gap:8px;margin-top:8px"><select class="field" id="inv_project">${projOpts}</select><button class="btn" style="white-space:nowrap" onclick="inviteTeammate()">Create invite link</button></div>
         <div class="ai-tag" style="margin-top:8px">You'll get a link to send them (WhatsApp etc.). They open it, set a password, and they're in — with the role &amp; project you picked.</div>
       </div></div>
+    <div class="block"><label>Create a front-desk login (username + password)</label>
+      <div class="fu-form">
+        <div class="r" style="gap:8px"><input class="field" id="fd_user" placeholder="Username (e.g. gre_earthscape)" autocomplete="off"/><input class="field" id="fd_pass" type="text" placeholder="Password (min 6 chars)" autocomplete="off"/></div>
+        <div style="margin-top:8px"><button class="btn" id="fd_btn" onclick="createFrontDeskLogin()">Create login</button></div>
+        <div class="ai-tag" style="margin-top:8px">Instantly makes a <b>Receptionist</b> account — no email needed. They sign in with this username &amp; password and land on the walk-in entry screen; every walk-in they add goes to the salesperson they pick.</div>
+      </div></div>
     ${invs&&invs.length?`<div class="block"><label>Pending invites</label>${invRows}</div>`:''}`;
 }
 async function inviteTeammate(){
@@ -830,6 +838,29 @@ async function inviteTeammate(){
   const {data,error}=await sb.from('invitations').insert({company_id:myCompanyId,email,role,project_id:projId(project)||null,status:'pending'}).select().single();
   if(error){alert('Could not create invite: '+error.message);return;}
   await renderTeam();copyText(inviteLink(data.token));
+}
+async function createFrontDeskLogin(){
+  if(currentUser().role!=='sales_head')return;
+  const uname=((document.getElementById('fd_user')||{}).value||'').trim();
+  const pw=((document.getElementById('fd_pass')||{}).value||'');
+  if(!uname){alert('Enter a username, e.g. gre_earthscape');return;}
+  if(pw.length<6){alert('Password must be at least 6 characters.');return;}
+  const email=toEmail(uname);
+  const btn=document.getElementById('fd_btn');if(btn){btn.disabled=true;btn.textContent='Creating…';}
+  try{
+    const {data:inv,error:e1}=await sb.from('invitations').insert({company_id:myCompanyId,email,role:'reception',project_id:null,status:'pending'}).select().single();
+    if(e1)throw new Error(/role|check/i.test(e1.message)?'Please run the receptionist database update first, then try again.':e1.message);
+    const sb2=supabase.createClient(ENV.url,ENV.anon,{auth:{storageKey:'bm_tmp_'+Date.now(),persistSession:false,autoRefreshToken:false}});
+    const {data:su,error:e2}=await sb2.auth.signUp({email,password:pw});
+    if(e2)throw new Error(/registered|already/i.test(e2.message)?'That username is already taken.':e2.message);
+    if(!su.session)throw new Error('Email confirmation is ON in Supabase — turn it OFF (Auth → Providers → Email) to create logins this way.');
+    const {error:e3}=await sb2.rpc('accept_invite',{p_token:inv.token,full_name:uname});
+    if(e3)throw new Error(/role|check/i.test(e3.message)?'Please run the receptionist database update first, then try again.':e3.message);
+    await sb2.auth.signOut();
+    await loadAll();await renderTeam();
+    alert('✓ Front-desk login created.\n\nUsername:  '+uname+'\nPassword:  '+pw+'\n\nThey can sign in with these now — they land straight on the walk-in entry screen.');
+  }catch(err){alert('Could not create login: '+(err.message||err));}
+  finally{const b=document.getElementById('fd_btn');if(b){b.disabled=false;b.textContent='Create login';}}
 }
 
 /* ============ bulk walk-in import (Sales Head only) ============ */
