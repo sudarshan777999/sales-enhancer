@@ -485,7 +485,7 @@ function projName(id){return projById[id]||null;}
 function projId(name){return projByName[name]||null;}
 function memberName(id){const u=user(id);return u?u.name:'';}
 function titleFor(m){const p=projName(m.project_id);if(m.role==='sales_head')return 'Sales Head';if(m.role==='project_head')return 'Project Head'+(p?' · '+p:'');return 'Salesperson'+(p?' · '+p:'');}
-function leadFromRow(r){return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',source:r.source,srcDetail:r.src_detail||'',walkinSource:r.walkin_source||'',cpName:r.cp_name||'',location:r.location||'',company:r.company_name||'',project:projName(r.project_id),budget:r.budget||'',notes:r.notes||'',stage:r.stage,ownerId:r.owner_id||null,qualified:r.qualified,nqReason:r.nq_reason||'',disqualifiedBy:r.disqualified_by||'',lostReason:r.lost_reason||'',temp:r.temp||null,nextFollowUp:r.next_follow_up||null,assignedAt:r.assigned_at||null,createdAt:r.created_at,assessment:null,booking:r.booking||null,walkinPhase:r.walkin_phase||'',dealStatus:r.deal_status||'',metProjectHead:!!r.met_project_head,phMeetingDate:r.ph_meeting_date||'',labels:Array.isArray(r.labels)?r.labels:[],revisits:[],log:[]};}
+function leadFromRow(r){return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',source:r.source,srcDetail:r.src_detail||'',walkinSource:r.walkin_source||'',cpName:r.cp_name||'',location:r.location||'',company:r.company_name||'',project:projName(r.project_id),budget:r.budget||'',notes:r.notes||'',stage:r.stage,ownerId:r.owner_id||null,qualified:r.qualified,nqReason:r.nq_reason||'',disqualifiedBy:r.disqualified_by||'',lostReason:r.lost_reason||'',temp:r.temp||null,nextFollowUp:r.next_follow_up||null,assignedAt:r.assigned_at||null,createdAt:r.created_at,assessment:null,booking:r.booking||null,walkinPhase:r.walkin_phase||'',dealStatus:r.deal_status||'',metProjectHead:!!r.met_project_head,phMeetingDate:r.ph_meeting_date||'',labels:Array.isArray(r.labels)?r.labels:[],coOwners:Array.isArray(r.co_owners)?r.co_owners:[],priceOffered:r.price_offered||'',blocks:Array.isArray(r.blocks)?r.blocks:[],competitors:r.competitors||'',revisits:[],log:[]};}
 
 async function loadAll(){
   const {data:projs}=await sb.from('projects').select('*');
@@ -552,7 +552,7 @@ function can(action,lead){
     case 'view':case 'edit':
       if(r==='sales_head')return true;
       if(r==='project_head')return lead.project===u.project;
-      return lead.ownerId===u.id;
+      return lead.ownerId===u.id||(Array.isArray(lead.coOwners)&&lead.coOwners.includes(u.id));
   }
   return false;
 }
@@ -865,7 +865,9 @@ const FILTER_FIELDS=[
   {k:'cp',label:'CP name contains',type:'text'},
   {k:'budget',label:'Budget contains',type:'text'},
   {k:'comment',label:'Comment contains',type:'text'},
-  {k:'label',label:'Label',type:'text'}
+  {k:'label',label:'Label',type:'text'},
+  {k:'block',label:'Block interest',type:'select',opts:()=>['A','B','C','D','E','F'].map(b=>[b,b])},
+  {k:'competitor',label:'Competitor contains',type:'text'}
 ];
 function fieldMeta(k){return FILTER_FIELDS.find(f=>f.k===k)||FILTER_FIELDS[0];}
 function inc(a,v){return String(a||'').toLowerCase().includes(String(v||'').toLowerCase());}
@@ -877,6 +879,8 @@ function matchFilter(l,f){const v=f.value;switch(f.field){
   case 'metph':return v==='yes'?!!l.metProjectHead:!l.metProjectHead;
   case 'comment':return (l.log||[]).some(e=>inc(e.t,v));
   case 'label':return (l.labels||[]).some(x=>inc(x,v));
+  case 'block':return (l.blocks||[]).includes(v);
+  case 'competitor':return inc(l.competitors,v);
   case 'phase':return (l.walkinPhase||'')===v;
   case 'project':return l.project===v;
   case 'owner':return (l.ownerId||'')===v;
@@ -1063,6 +1067,7 @@ function renderDrawer(){
     } else {
       flow+=`<div class="block"><label>Owner</label><div class="locked-note">Owned by you (${userName(l.ownerId)}). Salespeople can't reassign leads.</div></div>`;
     }
+    flow+=shareBlock(l);
     if(l.qualified!==true){
       flow+=`<div class="block"><label>Qualify this lead</label><div class="actions">
         <button class="act q" onclick="qualify('${l.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Mark qualified</button>
@@ -1072,6 +1077,7 @@ function renderDrawer(){
       flow+=dealStatusBlock(l);
     }
     flow+=metPHBlock(l);
+    flow+=salesInfoBlock(l);
     flow+=followBlock(l);
     flow+=interestBlock(l);
     flow+=handoffBlock(l);
@@ -1145,6 +1151,31 @@ function metPHBlock(l){
 }
 async function toggleMetPH(id,checked){const l=db.leads.find(x=>x.id===id);if(!can('edit',l)||currentUser().role==='project_head')return;if(!await updateLead(id,{met_project_head:checked,ph_meeting_date:checked?(l.phMeetingDate||iso(today())):null}))return;await addActivityRow(id,{kind:'system',body:checked?'Marked: met Project Head':'Unmarked: met Project Head'});await refresh();}
 async function setPHDate(id,v){const l=db.leads.find(x=>x.id===id);if(!can('edit',l)||currentUser().role==='project_head')return;if(!await updateLead(id,{ph_meeting_date:v||null}))return;await refresh();}
+function shareBlock(l){
+  const u=currentUser();const isOwner=l.ownerId===u.id;const canShare=isOwner||u.role==='sales_head'||u.role==='project_head';
+  const co=Array.isArray(l.coOwners)?l.coOwners:[];
+  const chips=co.map(id=>`<span class="lchip" style="background:#4A6FA5">${userName(id)}${canShare?`<span class="rm" onclick="removeCoOwner('${l.id}','${id}')">✕</span>`:''}</span>`).join(' ');
+  if(!canShare)return co.length?`<div class="block"><label>Shared owners</label><div style="display:flex;flex-wrap:wrap;gap:6px">${chips}</div></div>`:'';
+  const avail=salespeople(l.project).filter(r=>r.id!==l.ownerId&&!co.includes(r.id));
+  return `<div class="block"><label>Shared owners</label>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">${chips||'<span style="color:var(--soft);font-size:12.5px">Not shared</span>'}</div>
+    ${avail.length?`<div class="fu-form"><div class="r" style="gap:8px;margin-bottom:0"><select class="field" id="co_${l.id}">${avail.map(r=>`<option value="${r.id}">${r.name}</option>`).join('')}</select><button class="btn" style="white-space:nowrap" onclick="addCoOwnerPick('${l.id}')">Share</button></div><div class="ai-tag" style="margin-top:8px">Both owners get equal access to this ${l.source==='walkin'?'walk-in':'lead'}.</div></div>`:''}</div>`;
+}
+async function addCoOwner(id,memberId){const l=db.leads.find(x=>x.id===id);if(!memberId||!can('edit',l))return;const co=Array.isArray(l.coOwners)?l.coOwners.slice():[];if(co.includes(memberId)||memberId===l.ownerId)return;co.push(memberId);if(!await updateLead(id,{co_owners:co}))return;await addActivityRow(id,{kind:'system',body:'Shared with '+userName(memberId)});await refresh();}
+function addCoOwnerPick(id){const v=(document.getElementById('co_'+id)||{}).value;if(v)addCoOwner(id,v);}
+async function removeCoOwner(id,memberId){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const co=(l.coOwners||[]).filter(x=>x!==memberId);if(!await updateLead(id,{co_owners:co}))return;await addActivityRow(id,{kind:'system',body:'Unshared with '+userName(memberId)});await refresh();}
+function salesInfoBlock(l){
+  const blocks=Array.isArray(l.blocks)?l.blocks:[];const BL=['A','B','C','D','E','F'];
+  return `<div class="block"><label>Deal details</label>
+    <div class="fu-form">
+      <div class="r" style="gap:9px;align-items:center;margin-bottom:10px"><span style="font-size:12.5px;color:var(--soft);white-space:nowrap;min-width:96px">Price offered ₹</span><input class="field" id="po_${l.id}" value="${(l.priceOffered||'').replace(/"/g,'&quot;')}" placeholder="e.g. 1.85 Cr" onchange="setPriceOffered('${l.id}',this.value)"/></div>
+      <div style="margin-bottom:10px"><div style="font-size:12.5px;color:var(--soft);margin-bottom:6px">Block(s) of interest</div><div class="actions">${BL.map(b=>`<button class="act ${blocks.includes(b)?'ds-on':''}" style="min-width:42px;justify-content:center" onclick="toggleBlock('${l.id}','${b}')">${b}</button>`).join('')}</div></div>
+      <div class="r" style="gap:9px;align-items:center"><span style="font-size:12.5px;color:var(--soft);white-space:nowrap;min-width:96px">Competitors</span><input class="field" id="cmp_${l.id}" value="${(l.competitors||'').replace(/"/g,'&quot;')}" placeholder="e.g. Prestige, Sobha" onchange="setCompetitors('${l.id}',this.value)"/></div>
+    </div></div>`;
+}
+async function setPriceOffered(id,v){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;v=(v||'').trim();if(v===(l.priceOffered||''))return;if(!await updateLead(id,{price_offered:v||null}))return;await addActivityRow(id,{kind:'system',body:'Price offered: '+(v?'₹'+v:'cleared')});await refresh();}
+async function toggleBlock(id,b){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const cur=Array.isArray(l.blocks)?l.blocks.slice():[];const i=cur.indexOf(b);if(i>=0)cur.splice(i,1);else cur.push(b);cur.sort();if(!await updateLead(id,{blocks:cur}))return;await addActivityRow(id,{kind:'system',body:'Block interest: '+(cur.join(', ')||'none')});await refresh();}
+async function setCompetitors(id,v){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;v=(v||'').trim();if(v===(l.competitors||''))return;if(!await updateLead(id,{competitors:v||null}))return;await addActivityRow(id,{kind:'system',body:'Competitor(s): '+(v||'cleared')});await refresh();}
 function likelihoodBlock(l){
   const a=l.assessment;const notes=l.log.filter(e=>e.kind==='note').length;
   let inner;
@@ -1286,7 +1317,7 @@ function openBooking(id,status){
   const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;bookingLeadId=id;bookingStatus=status||'Booked';const b=l.booking||{};
   document.getElementById('bookBody').innerHTML=`
     <div class="ai-tag" style="margin-bottom:12px">Customer: <b>${l.name}</b> · ${l.project||''}</div>
-    <div class="block"><label>Apartment name / number</label><input class="field" id="bk_apartment" placeholder="e.g. Tower B – 1204" value="${b.apartment||''}"/></div>
+    <div class="block"><label>Unit booked <span class="req">*</span></label><input class="field" id="bk_apartment" placeholder="e.g. D-1201 (block + unit)" value="${b.apartment||''}"/></div>
     <div class="block"><label>Location</label><input class="field" id="bk_location" placeholder="e.g. Whitefield" value="${b.location||l.location||''}"/></div>
     <div class="facts" style="grid-template-columns:1fr 1fr;gap:12px">
       <div class="block" style="margin:0"><label>Applicant company</label><input class="field" id="bk_company" placeholder="Where they work" value="${b.company||l.company||''}"/></div>
@@ -1314,7 +1345,7 @@ async function saveBooking(){
   closeBooking();await refresh();
 }
 function bookingFactsHTML(l){const b=l.booking;if(!b)return '';
-  const rows=[['Apartment',b.apartment||'—'],['Location',b.location||'—'],['Applicant company',b.company||'—'],['Applicant age',b.applicantAge||'—'],['Co-applicant',b.coApplicant||'—'],['Co-applicant age',b.coApplicantAge||'—'],['Co-applicant company',b.coApplicantCompany||'—'],['Agreement Value',b.agreementValue?('₹'+Number(b.agreementValue).toLocaleString('en-IN')):'—'],['Size',b.size?(b.size+' sq.ft'):'—'],['Realization',b.realization?('₹'+Number(b.realization).toLocaleString('en-IN')+' /sq.ft'):'—'],['Payment',b.paymentStructure||'—']];
+  const rows=[['Unit booked',b.apartment||'—'],['Location',b.location||'—'],['Applicant company',b.company||'—'],['Applicant age',b.applicantAge||'—'],['Co-applicant',b.coApplicant||'—'],['Co-applicant age',b.coApplicantAge||'—'],['Co-applicant company',b.coApplicantCompany||'—'],['Agreement Value',b.agreementValue?('₹'+Number(b.agreementValue).toLocaleString('en-IN')):'—'],['Size',b.size?(b.size+' sq.ft'):'—'],['Realization',b.realization?('₹'+Number(b.realization).toLocaleString('en-IN')+' /sq.ft'):'—'],['Payment',b.paymentStructure||'—']];
   return `<div class="block"><label>Booking details</label><div class="facts">${rows.map(([k,v])=>`<div class="fact"><div class="k">${k}</div><div class="v mono">${v}</div></div>`).join('')}</div><div style="margin-top:10px"><button class="act" onclick="openBooking('${l.id}')">Edit booking details</button></div></div>`;}
 async function markLost(id,reason){if(!reason)return;const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;if(!await updateLead(id,{stage:'lost',lost_reason:reason,next_follow_up:null}))return;await addActivityRow(id,{kind:'system',body:'Lost — '+reason});await refresh();}
 async function reopen(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const stage=l.qualified?'qualified':(l.ownerId?'assigned':'new');if(!await updateLead(id,{stage,lost_reason:'',nq_reason:''}))return;await addActivityRow(id,{kind:'system',body:'Reopened'});await refresh();}
