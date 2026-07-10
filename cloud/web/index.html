@@ -388,12 +388,14 @@
         </div>
       </div>
       <div class="fld"><label>Full name <span class="req">*</span></label><input class="field" id="m_name" placeholder="e.g. Ananya Rao"/></div>
-      <div class="fld"><label>Phone <span class="req">*</span></label><input class="field" id="m_phone" placeholder="+91 …"/></div>
+      <div class="fld"><label>Phone <span class="req" id="phoneReq">*</span></label><input class="field" id="m_phone" placeholder="+91 …"/></div>
       <div class="fld"><label>Email</label><input class="field" id="m_email" placeholder="optional"/></div>
       <div class="fld"><label id="srcLabel">Channel</label><select class="field" id="m_srcdetail"></select></div>
       <div class="fld"><label>Project</label><select class="field" id="m_project"></select></div>
       <div class="fld"><label>Budget (₹)</label><input class="field" id="m_budget" placeholder="e.g. 1.2 Cr"/></div>
-      <div class="fld hidden" id="wf_wsource"><label>Walk-in source</label><select class="field" id="m_wsource" onchange="toggleCP()"><option value="Direct">Direct</option><option value="CP">Channel Partner (CP)</option></select></div>
+      <div class="fld hidden" id="wf_wsource"><label>Walk-in source</label><select class="field" id="m_wsource" onchange="onWsourceChange()"><option value="Direct">Direct</option><option value="CP">Channel Partner (CP)</option><option value="Referral">Referral</option></select></div>
+      <div class="fld hidden" id="wf_ref"><label>Referred by</label><input class="field" id="m_refname" placeholder="Name of the referrer"/></div>
+      <div class="fld hidden" id="wf_reflink"><label>Referrer already a customer?</label><select class="field" id="m_reflink"></select></div>
       <div class="fld hidden" id="wf_phase"><label>Phase</label><select class="field" id="m_phase"><option value="">—</option><option>Phase 1</option><option>Phase 2</option></select></div>
       <div class="fld hidden" id="wf_cp"><label>CP name</label><input class="field" id="m_cp" placeholder="Channel partner name"/></div>
       <div class="fld hidden" id="wf_location"><label>Location</label><input class="field" id="m_location" placeholder="e.g. Whitefield"/></div>
@@ -436,6 +438,15 @@
   </div>
 </div>
 
+<!-- Pricing-approval modal -->
+<div class="modal-scrim" id="priceScrim">
+  <div class="modal">
+    <div class="modal-h"><h2 id="priceTitle">Pricing approval</h2></div>
+    <div class="modal-b" id="priceBody" style="display:block"></div>
+    <div class="modal-f"><button class="btn ghost" onclick="closePricing()">Close</button><button class="btn" id="priceSaveBtn" onclick="pricingSubmit()">Send</button></div>
+  </div>
+</div>
+
 <!-- Booking details modal -->
 <div class="modal-scrim" id="bookScrim">
   <div class="modal">
@@ -474,7 +485,7 @@ const DEFAULT_USERS=[
 ];
 const ROLE_LABEL={sales_head:'Sales Head',project_head:'Project Head',sales:'Salesperson'};
 
-let db={instance:INSTANCE,users:[],leads:[],transfers:[],crossInterest:[],reportData:{}};
+let db={instance:INSTANCE,users:[],leads:[],transfers:[],crossInterest:[],pricingRequests:[],reportData:{}};
 let reportMonth=null, reportProject='Earthscape';
 let filters=[], filterMode='AND', myPrefs={};
 let session=null, myCompanyId=null, activeTab='pipeline', openId=null, modalSrc='digital', loginView={step:'signin',err:'',email:''};
@@ -485,7 +496,7 @@ function projName(id){return projById[id]||null;}
 function projId(name){return projByName[name]||null;}
 function memberName(id){const u=user(id);return u?u.name:'';}
 function titleFor(m){const p=projName(m.project_id);if(m.role==='sales_head')return 'Sales Head';if(m.role==='project_head')return 'Project Head'+(p?' · '+p:'');return 'Salesperson'+(p?' · '+p:'');}
-function leadFromRow(r){return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',source:r.source,srcDetail:r.src_detail||'',walkinSource:r.walkin_source||'',cpName:r.cp_name||'',location:r.location||'',company:r.company_name||'',project:projName(r.project_id),budget:r.budget||'',notes:r.notes||'',stage:r.stage,ownerId:r.owner_id||null,qualified:r.qualified,nqReason:r.nq_reason||'',disqualifiedBy:r.disqualified_by||'',lostReason:r.lost_reason||'',temp:r.temp||null,nextFollowUp:r.next_follow_up||null,assignedAt:r.assigned_at||null,createdAt:r.created_at,assessment:null,booking:r.booking||null,walkinPhase:r.walkin_phase||'',dealStatus:r.deal_status||'',metProjectHead:!!r.met_project_head,phMeetingDate:r.ph_meeting_date||'',labels:Array.isArray(r.labels)?r.labels:[],coOwners:Array.isArray(r.co_owners)?r.co_owners:[],priceOffered:r.price_offered||'',blocks:Array.isArray(r.blocks)?r.blocks:[],competitors:r.competitors||'',revisits:[],log:[]};}
+function leadFromRow(r){return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',source:r.source,srcDetail:r.src_detail||'',walkinSource:r.walkin_source||'',cpName:r.cp_name||'',location:r.location||'',company:r.company_name||'',project:projName(r.project_id),budget:r.budget||'',notes:r.notes||'',stage:r.stage,ownerId:r.owner_id||null,qualified:r.qualified,nqReason:r.nq_reason||'',disqualifiedBy:r.disqualified_by||'',lostReason:r.lost_reason||'',temp:r.temp||null,nextFollowUp:r.next_follow_up||null,assignedAt:r.assigned_at||null,createdAt:r.created_at,assessment:null,booking:r.booking||null,walkinPhase:r.walkin_phase||'',dealStatus:r.deal_status||'',metProjectHead:!!r.met_project_head,phMeetingDate:r.ph_meeting_date||'',labels:Array.isArray(r.labels)?r.labels:[],coOwners:Array.isArray(r.co_owners)?r.co_owners:[],priceOffered:r.price_offered||'',blocks:Array.isArray(r.blocks)?r.blocks:[],competitors:r.competitors||'',referralName:r.referral_name||'',referralLeadId:r.referral_lead_id||null,revisits:[],log:[]};}
 
 async function loadAll(){
   const {data:projs}=await sb.from('projects').select('*');
@@ -506,6 +517,8 @@ async function loadAll(){
     sb.from('cross_interest').select('*').order('created_at',{ascending:false})
   ]);
   db.transfers=trs||[];db.crossInterest=cis||[];
+  const {data:prs}=await sb.from('pricing_requests').select('*').order('created_at',{ascending:false});
+  db.pricingRequests=prs||[];
   const {data:comp}=await sb.from('companies').select('id,name,report_data').eq('id',myCompanyId).maybeSingle();
   db.company=comp||null;db.reportData=(comp&&comp.report_data)||{};
 }
@@ -1056,7 +1069,7 @@ function renderDrawer(){
   const u=currentUser();const st=STAGES[l.stage];
   const editable=can('edit',l);const canAssign=can('assign');const canDelete=can('delete');
   const facts=[['Phone',l.phone,true],['Email',l.email||'—',false],['Source',(l.source==='digital'?'Digital · ':'Walk-in · ')+l.srcDetail,false],['Project',l.project||'—',false]];
-  if(l.source==='walkin'){facts.push(['Walk-in via',l.walkinSource==='CP'?('CP · '+(l.cpName||'—')):'Direct',false]);facts.push(['Phase',l.walkinPhase||'—',false]);facts.push(['Location',l.location||'—',false]);facts.push(['Company',l.company||'—',false]);}
+  if(l.source==='walkin'){facts.push(['Walk-in via',l.walkinSource==='CP'?('CP · '+(l.cpName||'—')):l.walkinSource==='Referral'?('Referral'+(l.referralName?' · '+l.referralName:'')):'Direct',false]);if(l.referralLeadId){const rl=db.leads.find(x=>x.id===l.referralLeadId);facts.push(['Referrer in system',rl?rl.name:'—',false]);}facts.push(['Phase',l.walkinPhase||'—',false]);facts.push(['Location',l.location||'—',false]);facts.push(['Company',l.company||'—',false]);}
   facts.push(['Budget',l.budget?'₹'+l.budget:'—',true]);facts.push(['Captured',fmtDate(l.createdAt),true]);
   let flow='';
   const terminal=['booked','lost','not_qualified'].includes(l.stage);
@@ -1078,6 +1091,7 @@ function renderDrawer(){
     }
     flow+=metPHBlock(l);
     flow+=salesInfoBlock(l);
+    flow+=pricingBlock(l);
     flow+=followBlock(l);
     flow+=interestBlock(l);
     flow+=handoffBlock(l);
@@ -1176,6 +1190,57 @@ function salesInfoBlock(l){
 async function setPriceOffered(id,v){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;v=(v||'').trim();if(v===(l.priceOffered||''))return;if(!await updateLead(id,{price_offered:v||null}))return;await addActivityRow(id,{kind:'system',body:'Price offered: '+(v?'₹'+v:'cleared')});await refresh();}
 async function toggleBlock(id,b){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const cur=Array.isArray(l.blocks)?l.blocks.slice():[];const i=cur.indexOf(b);if(i>=0)cur.splice(i,1);else cur.push(b);cur.sort();if(!await updateLead(id,{blocks:cur}))return;await addActivityRow(id,{kind:'system',body:'Block interest: '+(cur.join(', ')||'none')});await refresh();}
 async function setCompetitors(id,v){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;v=(v||'').trim();if(v===(l.competitors||''))return;if(!await updateLead(id,{competitors:v||null}))return;await addActivityRow(id,{kind:'system',body:'Competitor(s): '+(v||'cleared')});await refresh();}
+/* ---- pricing-approval requests ---- */
+let pricingMode='new', pricingReqId=null, pricingLeadId=null;
+function pricingBlock(l){
+  const u=currentUser();if(u.role!=='sales')return '';
+  if(!(l.ownerId===u.id||(l.coOwners||[]).includes(u.id)))return '';
+  const reqs=(db.pricingRequests||[]).filter(r=>r.lead_id===l.id);
+  const list=reqs.map(r=>`<div class="locked-note" style="margin-bottom:6px;cursor:pointer" onclick="openPricing('view','${r.id}')">${r.status==='priced'?'✅ Priced':'⏳ Awaiting price'} · ${(r.units||[]).map(x=>x.unit).join(', ')}</div>`).join('');
+  return `<div class="block"><label>Pricing approval</label>${list}<button class="btn ghost" onclick="openPricing('new','${l.id}')">Request pricing (3 unit options)</button></div>`;
+}
+function openPricing(mode,ref){
+  pricingMode=mode;const body=document.getElementById('priceBody');const btn=document.getElementById('priceSaveBtn');
+  if(mode==='new'){pricingLeadId=ref;const l=db.leads.find(x=>x.id===ref);
+    document.getElementById('priceTitle').textContent='Request pricing approval';btn.style.display='';btn.textContent='Send request';
+    body.innerHTML=`<div class="ai-tag" style="margin-bottom:12px">For <b>${l?l.name:''}</b> · goes to your Project Head &amp; Sales Head.</div>
+      ${[0,1,2].map(i=>`<div class="block"><label>Unit option ${i+1}</label><input class="field" id="pu_${i}" placeholder="e.g. D-1201"/></div>`).join('')}
+      <div class="block"><label>Note (optional)</label><textarea class="field" id="p_note" placeholder="Any context for the heads…"></textarea></div>`;
+  } else {
+    const r=(db.pricingRequests||[]).find(x=>x.id===ref);pricingReqId=ref;if(!r)return;
+    const units=Array.isArray(r.units)?r.units:[];const respond=mode==='respond';
+    document.getElementById('priceTitle').textContent=respond?'Set pre-final & final price':'Pricing request';
+    btn.style.display=respond?'':'none';btn.textContent='Send prices';
+    body.innerHTML=`<div class="ai-tag" style="margin-bottom:12px">Lead <b>${r.lead_name||''}</b> · requested by ${userName(r.requested_by)} · ${r.status==='priced'?'priced by '+userName(r.responded_by):'awaiting price'}</div>
+      ${r.note?`<div class="locked-note" style="margin-bottom:12px">${r.note}</div>`:''}
+      <table style="box-shadow:none"><thead><tr><th>Unit</th><th>Pre-final ₹</th><th>Final ₹</th></tr></thead><tbody>
+      ${units.map((x,i)=>`<tr><td><b class="mono">${x.unit||''}</b></td>
+        <td>${respond?`<input class="field" id="pf_${i}" value="${x.prefinal||''}" placeholder="₹"/>`:(x.prefinal?'₹'+x.prefinal:'—')}</td>
+        <td>${respond?`<input class="field" id="fn_${i}" value="${x.finalp||''}" placeholder="₹"/>`:(x.finalp?'₹'+x.finalp:'—')}</td></tr>`).join('')}
+      </tbody></table>`;
+  }
+  document.getElementById('priceScrim').classList.add('on');
+}
+function closePricing(){document.getElementById('priceScrim').classList.remove('on');}
+async function pricingSubmit(){
+  if(pricingMode==='new'){
+    const l=db.leads.find(x=>x.id===pricingLeadId);if(!l)return;
+    const units=[0,1,2].map(i=>({unit:(document.getElementById('pu_'+i).value||'').trim()})).filter(u=>u.unit);
+    if(!units.length){alert('Enter at least one unit option.');return;}
+    const note=(document.getElementById('p_note').value||'').trim();
+    const {error}=await sb.from('pricing_requests').insert({company_id:myCompanyId,lead_id:l.id,lead_name:l.name,project_id:projId(l.project),requested_by:session,units,note,status:'pending'});
+    if(error){alert('Could not send: '+error.message);return;}
+    await addActivityRow(l.id,{kind:'system',body:'Requested pricing approval ('+units.map(u=>u.unit).join(', ')+')'});
+    closePricing();await refresh();alert('Sent to your Project Head and Sales Head.');
+  } else if(pricingMode==='respond'){
+    const r=(db.pricingRequests||[]).find(x=>x.id===pricingReqId);if(!r)return;
+    const units=(Array.isArray(r.units)?r.units:[]).map((x,i)=>({unit:x.unit,prefinal:(document.getElementById('pf_'+i).value||'').trim(),finalp:(document.getElementById('fn_'+i).value||'').trim()}));
+    const {error}=await sb.from('pricing_requests').update({units,status:'priced',responded_by:session,responded_at:new Date().toISOString()}).eq('id',r.id);
+    if(error){alert('Could not save: '+error.message);return;}
+    await addActivityRow(r.lead_id,{kind:'system',body:'Pricing set by '+currentUser().name});
+    closePricing();await refresh();
+  }
+}
 function likelihoodBlock(l){
   const a=l.assessment;const notes=l.log.filter(e=>e.kind==='note').length;
   let inner;
@@ -1354,7 +1419,7 @@ async function deleteLead(id){if(!can('delete'))return;const l=db.leads.find(x=>
 /* ============ modal ============ */
 function openModal(){
   const u=currentUser();modalSrc='digital';setSrc('digital');
-  ['m_name','m_phone','m_email','m_budget','m_notes','m_location','m_company','m_cp','m_phase'].forEach(i=>document.getElementById(i).value='');
+  ['m_name','m_phone','m_email','m_budget','m_notes','m_location','m_company','m_cp','m_phase','m_refname'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('m_wsource').value='Direct';document.getElementById('m_walkindate').value=iso(today());
   const projSel=document.getElementById('m_project');
   if(u.role==='sales'){projSel.innerHTML=`<option>${u.project}</option>`;projSel.disabled=true;}
@@ -1365,24 +1430,29 @@ function openModal(){
   document.getElementById('modalScrim').classList.add('on');
 }
 function closeModal(){document.getElementById('modalScrim').classList.remove('on');}
-function toggleCP(){document.getElementById('wf_cp').classList.toggle('hidden',document.getElementById('m_wsource').value!=='CP');}
+function onWsourceChange(){const v=document.getElementById('m_wsource').value;document.getElementById('wf_cp').classList.toggle('hidden',v!=='CP');document.getElementById('wf_ref').classList.toggle('hidden',v!=='Referral');document.getElementById('wf_reflink').classList.toggle('hidden',v!=='Referral');if(v==='Referral')fillReferralLinks();}
+function fillReferralLinks(){const sel=document.getElementById('m_reflink');if(!sel)return;sel.innerHTML='<option value="">— not in system —</option>'+scoped().slice().sort((a,b)=>a.name.localeCompare(b.name)).map(l=>`<option value="${l.id}">${l.name}${l.phone?' · '+l.phone:''}</option>`).join('');}
 function setSrc(s){modalSrc=s;document.querySelectorAll('#srcSeg button').forEach(b=>b.classList.toggle('on',b.dataset.s===s));const lab=document.getElementById('srcLabel'),sel=document.getElementById('m_srcdetail');const u=currentUser();
+  const pr=document.getElementById('phoneReq');if(pr)pr.style.display=(s==='digital')?'':'none';
   if(s==='digital'){lab.textContent='Channel';sel.innerHTML=DIGITAL.map(d=>`<option>${d}</option>`).join('');}
   else{lab.textContent='Project walked into';const opts=u.role==='sales'?[u.project]:PROJECTS;sel.innerHTML=opts.map(p=>`<option>${p}</option>`).join('');}
-  const walkin=s==='walkin';['wf_wsource','wf_phase','wf_location','wf_company','wf_date'].forEach(id=>document.getElementById(id).classList.toggle('hidden',!walkin));if(walkin){const dt=document.getElementById('m_walkindate');if(!dt.value)dt.value=iso(today());toggleCP();}else{document.getElementById('wf_cp').classList.add('hidden');}}
+  const walkin=s==='walkin';['wf_wsource','wf_phase','wf_location','wf_company','wf_date'].forEach(id=>document.getElementById(id).classList.toggle('hidden',!walkin));if(walkin){const dt=document.getElementById('m_walkindate');if(!dt.value)dt.value=iso(today());onWsourceChange();}else{['wf_cp','wf_ref','wf_reflink'].forEach(id=>document.getElementById(id).classList.add('hidden'));}}
 async function saveLead(){
   const u=currentUser();
   const name=document.getElementById('m_name').value.trim();const phone=document.getElementById('m_phone').value.trim();
-  if(!name||!phone){alert('Name and phone are required.');return;}
+  if(!name){alert('Name is required.');return;}
+  if(modalSrc==='digital'&&!phone){alert('Phone is required for digital leads.');return;}
   const srcDetail=document.getElementById('m_srcdetail').value;
   let project,ownerId,stage;
   if(u.role==='sales'){project=u.project;ownerId=u.id;stage='assigned';}
   else{project=document.getElementById('m_project').value;ownerId=document.getElementById('m_owner').value||null;stage=ownerId?'assigned':'new';}
   const wsource=modalSrc==='walkin'?document.getElementById('m_wsource').value:'';
   const cpName=(modalSrc==='walkin'&&wsource==='CP')?document.getElementById('m_cp').value.trim():'';
+  const refName=(modalSrc==='walkin'&&wsource==='Referral')?document.getElementById('m_refname').value.trim():'';
+  const refLink=(modalSrc==='walkin'&&wsource==='Referral')?(document.getElementById('m_reflink').value||null):null;
   const wdate=modalSrc==='walkin'?(document.getElementById('m_walkindate').value||iso(today())):iso(today());
-  const srcTxt=modalSrc==='digital'?('Lead captured from '+srcDetail):('Walk-in at '+srcDetail+' ('+(wsource==='CP'?('CP'+(cpName?' · '+cpName:'')):'Direct')+')');
-  const row={company_id:myCompanyId,project_id:projId(project),owner_id:ownerId,name,phone,email:document.getElementById('m_email').value.trim(),source:modalSrc,src_detail:srcDetail,walkin_source:wsource,cp_name:cpName,location:modalSrc==='walkin'?document.getElementById('m_location').value.trim():'',company_name:modalSrc==='walkin'?document.getElementById('m_company').value.trim():'',budget:document.getElementById('m_budget').value.trim(),notes:document.getElementById('m_notes').value.trim(),stage,qualified:null,temp:null,next_follow_up:null,walkin_phase:modalSrc==='walkin'?(document.getElementById('m_phase').value||null):null,assigned_at:(ownerId?wdate:null),created_at:wdate};
+  const srcTxt=modalSrc==='digital'?('Lead captured from '+srcDetail):('Walk-in at '+srcDetail+' ('+(wsource==='CP'?('CP'+(cpName?' · '+cpName:'')):wsource==='Referral'?('Referral'+(refName?' · '+refName:'')):'Direct')+')');
+  const row={company_id:myCompanyId,project_id:projId(project),owner_id:ownerId,name,phone,email:document.getElementById('m_email').value.trim(),source:modalSrc,src_detail:srcDetail,walkin_source:wsource,cp_name:cpName,location:modalSrc==='walkin'?document.getElementById('m_location').value.trim():'',company_name:modalSrc==='walkin'?document.getElementById('m_company').value.trim():'',budget:document.getElementById('m_budget').value.trim(),notes:document.getElementById('m_notes').value.trim(),stage,qualified:null,temp:null,next_follow_up:null,walkin_phase:modalSrc==='walkin'?(document.getElementById('m_phase').value||null):null,referral_name:refName||null,referral_lead_id:refLink,assigned_at:(ownerId?wdate:null),created_at:wdate};
   const {data,error}=await sb.from('leads').insert(row).select().single();
   if(error){alert('Could not save the lead: '+error.message);return;}
   await addActivityRow(data.id,{kind:'system',body:srcTxt+' by '+u.name,date:wdate});
@@ -1458,7 +1528,7 @@ function setReportMonth(v){reportMonth=v;render();}
 function setReportProject(v){reportProject=v;render();}
 function rMonthLabel(ym){if(!ym)return '';const p=ym.split('-');return ['','January','February','March','April','May','June','July','August','September','October','November','December'][parseInt(p[1])]+' '+p[0];}
 function parseLines(t){return String(t||'').split('\n').map(l=>l.split(',').map(x=>x.trim())).filter(r=>r[0]&&r.some(x=>x!==''));}
-function srcCat(l){if(l.source==='walkin')return l.walkinSource==='CP'?'CP':'Direct';return (l.srcDetail==='Referral')?'Referral':'Digital';}
+function srcCat(l){if(l.source==='walkin')return l.walkinSource==='CP'?'CP':l.walkinSource==='Referral'?'Referral':'Direct';return (l.srcDetail==='Referral')?'Referral':'Digital';}
 function reportScope(){let ls=db.leads.slice();if(reportProject!=='All')ls=ls.filter(l=>l.project===reportProject);return ls;}
 function crossReasonSlide(title,leads,reasonFn,cats,slide){
   const rs=[...new Set(leads.map(reasonFn).filter(Boolean))];
@@ -1543,15 +1613,17 @@ function notifyItems(){
   const stale=base.filter(l=>staleQualified(l));
   const overdue=base.filter(l=>{const s=slaState(l);return s&&s.over;});
   const incoming=(db.transfers||[]).filter(t=>t.status==='pending'&&t.to_member===session);
-  let pendingT=[],declinedT=[],interests=[];
+  let pendingT=[],declinedT=[],interests=[],pendingPricing=[];
   if(u&&(u.role==='sales_head'||u.role==='project_head')){
     pendingT=(db.transfers||[]).filter(t=>t.status==='pending'&&t.to_member!==session);
     declinedT=(db.transfers||[]).filter(t=>t.status==='declined'&&t.resolved_at&&(today()-parseD((t.resolved_at||'').slice(0,10)))/86400000<=7);
     const pid=myProjId();
     interests=(db.crossInterest||[]).filter(c=>c.status==='open'&&(u.role==='sales_head'||c.target_project_id===pid));
+    pendingPricing=(db.pricingRequests||[]).filter(r=>r.status==='pending');
   }
-  const total=stale.length+overdue.length+incoming.length+pendingT.length+declinedT.length+interests.length;
-  return {stale,overdue,incoming,pendingT,declinedT,interests,total};
+  const pricedForMe=(db.pricingRequests||[]).filter(r=>r.status==='priced'&&r.requested_by===session);
+  const total=stale.length+overdue.length+incoming.length+pendingT.length+declinedT.length+interests.length+pendingPricing.length+pricedForMe.length;
+  return {stale,overdue,incoming,pendingT,declinedT,interests,pendingPricing,pricedForMe,total};
 }
 function refreshNotifyBadge(){const b=document.getElementById('notifyBadge');if(!b)return;const t=notifyItems().total;b.textContent=t?t:'';b.style.display=t?'grid':'none';}
 function toggleNotify(){const p=document.getElementById('notifyPanel');if(p.classList.contains('hidden')){renderNotify();p.classList.remove('hidden');}else{p.classList.add('hidden');}}
@@ -1561,6 +1633,8 @@ function renderNotify(){const p=document.getElementById('notifyPanel');const it=
   const canOpen=id=>db.leads.some(l=>l.id===id);
   let html=`<div class="nhead">Alerts</div>`;
   if(it.incoming.length)html+=`<div class="nsec">Handoffs waiting for you</div>`+it.incoming.map(t=>`<div class="nrow"><div class="ndot" style="background:#4A6FA5"></div><div class="nmeta" style="flex:1"><b>${t.lead_name||'A lead'}</b><span>${userName(t.from_member)} wants to hand this to you${t.note?' — '+t.note:''}</span><div style="margin-top:7px;display:flex;gap:8px"><button class="btn" style="padding:5px 11px" onclick="acceptTransfer('${t.id}')">Accept</button><button class="btn ghost" style="padding:5px 11px" onclick="declineTransfer('${t.id}')">Decline</button></div></div></div>`).join('');
+  if(it.pendingPricing&&it.pendingPricing.length)html+=`<div class="nsec">Pricing approvals to set</div>`+it.pendingPricing.map(r=>`<div class="nrow" onclick="closeNotify();openPricing('respond','${r.id}')"><div class="ndot" style="background:#2C9C9A"></div><div class="nmeta"><b>${r.lead_name||''}</b><span>${userName(r.requested_by)} needs prices for ${(r.units||[]).map(x=>x.unit).join(', ')}</span></div></div>`).join('');
+  if(it.pricedForMe&&it.pricedForMe.length)html+=`<div class="nsec">Your pricing is ready</div>`+it.pricedForMe.map(r=>`<div class="nrow" onclick="closeNotify();openPricing('view','${r.id}')"><div class="ndot" style="background:#2E9E5B"></div><div class="nmeta"><b>${r.lead_name||''}</b><span>priced by ${userName(r.responded_by)} — tap to view</span></div></div>`).join('');
   if(it.pendingT.length)html+=`<div class="nsec">Handoffs awaiting acceptance</div>`+it.pendingT.map(t=>`<div class="nrow"${canOpen(t.lead_id)?` onclick="closeNotify();openDrawer('${t.lead_id}')"`:''}><div class="ndot" style="background:#E0A32E"></div><div class="nmeta"><b>${t.lead_name||''}</b><span>${userName(t.from_member)} → ${userName(t.to_member)} · not accepted yet</span></div></div>`).join('');
   if(it.declinedT.length)html+=`<div class="nsec">Handoffs declined</div>`+it.declinedT.map(t=>`<div class="nrow"${canOpen(t.lead_id)?` onclick="closeNotify();openDrawer('${t.lead_id}')"`:''}><div class="ndot" style="background:#C0433A"></div><div class="nmeta"><b>${t.lead_name||''}</b><span>${userName(t.to_member)} declined handoff from ${userName(t.from_member)}</span></div></div>`).join('');
   if(it.interests.length)html+=`<div class="nsec">Cross-project interest</div>`+it.interests.map(c=>`<div class="nrow"${canOpen(c.lead_id)?` onclick="closeNotify();openDrawer('${c.lead_id}')"`:''}><div class="ndot" style="background:#7E57C2"></div><div class="nmeta"><b>${c.lead_name||''}</b><span>interested in ${projName(c.target_project_id)||'—'}${c.note?' — '+c.note:''}</span></div></div>`).join('');
