@@ -1068,12 +1068,15 @@ async function saveCurrentFilter(){
 }
 function applySaved(i){const sf=savedFilters()[i];if(!sf)return;_returnTab=null;filters=JSON.parse(JSON.stringify(sf.filters));filterMode=sf.mode||'AND';closeFilters();render();}
 async function deleteSaved(i){const list=savedFilters().slice();list.splice(i,1);if(await savePrefs(Object.assign({},myPrefs,{savedFilters:list}))){renderFilterBuilder();render();}}
+function applyQuickView(days){filters=[{field:'source',value:'walkin'},{field:'captured',value:addDays(-days)+'|'+addDays(0)}];filterMode='AND';_returnTab=null;render();}
 function renderSavedBar(){
   const el=document.getElementById('savedBar');if(!el)return;
   const list=savedFilters();const active=activeFilters().length;
   const cur=JSON.stringify({m:filterMode,f:activeFilters()});
+  const qv=(days,label)=>{const val=addDays(-days)+'|'+addDays(0);const on=filters.length===2&&filters.some(f=>f.field==='captured'&&f.value===val)&&filters.some(f=>f.field==='source'&&f.value==='walkin');return `<button class="sfchip ${on?'on':''}" onclick="applyQuickView(${days})">${label}</button>`;};
+  const quick=qv(15,'Last 15 days')+qv(30,'Last 30 days');
   const chips=list.map((sf,i)=>{const on=JSON.stringify({m:sf.mode||'AND',f:sf.filters})===cur;return `<button class="sfchip ${on?'on':''}" onclick="applySaved(${i})">${sf.name}</button>`;}).join('');
-  el.innerHTML=(list.length||active)?`<div class="sfbar">${chips}${active?`<button class="sfchip clear" onclick="clearFilters()">✕ Clear filters (${active})</button>`:''}<button class="sfchip add" onclick="openFilters()">＋ Filter / save</button></div>`:'';
+  el.innerHTML=`<div class="sfbar">${quick}${chips}${active?`<button class="sfchip clear" onclick="clearFilters()">✕ Clear filters (${active})</button>`:''}<button class="sfchip add" onclick="openFilters()">＋ Filter / save</button></div>`;
 }
 /* ---- custom labels ---- */
 const LABEL_COLORS=['#2C5D80','#2E9E5B','#D9982B','#C0524A','#7E57C2','#2C9C9A','#4A6FA5','#98A2B0'];
@@ -1181,7 +1184,7 @@ function cardHTML(l){
   if(l.stage==='not_qualified'&&l.nqReason)reason=`<div class="reason-tag">Disqualified · <b>${l.nqReason}</b>${l.disqualifiedBy?' · by '+l.disqualifiedBy:''}</div>`;
   if(l.stage==='lost'&&l.lostReason)reason=`<div class="reason-tag">Lost · <b>${l.lostReason}</b></div>`;
   return `<div class="card" style="--l:${st.color}" onclick="openDrawer('${l.id}')">
-    <div class="top"><div><div class="nm">${l.name}</div><div class="proj">${l.project||'—'}</div></div><span class="src ${l.source}">${l.source==='digital'?'Digital':'Walk-in'}</span></div>
+    <div class="top"><div><div class="nm">${l.name}</div><div class="proj">${l.project||'—'} · <span title="${l.source==='walkin'?'Walk-in date':'Captured'}">📅 ${fmtDate(l.createdAt)}</span></div></div><span class="src ${l.source}">${l.source==='digital'?'Digital':'Walk-in'}</span></div>
     <div class="meta">${l.ownerId?`<div class="avatar" title="${userName(l.ownerId)}">${initials(userName(l.ownerId))}</div>`:`<div class="avatar none" title="Unassigned">–</div>`}${l.dealStatus?`<span class="tchip" style="background:#E7EEF5;color:#2C5D80">${l.dealStatus}</span>`:''}${(l.metProjectHead===false&&(l.revisits&&l.revisits.length))?`<span class="tchip" style="background:#FBE9E7;color:#A03027" title="Revisited but no Project-Head meeting">No PH mtg</span>`:''}${(l.revisits&&l.revisits.length)?`<span class="tchip" style="background:#EDE7F6;color:#5E35B1">↩ ${l.revisits.length}</span>`:''}${(l.labels||[]).map(n=>`<span class="lchip" style="background:${labelColor(n)}">${n}</span>`).join('')}${slaHTML}${dueHTML}${l.budget?`<span class="budget">₹${l.budget}</span>`:''}</div>
     ${reason}</div>`;
 }
