@@ -1,4 +1,4 @@
--- Promote to production: migrations 8..13 (idempotent, safe)
+-- Promote to production: migrations 8..14 (idempotent, safe)
 
 -- ===== migration-8 =====
 -- =====================================================================
@@ -166,3 +166,28 @@ create policy tg_write on public.targets for all
   with check (company_id = public.auth_company_id());
 
 grant select, insert, update, delete on public.targets to authenticated;
+
+-- ===== migration-14 =====
+-- =====================================================================
+-- Migration 14 — payment-scheme / promotion catalog + scheme on pricing
+-- =====================================================================
+create table if not exists public.promotions (
+  id          uuid primary key default gen_random_uuid(),
+  company_id  uuid not null references public.companies(id) on delete cascade,
+  name        text not null,
+  description text default '',
+  active      boolean not null default true,
+  created_at  timestamptz not null default now(),
+  unique(company_id, name)
+);
+create index if not exists idx_promo_company on public.promotions(company_id);
+alter table public.promotions enable row level security;
+drop policy if exists promo_select on public.promotions;
+create policy promo_select on public.promotions for select
+  using (company_id = public.auth_company_id());
+drop policy if exists promo_write on public.promotions;
+create policy promo_write on public.promotions for all
+  using (company_id = public.auth_company_id() and public.auth_role() in ('sales_head','project_head'))
+  with check (company_id = public.auth_company_id() and public.auth_role() in ('sales_head','project_head'));
+grant select, insert, update, delete on public.promotions to authenticated;
+alter table public.pricing_requests add column if not exists scheme text;

@@ -291,6 +291,13 @@
   .notify-panel .nmeta b{font-family:'Space Grotesk';font-weight:600;font-size:13.5px;}
   .notify-panel .nmeta span{display:block;font-size:12px;color:var(--soft);}
   .notify-panel .nempty{padding:22px 16px;color:var(--soft);font-size:13px;text-align:center;}
+  .toastwrap{position:fixed;top:70px;right:20px;z-index:120;display:flex;flex-direction:column;gap:10px;max-width:330px;pointer-events:none;}
+  .toast{pointer-events:auto;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--brand);border-radius:12px;box-shadow:0 16px 44px rgba(21,34,56,.22);padding:11px 34px 11px 14px;cursor:pointer;position:relative;transition:opacity .25s ease,transform .25s ease;animation:toastIn .28s cubic-bezier(.2,.8,.2,1);}
+  .toast b{font-family:'Space Grotesk';font-weight:600;font-size:13.5px;display:block;margin-bottom:2px;}
+  .toast .tc{font-size:12.5px;color:var(--soft);line-height:1.35;}
+  .toast .tx{position:absolute;top:7px;right:9px;color:var(--soft);font-size:15px;line-height:1;border:none;background:none;cursor:pointer;}
+  @keyframes toastIn{from{opacity:0;transform:translateX(26px);}to{opacity:1;transform:none;}}
+  @media(max-width:560px){.toastwrap{left:12px;right:12px;max-width:none;}}
   @media(max-width:820px){.stat-grid{grid-template-columns:repeat(2,1fr);}.split{flex-direction:column;}}
 
   /* ---------- Modal ---------- */
@@ -378,6 +385,7 @@
     </div>
     <div class="band"><div class="tabs" id="tabs"></div></div>
     <div class="notify-panel hidden" id="notifyPanel"></div>
+<div class="toastwrap" id="toastWrap"></div>
   </header>
 
   <div class="perm-note" id="permNote"></div>
@@ -520,7 +528,7 @@ const DEFAULT_USERS=[
 ];
 const ROLE_LABEL={sales_head:'Sales Head',project_head:'Project Head',sales:'Salesperson'};
 
-let db={instance:INSTANCE,users:[],leads:[],transfers:[],crossInterest:[],pricingRequests:[],targets:[],reportData:{}};
+let db={instance:INSTANCE,users:[],leads:[],transfers:[],crossInterest:[],pricingRequests:[],targets:[],promotions:[],reportData:{}};
 let reportMonth=null, reportProject='Earthscape';
 let filters=[], filterMode='AND', myPrefs={};
 let session=null, myCompanyId=null, activeTab='pipeline', openId=null, modalSrc='digital', loginView={step:'signin',err:'',email:''};
@@ -556,6 +564,9 @@ async function loadAll(){
   db.pricingRequests=prs||[];
   const {data:tgs}=await sb.from('targets').select('*');
   db.targets=tgs||[];
+  const {data:promos}=await sb.from('promotions').select('*').order('name');
+  db.promotions=promos||[];
+  await ensurePromotions();
   const {data:comp}=await sb.from('companies').select('id,name,report_data').eq('id',myCompanyId).maybeSingle();
   db.company=comp||null;db.reportData=(comp&&comp.report_data)||{};
 }
@@ -569,6 +580,14 @@ async function ensureProjects(){
   const {data:projs}=await sb.from('projects').select('*');
   projById={};projByName={};(projs||[]).forEach(p=>{projById[p.id]=p.name;projByName[p.name]=p.id;});
 }
+const DEFAULT_PROMOS=['Pre EMI','CLP'];
+async function ensurePromotions(){
+  if(!myCompanyId||!currentUser()||currentUser().role!=='sales_head')return;
+  if((db.promotions||[]).length)return;
+  await sb.from('promotions').insert(DEFAULT_PROMOS.map(n=>({company_id:myCompanyId,name:n})));
+  const {data}=await sb.from('promotions').select('*').order('name');db.promotions=data||[];
+}
+function promoOptions(){const a=(db.promotions||[]).filter(p=>p.active!==false).map(p=>p.name);return a.length?a:DEFAULT_PROMOS;}
 async function loadMyMember(){const {data}=await sb.from('members').select('*').eq('id',session).maybeSingle();return data;}
 let _busyN=0,_busyT=null;
 function busyStart(){_busyN++;if(_busyT){clearTimeout(_busyT);_busyT=null;}const b=document.getElementById('busybar');if(b){b.classList.add('on');b.style.width='75%';}}
@@ -1336,7 +1355,7 @@ let pricingMode='new', pricingReqId=null, pricingLeadId=null;
 function pricingBlock(l){
   if(!can('edit',l))return '';
   const reqs=(db.pricingRequests||[]).filter(r=>r.lead_id===l.id);
-  const list=reqs.map(r=>`<div class="locked-note" style="margin-bottom:6px;cursor:pointer" onclick="openPricing('${r.status==='pending'&&(currentUser().role==='sales_head'||currentUser().role==='project_head')?'respond':'view'}','${r.id}')">${r.status==='priced'?'✅ Priced':'⏳ Awaiting price'} · ${(r.units||[]).map(x=>x.unit).join(', ')}${r.status==='pending'&&(currentUser().role==='sales_head'||currentUser().role==='project_head')?' · tap to set price':''}</div>`).join('');
+  const list=reqs.map(r=>`<div class="locked-note" style="margin-bottom:6px;cursor:pointer" onclick="openPricing('${r.status==='pending'&&(currentUser().role==='sales_head'||currentUser().role==='project_head')?'respond':'view'}','${r.id}')">${r.status==='priced'?'✅ Priced':'⏳ Awaiting price'}${r.scheme?' · '+r.scheme:''} · ${(r.units||[]).map(x=>x.unit).join(', ')}${r.status==='pending'&&(currentUser().role==='sales_head'||currentUser().role==='project_head')?' · tap to set price':''}</div>`).join('');
   return `<div class="block"><label>Pricing approval — 3 unit options</label>${list}<button class="btn ghost" onclick="openPricing('new','${l.id}')">Request pre-final &amp; final price</button><div class="ai-tag" style="margin-top:8px">Sends 3 unit options to the Project Head &amp; Sales Head; they reply with pre-final and final price.</div></div>`;
 }
 function openPricing(mode,ref){
@@ -1344,6 +1363,7 @@ function openPricing(mode,ref){
   if(mode==='new'){pricingLeadId=ref;const l=db.leads.find(x=>x.id===ref);
     document.getElementById('priceTitle').textContent='Request pricing approval';btn.style.display='';btn.textContent='Send request';
     body.innerHTML=`<div class="ai-tag" style="margin-bottom:12px">For <b>${l?l.name:''}</b> · goes to your Project Head &amp; Sales Head.</div>
+      <div class="block"><label>Payment scheme</label><select class="field" id="p_scheme">${promoOptions().map(n=>`<option>${n}</option>`).join('')}</select></div>
       ${[0,1,2].map(i=>`<div class="block"><label>Unit option ${i+1}</label><input class="field" id="pu_${i}" placeholder="e.g. D-1201"/></div>`).join('')}
       <div class="block"><label>Note (optional)</label><textarea class="field" id="p_note" placeholder="Any context for the heads…"></textarea></div>`;
   } else {
@@ -1351,7 +1371,7 @@ function openPricing(mode,ref){
     const units=Array.isArray(r.units)?r.units:[];const respond=mode==='respond';
     document.getElementById('priceTitle').textContent=respond?'Set pre-final & final price':'Pricing request';
     btn.style.display=respond?'':'none';btn.textContent='Send prices';
-    body.innerHTML=`<div class="ai-tag" style="margin-bottom:12px">Lead <b>${r.lead_name||''}</b> · requested by ${userName(r.requested_by)} · ${r.status==='priced'?'priced by '+userName(r.responded_by):'awaiting price'}</div>
+    body.innerHTML=`<div class="ai-tag" style="margin-bottom:12px">Lead <b>${r.lead_name||''}</b> · requested by ${userName(r.requested_by)} · ${r.status==='priced'?'priced by '+userName(r.responded_by):'awaiting price'}${r.scheme?` · scheme <b>${r.scheme}</b>`:''}</div>
       ${r.note?`<div class="locked-note" style="margin-bottom:12px">${r.note}</div>`:''}
       <table style="box-shadow:none"><thead><tr><th>Unit</th><th>Pre-final ₹</th><th>Final ₹</th></tr></thead><tbody>
       ${units.map((x,i)=>`<tr><td><b class="mono">${x.unit||''}</b></td>
@@ -1368,9 +1388,10 @@ async function pricingSubmit(){
     const units=[0,1,2].map(i=>({unit:(document.getElementById('pu_'+i).value||'').trim()})).filter(u=>u.unit);
     if(!units.length){alert('Enter at least one unit option.');return;}
     const note=(document.getElementById('p_note').value||'').trim();
-    const {error}=await sb.from('pricing_requests').insert({company_id:myCompanyId,lead_id:l.id,lead_name:l.name,project_id:projId(l.project),requested_by:session,units,note,status:'pending'});
+    const scheme=((document.getElementById('p_scheme')||{}).value||'').trim();
+    const {error}=await sb.from('pricing_requests').insert({company_id:myCompanyId,lead_id:l.id,lead_name:l.name,project_id:projId(l.project),requested_by:session,units,note,scheme,status:'pending'});
     if(error){alert('Could not send: '+error.message);return;}
-    await addActivityRow(l.id,{kind:'system',body:'Requested pricing approval ('+units.map(u=>u.unit).join(', ')+')'});
+    await addActivityRow(l.id,{kind:'system',body:'Requested pricing approval'+(scheme?' ['+scheme+']':'')+' ('+units.map(u=>u.unit).join(', ')+')'});
     closePricing();await refresh();alert('Sent to your Project Head and Sales Head.');
   } else if(pricingMode==='respond'){
     const r=(db.pricingRequests||[]).find(x=>x.id===pricingReqId);if(!r)return;
@@ -1816,6 +1837,36 @@ function renderNotify(){const p=document.getElementById('notifyPanel');const it=
   if(it.overdue.length)html+=`<div class="nsec">Awaiting qualify/disqualify 7+ days</div>`+it.overdue.map(l=>row(l,'decision overdue '+(-slaState(l).left)+'d','#E0A32E')).join('');
   if(!it.total)html+=`<div class="nempty">Nothing needs attention right now.</div>`;
   p.innerHTML=html;}
+/* ============ floating notification labels (toasts) ============ */
+let seenNotif=null;
+function notifyEvents(){
+  const it=notifyItems();const ev=[];
+  (it.incoming||[]).forEach(t=>ev.push({key:'in_'+t.id,title:'Handoff to you · '+(t.lead_name||'a lead'),msg:userName(t.from_member)+' wants to hand this to you',go:toggleNotify}));
+  (it.pendingPricing||[]).forEach(r=>ev.push({key:'pp_'+r.id,title:'Pricing request · '+(r.lead_name||''),msg:userName(r.requested_by)+' needs prices'+(r.scheme?' ('+r.scheme+')':''),go:()=>openPricing('respond',r.id)}));
+  (it.pricedForMe||[]).forEach(r=>ev.push({key:'pf_'+r.id,title:'Prices ready · '+(r.lead_name||''),msg:'priced by '+userName(r.responded_by)+' — tap to view',go:()=>openPricing('view',r.id)}));
+  (it.pendingT||[]).forEach(t=>ev.push({key:'pt_'+t.id,title:'Handoff pending · '+(t.lead_name||''),msg:userName(t.from_member)+' → '+userName(t.to_member)+' · not accepted yet',go:toggleNotify}));
+  (it.declinedT||[]).forEach(t=>ev.push({key:'dt_'+t.id,title:'Handoff declined · '+(t.lead_name||''),msg:userName(t.to_member)+' declined',go:toggleNotify}));
+  (it.interests||[]).forEach(c=>ev.push({key:'ci_'+c.id,title:'Cross-project · '+(c.lead_name||''),msg:'interested in '+(projName(c.target_project_id)||'—'),go:toggleNotify}));
+  return ev;
+}
+function showToast(ev){
+  const wrap=document.getElementById('toastWrap');if(!wrap)return;
+  const d=document.createElement('div');d.className='toast';
+  d.innerHTML=`<button class="tx" title="Dismiss">×</button><b>🔔 ${escapeHtml(ev.title)}</b><span class="tc">${escapeHtml(ev.msg)}</span>`;
+  let gone=false;const kill=()=>{if(gone)return;gone=true;d.style.opacity='0';d.style.transform='translateX(26px)';setTimeout(()=>d.remove(),260);};
+  d.querySelector('.tx').onclick=(e)=>{e.stopPropagation();kill();};
+  d.onclick=()=>{kill();try{ev.go&&ev.go();}catch(e){}};
+  wrap.appendChild(d);setTimeout(kill,9000);
+}
+function pollNotify(){
+  if(!session)return;
+  refreshNotifyBadge();
+  const p=document.getElementById('notifyPanel');if(p&&!p.classList.contains('hidden'))renderNotify();
+  const ev=notifyEvents();const cur=new Set(ev.map(e=>e.key));
+  if(seenNotif===null){seenNotif=cur;return;}      // first pass: remember, don't toast the backlog
+  ev.forEach(e=>{if(!seenNotif.has(e.key))showToast(e);});
+  seenNotif=cur;
+}
 /* ============ team chat ============ */
 let chatTimer=null;
 function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -1846,7 +1897,7 @@ document.addEventListener('keydown',function(e){
   const np=document.getElementById('notifyPanel');if(np&&!np.classList.contains('hidden')){closeNotify();return;}
   if(openId){closeDrawer();return;}
 });
-setInterval(function(){if(session){refreshNotifyBadge();const p=document.getElementById('notifyPanel');if(p&&!p.classList.contains('hidden'))renderNotify();}},60000);
+setInterval(pollNotify,20000);
 </script>
 </body>
 </html>
