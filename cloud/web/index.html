@@ -29,7 +29,12 @@
     background-image:linear-gradient(var(--line2) 1px,transparent 1px),linear-gradient(90deg,var(--line2) 1px,transparent 1px);background-size:26px 26px;background-position:-1px -1px;}
   .mono{font-family:'Space Grotesk',sans-serif;font-variant-numeric:tabular-nums;}
   h1,h2,h3{font-family:'Space Grotesk',sans-serif;margin:0;letter-spacing:-.01em;}
-  button{font-family:inherit;cursor:pointer;}
+  button{font-family:inherit;cursor:pointer;transition:transform .06s ease,filter .12s,background .12s,border-color .12s,color .12s;-webkit-tap-highlight-color:transparent;}
+  button:active{transform:scale(.96);filter:brightness(.94);}
+  button:disabled{opacity:.6;cursor:default;transform:none;}
+  input[type=checkbox]{cursor:pointer;}
+  #busybar{position:fixed;top:0;left:0;height:3px;width:0;background:var(--teal);z-index:300;opacity:0;transition:width .25s ease,opacity .3s ease;box-shadow:0 0 8px rgba(44,156,154,.6);}
+  #busybar.on{opacity:1;}
   input,select,textarea{font-family:inherit;font-size:14px;}
 
   /* ---------- Login ---------- */
@@ -334,6 +339,7 @@
 </style>
 </head>
 <body>
+<div id="busybar"></div>
 
 <!-- ============ AUTH ============ -->
 <div class="auth" id="authRoot"></div>
@@ -549,10 +555,13 @@ async function ensureProjects(){
   projById={};projByName={};(projs||[]).forEach(p=>{projById[p.id]=p.name;projByName[p.name]=p.id;});
 }
 async function loadMyMember(){const {data}=await sb.from('members').select('*').eq('id',session).maybeSingle();return data;}
-async function refresh(){await loadAll();render();}
+let _busyN=0,_busyT=null;
+function busyStart(){_busyN++;if(_busyT){clearTimeout(_busyT);_busyT=null;}const b=document.getElementById('busybar');if(b){b.classList.add('on');b.style.width='75%';}}
+function busyEnd(){_busyN=Math.max(0,_busyN-1);if(_busyN===0){const b=document.getElementById('busybar');if(b){b.style.width='100%';_busyT=setTimeout(()=>{b.classList.remove('on');b.style.width='0';_busyT=null;},280);}}}
+async function refresh(){busyStart();try{await loadAll();render();}finally{busyEnd();}}
 
 /* write helpers — targeted row updates instead of a whole-blob save */
-async function updateLead(id,patch){const {error}=await sb.from('leads').update(patch).eq('id',id);if(error){alert('Could not save that change: '+error.message);return false;}return true;}
+async function updateLead(id,patch){busyStart();const {error}=await sb.from('leads').update(patch).eq('id',id);busyEnd();if(error){alert('Could not save that change: '+error.message);return false;}return true;}
 async function addActivityRow(leadId,o){const payload={company_id:myCompanyId,lead_id:leadId,kind:o.kind,body:o.body||null,next_follow_up:o.next||null,author_id:session};if(o.date)payload.created_at=o.date+'T12:00:00';const {error}=await sb.from('lead_activity').insert(payload);if(error)console.error(error);}
 
 /* ============ helpers ============ */
