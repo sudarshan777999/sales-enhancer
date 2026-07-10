@@ -496,7 +496,7 @@ function projName(id){return projById[id]||null;}
 function projId(name){return projByName[name]||null;}
 function memberName(id){const u=user(id);return u?u.name:'';}
 function titleFor(m){const p=projName(m.project_id);if(m.role==='sales_head')return 'Sales Head';if(m.role==='project_head')return 'Project Head'+(p?' · '+p:'');return 'Salesperson'+(p?' · '+p:'');}
-function leadFromRow(r){return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',source:r.source,srcDetail:r.src_detail||'',walkinSource:r.walkin_source||'',cpName:r.cp_name||'',location:r.location||'',company:r.company_name||'',project:projName(r.project_id),budget:r.budget||'',notes:r.notes||'',stage:r.stage,ownerId:r.owner_id||null,qualified:r.qualified,nqReason:r.nq_reason||'',disqualifiedBy:r.disqualified_by||'',lostReason:r.lost_reason||'',temp:r.temp||null,nextFollowUp:r.next_follow_up||null,assignedAt:r.assigned_at||null,createdAt:r.created_at,assessment:null,booking:r.booking||null,walkinPhase:r.walkin_phase||'',dealStatus:r.deal_status||'',metProjectHead:!!r.met_project_head,phMeetingDate:r.ph_meeting_date||'',labels:Array.isArray(r.labels)?r.labels:[],coOwners:Array.isArray(r.co_owners)?r.co_owners:[],priceOffered:r.price_offered||'',blocks:Array.isArray(r.blocks)?r.blocks:[],competitors:r.competitors||'',referralName:r.referral_name||'',referralLeadId:r.referral_lead_id||null,revisits:[],log:[]};}
+function leadFromRow(r){return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',source:r.source,srcDetail:r.src_detail||'',walkinSource:r.walkin_source||'',cpName:r.cp_name||'',location:r.location||'',company:r.company_name||'',project:projName(r.project_id),budget:r.budget||'',notes:r.notes||'',stage:r.stage,ownerId:r.owner_id||null,qualified:r.qualified,nqReason:r.nq_reason||'',disqualifiedBy:r.disqualified_by||'',lostReason:r.lost_reason||'',temp:r.temp||null,nextFollowUp:r.next_follow_up||null,assignedAt:r.assigned_at||null,createdAt:r.created_at,assessment:null,booking:r.booking||null,walkinPhase:r.walkin_phase||'',dealStatus:r.deal_status||'',metProjectHead:!!r.met_project_head,phMeetingDate:r.ph_meeting_date||'',labels:Array.isArray(r.labels)?r.labels:[],coOwners:Array.isArray(r.co_owners)?r.co_owners:[],priceOffered:r.price_offered||'',blocks:Array.isArray(r.blocks)?r.blocks:[],competitors:r.competitors||'',referralName:r.referral_name||'',referralLeadId:r.referral_lead_id||null,wwSuggested:!!r.wonderwall_suggested,wwVisited:!!r.wonderwall_visited,revisits:[],log:[]};}
 
 async function loadAll(){
   const {data:projs}=await sb.from('projects').select('*');
@@ -511,7 +511,7 @@ async function loadAll(){
   let acts=[];
   if(ids.length){const {data:a}=await sb.from('lead_activity').select('*').in('lead_id',ids).order('created_at',{ascending:true});acts=a||[];}
   const byLead={};acts.forEach(a=>{(byLead[a.lead_id]=byLead[a.lead_id]||[]).push(a);});
-  db.leads=rows.map(r=>{const L=leadFromRow(r);(byLead[r.id]||[]).forEach(a=>{const d=(a.created_at||'').slice(0,10);const by=memberName(a.author_id);L.log.push({t:a.body||'',d,kind:a.kind,by,next:a.next_follow_up||null});if(a.kind==='revisit')L.revisits.push({date:d,by});});return L;});
+  db.leads=rows.map(r=>{const L=leadFromRow(r);(byLead[r.id]||[]).forEach(a=>{const d=(a.created_at||'').slice(0,10);const by=memberName(a.author_id);L.log.push({t:a.body||'',d,kind:a.kind,by,next:a.next_follow_up||null});if(a.kind==='revisit'){const nt=/^Revisited \(visit #\d+\)$/.test(a.body||'')?'':(a.body||'');L.revisits.push({date:d,by,note:nt});}});return L;});
   const [{data:trs},{data:cis}]=await Promise.all([
     sb.from('transfer_requests').select('*').order('created_at',{ascending:false}),
     sb.from('cross_interest').select('*').order('created_at',{ascending:false})
@@ -880,7 +880,9 @@ const FILTER_FIELDS=[
   {k:'comment',label:'Comment contains',type:'text'},
   {k:'label',label:'Label',type:'text'},
   {k:'block',label:'Block interest',type:'select',opts:()=>['A','B','C','D','E','F'].map(b=>[b,b])},
-  {k:'competitor',label:'Competitor contains',type:'text'}
+  {k:'competitor',label:'Competitor contains',type:'text'},
+  {k:'wwsug',label:'Wonderwall suggested',type:'select',opts:()=>[['yes','Yes'],['no','No']]},
+  {k:'wwvis',label:'Wonderwall visited',type:'select',opts:()=>[['yes','Yes'],['no','No']]}
 ];
 function fieldMeta(k){return FILTER_FIELDS.find(f=>f.k===k)||FILTER_FIELDS[0];}
 function inc(a,v){return String(a||'').toLowerCase().includes(String(v||'').toLowerCase());}
@@ -894,6 +896,8 @@ function matchFilter(l,f){const v=f.value;switch(f.field){
   case 'label':return (l.labels||[]).some(x=>inc(x,v));
   case 'block':return (l.blocks||[]).includes(v);
   case 'competitor':return inc(l.competitors,v);
+  case 'wwsug':return v==='yes'?!!l.wwSuggested:!l.wwSuggested;
+  case 'wwvis':return v==='yes'?!!l.wwVisited:!l.wwVisited;
   case 'phase':return (l.walkinPhase||'')===v;
   case 'project':return l.project===v;
   case 'owner':return (l.ownerId||'')===v;
@@ -1090,14 +1094,15 @@ function renderDrawer(){
       flow+=dealStatusBlock(l);
     }
     flow+=metPHBlock(l);
+    flow+=wonderwallBlock(l);
     flow+=salesInfoBlock(l);
     flow+=pricingBlock(l);
     flow+=followBlock(l);
     flow+=interestBlock(l);
     flow+=handoffBlock(l);
   } else if(terminal){
-    if(l.stage==='booked'){flow+=`<div class="block"><div class="banner win"><span>🎉</span><div>Won — <b>${l.dealStatus||'Booked'}</b>.</div></div></div>`;flow+=bookingFactsHTML(l);if(editable)flow+=dealStatusBlock(l);}
-    if(l.stage==='lost'){flow+=`<div class="block"><div class="banner lost"><span>✕</span><div>Lost — <b>${l.lostReason||l.dealStatus||'Closed Lost'}</b></div></div></div>`;if(editable)flow+=dealStatusBlock(l);}
+    if(l.stage==='booked'){flow+=`<div class="block"><div class="banner win"><span>🎉</span><div>Won — <b>${l.dealStatus||'Booked'}</b>.</div></div></div>`;flow+=bookingFactsHTML(l);flow+=wonderwallBlock(l);if(editable)flow+=dealStatusBlock(l);}
+    if(l.stage==='lost'){flow+=`<div class="block"><div class="banner lost"><span>✕</span><div>Lost — <b>${l.lostReason||l.dealStatus||'Closed Lost'}</b></div></div></div>`;flow+=wonderwallBlock(l);if(editable)flow+=dealStatusBlock(l);}
     if(l.stage==='not_qualified'){flow+=`<div class="block"><div class="banner nq"><span>–</span><div>Disqualified — <b>${l.nqReason}</b>${l.disqualifiedBy?' · by '+l.disqualifiedBy:''}. Now in the disqualified pool.</div></div></div>`;
       if(can('assign'))flow+=`<div class="block"><label>Reassign for follow-up</label><select class="field" onchange="reassignPool('${l.id}',this.value)"><option value="">Assign to a salesperson…</option>${salespeople(l.project).map(r=>`<option value="${r.id}">${r.name}</option>`).join('')}</select><div class="ai-tag">Moves this disqualified walk-in out of the pool into the chosen rep's active bucket for a fresh follow-up.</div></div>`;}
     if(editable&&l.stage!=='not_qualified')flow+=`<div class="block"><button class="act" onclick="reopen('${l.id}')">↺ Reopen lead</button></div>`;
@@ -1190,6 +1195,22 @@ function salesInfoBlock(l){
 async function setPriceOffered(id,v){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;v=(v||'').trim();if(v===(l.priceOffered||''))return;if(!await updateLead(id,{price_offered:v||null}))return;await addActivityRow(id,{kind:'system',body:'Price offered: '+(v?'₹'+v:'cleared')});await refresh();}
 async function toggleBlock(id,b){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const cur=Array.isArray(l.blocks)?l.blocks.slice():[];const i=cur.indexOf(b);if(i>=0)cur.splice(i,1);else cur.push(b);cur.sort();if(!await updateLead(id,{blocks:cur}))return;await addActivityRow(id,{kind:'system',body:'Block interest: '+(cur.join(', ')||'none')});await refresh();}
 async function setCompetitors(id,v){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;v=(v||'').trim();if(v===(l.competitors||''))return;if(!await updateLead(id,{competitors:v||null}))return;await addActivityRow(id,{kind:'system',body:'Competitor(s): '+(v||'cleared')});await refresh();}
+/* ---- Wonderwall (finished project) tracking ---- */
+function wonderwallBlock(l){
+  const editable=can('edit',l);const sug=l.wwSuggested,vis=l.wwVisited;
+  if(!editable)return (sug||vis)?`<div class="block"><label>Wonderwall</label><div class="locked-note">${sug?'✅ Suggested':'❌ Not suggested'}${vis?' · ✅ Visited':''}</div></div>`:'';
+  const chk='width:17px;height:17px';const lab='display:flex;align-items:center;gap:9px;text-transform:none;letter-spacing:normal;font-size:14px;color:var(--ink);cursor:pointer;margin-bottom:7px';
+  return `<div class="block"><label>Wonderwall — finished project</label>
+    <label style="${lab}"><input type="checkbox" style="${chk}" ${sug?'checked':''} onchange="setWonderwall('${l.id}','suggested',this.checked)"/> Suggested Wonderwall to the customer</label>
+    <label style="${lab};margin-bottom:0"><input type="checkbox" style="${chk}" ${vis?'checked':''} onchange="setWonderwall('${l.id}','visited',this.checked)"/> Customer visited Wonderwall</label>
+    <div class="ai-tag" style="margin-top:8px">Propose Wonderwall on the first visit — visiting it lifts conversion.</div></div>`;
+}
+async function setWonderwall(id,which,checked){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;
+  const patch=which==='suggested'?{wonderwall_suggested:checked}:{wonderwall_visited:checked};
+  if(which==='visited'&&checked&&!l.wwSuggested)patch.wonderwall_suggested=true;
+  if(!await updateLead(id,patch))return;
+  await addActivityRow(id,{kind:'system',body:which==='suggested'?(checked?'Suggested Wonderwall':'Cleared Wonderwall suggested'):(checked?'Customer visited Wonderwall':'Cleared Wonderwall visited')});
+  await refresh();}
 /* ---- pricing-approval requests ---- */
 let pricingMode='new', pricingReqId=null, pricingLeadId=null;
 function pricingBlock(l){
@@ -1281,15 +1302,15 @@ async function assessLikelihood(id){
 function visitsBlock(l){
   const rv=l.revisits||[];const editable=can('edit',l);const terminal=['booked','lost','not_qualified'].includes(l.stage);
   const total=(l.source==='walkin'?1:0)+rv.length;
-  const hist=rv.length?`<div class="log" style="margin-top:12px">`+rv.slice().reverse().map((r,i)=>`<div class="log-item"><div class="dot" style="background:#7E57C2"></div><div><div class="lt">Revisit ${rv.length-i}</div><div class="lb">${fmtDate(r.date)}${r.by?' · '+r.by:''}</div></div></div>`).join('')+`</div>`:'';
-  const control=(editable&&!terminal)?`<div class="fu-form" style="margin-top:10px"><div class="r" style="margin-bottom:0"><input type="date" class="field" id="rv_date" value="${iso(today())}"/><button class="btn" style="white-space:nowrap" onclick="logRevisit('${l.id}')">↩ Log revisit</button></div></div>`:'';
+  const hist=rv.length?`<div class="log" style="margin-top:12px">`+rv.slice().reverse().map((r,i)=>`<div class="log-item"><div class="dot" style="background:#7E57C2"></div><div><div class="lt">Revisit ${rv.length-i}</div><div class="lb">${fmtDate(r.date)}${r.by?' · '+r.by:''}${r.note?' — '+r.note:''}</div></div></div>`).join('')+`</div>`:'';
+  const control=(editable&&!terminal)?`<div class="fu-form" style="margin-top:10px"><textarea class="field" id="rv_note" placeholder="What happened this visit? (optional)"></textarea><div class="r" style="margin-bottom:0;margin-top:9px"><input type="date" class="field" id="rv_date" value="${iso(today())}"/><button class="btn" style="white-space:nowrap" onclick="logRevisit('${l.id}')">↩ Log revisit</button></div></div>`:'';
   return `<div class="block"><label>Visits &amp; revisits</label>
     <div class="facts" style="grid-template-columns:1fr 1fr;gap:10px">
       <div class="fact"><div class="k">Total visits</div><div class="v mono" style="font-size:19px">${total}</div></div>
       <div class="fact"><div class="k">Revisits</div><div class="v mono" style="font-size:19px">${rv.length}</div></div>
     </div>${control}${hist}</div>`;
 }
-async function logRevisit(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const date=document.getElementById('rv_date').value||iso(today());const visitNo=(l.source==='walkin'?1:0)+(l.revisits||[]).length+1;await addActivityRow(id,{kind:'revisit',body:'Revisited (visit #'+visitNo+')',date});await refresh();}
+async function logRevisit(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const date=document.getElementById('rv_date').value||iso(today());const note=((document.getElementById('rv_note')||{}).value||'').trim();const visitNo=(l.source==='walkin'?1:0)+(l.revisits||[]).length+1;await addActivityRow(id,{kind:'revisit',body:note||('Revisited (visit #'+visitNo+')'),date});await refresh();}
 function timelineHTML(l){
   if(!l.log.length)return '<div class="locked-note">No activity yet. Log a follow-up to start the history.</div>';
   return `<div class="log">`+l.log.slice().reverse().map(e=>{
@@ -1506,10 +1527,21 @@ function funnelHTML(){
   const noPHrows=Object.entries(noPH).sort((a,b)=>b[1]-a[1]);const noPHmax=Math.max(1,...noPHrows.map(r=>r[1]));const noPHtot=noPHrows.reduce((a,r)=>a+r[1],0);
   const noPHPanel=`<div class="panel"><h3>Revisits without a Project-Head meeting</h3><div class="ai-tag" style="margin-bottom:10px">Revisited leads whose customer hasn’t met the Project Head — ${noPHtot} total.</div>${noPHrows.length?noPHrows.map(([n,v])=>`<div class="barrow"><div class="lbl">${n}</div><div class="track"><div class="fillb" style="width:${Math.round(v/noPHmax*100)}%;background:#C0524A">${v}</div></div></div>`).join(''):'<div class="locked-note">All revisited leads have met the Project Head. 👍</div>'}</div>`;
   const filterNote=activeFilters().length?`<div class="ai-tag" style="margin-bottom:12px">${activeFilters().length} filter(s) applied · match ${filterMode}. Edit via the Filters button.</div>`:'';
+  // Wonderwall funnel + conversion
+  const wwProp=allLeads.filter(l=>l.wwSuggested).length, wwVis=allLeads.filter(l=>l.wwVisited).length;
+  const wwVisBk=allLeads.filter(l=>l.wwVisited&&l.stage==='booked').length;
+  const wwNotVis=allLeads.filter(l=>!l.wwVisited);const wwNotVisBk=wwNotVis.filter(l=>l.stage==='booked').length;
+  const convVis=wwVis?Math.round(wwVisBk/wwVis*100):0, convNot=wwNotVis.length?Math.round(wwNotVisBk/wwNotVis.length*100):0;
+  const wwBase=Math.max(1,allLeads.length);
+  const wwf=(lb,n,col)=>`<div class="funnel-row"><div class="fl">${lb}</div><div class="ft"><div class="ff" style="width:${Math.max(5,Math.round(n/wwBase*100))}%;background:${col}">${n}</div></div></div>`;
+  const wwPanel=`<div class="panel"><h3>Wonderwall funnel</h3>${wwf('Proposed',wwProp,'#4A6FA5')}${wwf('Visited',wwVis,'#2C9C9A')}${wwf('Booked after visiting',wwVisBk,'var(--booked)')}<div class="ai-tag" style="margin-top:10px">Booking rate — <b>visited Wonderwall: ${convVis}%</b> vs did not: ${convNot}%.</div></div>`;
+  const wwNP={};allLeads.forEach(l=>{if(!l.wwSuggested){const nm=l.ownerId?userName(l.ownerId):'Unassigned';wwNP[nm]=(wwNP[nm]||0)+1;}});
+  const wwNPr=Object.entries(wwNP).sort((a,b)=>b[1]-a[1]);const wwNPm=Math.max(1,...wwNPr.map(r=>r[1]));const wwNPtot=wwNPr.reduce((a,r)=>a+r[1],0);
+  const wwNPPanel=`<div class="panel"><h3>Wonderwall not yet proposed</h3><div class="ai-tag" style="margin-bottom:10px">Leads where Wonderwall hasn't been proposed — ${wwNPtot} total (pitch it on the first visit).</div>${wwNPr.length?wwNPr.map(([n,v])=>`<div class="barrow"><div class="lbl">${n}</div><div class="track"><div class="fillb" style="width:${Math.round(v/wwNPm*100)}%;background:#D9982B">${v}</div></div></div>`).join(''):'<div class="locked-note">Wonderwall proposed to everyone in this window. 👍</div>'}</div>`;
   const rvBy={};all.forEach(l=>{const r=(l.revisits||[]).length;if(r&&l.ownerId){const nm=userName(l.ownerId);rvBy[nm]=(rvBy[nm]||0)+r;}});
   const rvRows=Object.entries(rvBy).sort((a,b)=>b[1]-a[1]);const rvmax=Math.max(1,...rvRows.map(r=>r[1]));
   const rvPanel=`<div class="panel"><h3>Revisits by salesperson</h3>${rvRows.length?rvRows.map(([n,v])=>`<div class="barrow"><div class="lbl">${n}</div><div class="track"><div class="fillb" style="width:${Math.round(v/rvmax*100)}%;background:#7E57C2">${v}</div></div></div>`).join(''):'<div class="locked-note">No revisits logged in this window.</div>'}</div>`;
-  return filterNote+rb+slaPanel+funnel+stagePanel+`<div class="split">${qualPanel}${tempPanel}</div>`+`<div class="panel"><h3>Deal status by salesperson</h3>${fnlDsTable(spMap,'Salesperson')}</div>`+`<div class="panel"><h3>Deal status by project</h3>${fnlDsTable(projMap,'Project')}</div>`+noPHPanel+rvPanel;
+  return filterNote+rb+slaPanel+funnel+stagePanel+`<div class="split">${qualPanel}${tempPanel}</div>`+`<div class="panel"><h3>Deal status by salesperson</h3>${fnlDsTable(spMap,'Salesperson')}</div>`+`<div class="panel"><h3>Deal status by project</h3>${fnlDsTable(projMap,'Project')}</div>`+wwPanel+wwNPPanel+noPHPanel+rvPanel;
 }
 function crossProjectHTML(){
   const u=currentUser();const pid=myProjId();

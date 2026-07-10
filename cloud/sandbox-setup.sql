@@ -1,4 +1,4 @@
--- Sandbox one-shot setup: full schema + migrations 2..9
+-- Sandbox one-shot setup: full schema + migrations 2..10
 
 -- =====================================================================
 -- Sales Enhancer — multi-tenant schema for Supabase (Postgres)
@@ -549,3 +549,10 @@ create policy pr_update on public.pricing_requests for update
   with check (company_id = public.auth_company_id());
 
 grant select, insert, update, delete on public.pricing_requests to authenticated;
+
+-- ===== migration-10 =====
+-- =====================================================================
+-- Migration 10 — Wonderwall tracking (proposed at first visit) + conversion
+-- =====================================================================
+alter table public.leads add column if not exists wonderwall_suggested boolean not null default false;
+alter table public.leads add column if not exists wonderwall_visited   boolean not null default false;
