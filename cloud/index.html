@@ -449,6 +449,15 @@
   </div>
 </div>
 
+<!-- Edit details modal -->
+<div class="modal-scrim" id="editScrim">
+  <div class="modal">
+    <div class="modal-h"><h2>Edit details</h2></div>
+    <div class="modal-b" id="editBody"></div>
+    <div class="modal-f"><button class="btn ghost" onclick="closeEdit()">Cancel</button><button class="btn" onclick="saveEdit()">Save</button></div>
+  </div>
+</div>
+
 <!-- Team chat modal -->
 <div class="modal-scrim" id="chatScrim">
   <div class="modal" style="display:flex;flex-direction:column;height:min(620px,86vh)">
@@ -1160,7 +1169,7 @@ function renderDrawer(){
 
   const _drSc=(document.querySelector('#drawer .dr-body')||{}).scrollTop||0;
   document.getElementById('drawer').innerHTML=`
-    <div class="dr-head"><div class="row1"><div><h2>${l.name}</h2><div class="sub">${l.phone}</div></div><button class="x" onclick="closeDrawer()">✕</button></div>
+    <div class="dr-head"><div class="row1"><div><h2>${l.name}</h2><div class="sub">${l.phone||'—'}</div></div>${can('edit',l)?`<button class="x" onclick="openEdit('${l.id}')" title="Edit details" style="margin-left:auto">✎</button><button class="x" onclick="closeDrawer()" title="Close (Esc)">✕</button>`:`<button class="x" onclick="closeDrawer()" title="Close (Esc)">✕</button>`}</div>
       <div style="margin-top:12px"><span class="stage-now" style="background:${st.color}1c;color:${st.color}"><i style="background:${st.color}"></i>${st.label}</span></div></div>
     <div class="dr-body">
       <div class="block"><div class="facts">${facts.map(([k,v,m])=>`<div class="fact"><div class="k">${k}</div><div class="v ${m?'mono':''}">${v}</div></div>`).join('')}</div></div>
@@ -1493,7 +1502,27 @@ function wordCloudHTML(leads){
   return `<div class="wcloud">${words.map(([w,n])=>{const sz=13+Math.round((n/max)*26);const op=(0.55+0.45*(n/max)).toFixed(2);return `<span style="font-size:${sz}px;opacity:${op}" title="${n}×">${w}</span>`;}).join('')}</div>`;
 }
 async function markBooked(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;if(!await updateLead(id,{stage:'booked',next_follow_up:null}))return;await addActivityRow(id,{kind:'system',body:'Booked an apartment 🎉'});await refresh();}
-let bookingLeadId=null, bookingStatus='Booked';
+let bookingLeadId=null, bookingStatus='Booked', editLeadId=null;
+function openEdit(id){const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;editLeadId=id;const u=currentUser();
+  const f=(lab,fid,val,ph)=>`<div class="fld"><label>${lab}</label><input class="field" id="${fid}" value="${(val||'').replace(/"/g,'&quot;')}" placeholder="${ph||''}"/></div>`;
+  let html=f('Full name','e_name',l.name)+f('Phone','e_phone',l.phone,'+91 …')+f('Email','e_email',l.email)+f('Budget (₹)','e_budget',l.budget,'e.g. 1.2 Cr');
+  if(l.source==='walkin')html+=f('Location','e_location',l.location)+f('Company','e_company',l.company);
+  if(u.role!=='sales')html+=`<div class="fld"><label>Project</label><select class="field" id="e_project">${PROJECTS.map(p=>`<option ${l.project===p?'selected':''}>${p}</option>`).join('')}</select></div>`;
+  html+=`<div class="fld full"><label>Notes</label><textarea class="field" id="e_notes">${(l.notes||'').replace(/</g,'&lt;')}</textarea></div>`;
+  document.getElementById('editBody').innerHTML=html;
+  document.getElementById('editScrim').classList.add('on');
+}
+function closeEdit(){document.getElementById('editScrim').classList.remove('on');}
+async function saveEdit(){const id=editLeadId;const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;
+  const g=fid=>((document.getElementById(fid)||{}).value||'').trim();
+  const name=g('e_name');if(!name){alert('Name is required.');return;}
+  const patch={name,phone:g('e_phone'),email:g('e_email'),budget:g('e_budget'),notes:g('e_notes')};
+  if(l.source==='walkin'){patch.location=g('e_location');patch.company_name=g('e_company');}
+  const pe=document.getElementById('e_project');if(pe&&projId(pe.value))patch.project_id=projId(pe.value);
+  if(!await updateLead(id,patch))return;
+  await addActivityRow(id,{kind:'system',body:'Updated lead details'});
+  closeEdit();await refresh();
+}
 function numOf(v){const n=parseFloat(String(v==null?'':v).replace(/[^0-9.]/g,''));return isNaN(n)?0:n;}
 function calcRealization(){const av=numOf(document.getElementById('bk_av').value);const sz=numOf(document.getElementById('bk_size').value);const r=sz>0?Math.round(av/sz):0;document.getElementById('bk_real').value=r?('₹'+r.toLocaleString('en-IN')+' /sq.ft'):'—';}
 function openBooking(id,status){
@@ -1797,6 +1826,13 @@ async function boot(){
   else{loginView={step:pendingInvite?'signup':'signin',err:'',email:''};showLogin();}
 }
 boot();
+document.addEventListener('keydown',function(e){
+  if(e.key!=='Escape')return;
+  const openM=[...document.querySelectorAll('.modal-scrim.on')];
+  if(openM.length){openM.forEach(m=>m.classList.remove('on'));if(chatTimer){clearInterval(chatTimer);chatTimer=null;}return;}
+  const np=document.getElementById('notifyPanel');if(np&&!np.classList.contains('hidden')){closeNotify();return;}
+  if(openId){closeDrawer();return;}
+});
 setInterval(function(){if(session){refreshNotifyBadge();const p=document.getElementById('notifyPanel');if(p&&!p.classList.contains('hidden'))renderNotify();}},60000);
 </script>
 </body>
