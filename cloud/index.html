@@ -353,6 +353,21 @@
   .list-table{width:100%;}
   .list-table th{white-space:nowrap;}
   .list-table tbody tr,.list-table tr{cursor:pointer;}
+  .rc-wrap{max-width:620px;margin:26px auto;padding:0 16px;}
+  .rc-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:26px 26px 22px;box-shadow:0 12px 36px rgba(21,34,56,.08);}
+  .rc-card h2{font-family:'Space Grotesk';font-size:22px;margin:0 0 4px;}
+  .rc-sub{color:var(--soft);font-size:13px;margin-bottom:18px;line-height:1.45;}
+  .rc-field{margin-bottom:14px;}
+  .rc-field label{display:block;font-size:12.5px;font-weight:600;color:var(--soft);margin-bottom:5px;}
+  .rc-row{display:flex;gap:12px;}
+  .rc-row .rc-field{flex:1;min-width:0;}
+  .rc-submit{width:100%;justify-content:center;margin-top:6px;font-size:15px;padding:12px;}
+  .rc-warn{background:#FBE9E7;border:1px solid #f3c6bf;color:#A03027;border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:14px;}
+  .rc-log{max-width:620px;margin:16px auto 0;padding:0 16px;}
+  .rc-log-h{font-family:'Space Grotesk';font-weight:600;font-size:13px;color:var(--soft);margin-bottom:8px;}
+  .rc-log-row{display:flex;justify-content:space-between;gap:10px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:7px;background:var(--surface);font-size:13px;}
+  .rc-log-row span{color:var(--soft);font-size:12px;text-align:right;}
+  @media(max-width:560px){.rc-row{flex-direction:column;gap:0;}}
   /* ---------- Monthly report ---------- */
   .report-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;}
   .report-slide{position:relative;background:#FBF4E4;border:1px solid #EADFC2;border-radius:14px;padding:26px 30px;margin-bottom:18px;box-shadow:var(--shadow);}
@@ -400,7 +415,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
         Bulk walk-ins
       </button>
-      <button class="btn" onclick="openModal()">
+      <button class="btn" id="newBtn" onclick="openModal()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
         New lead
       </button>
@@ -558,7 +573,7 @@ const DEFAULT_USERS=[
   {id:'amartya',name:'Amartya',role:'sales',       title:'Salesperson · Earthscape',project:'Earthscape',pass:null},
   {id:'savita', name:'Savita', role:'sales',       title:'Salesperson · Earthscape',project:'Earthscape',pass:null},
 ];
-const ROLE_LABEL={sales_head:'Sales Head',project_head:'Project Head',sales:'Salesperson'};
+const ROLE_LABEL={sales_head:'Sales Head',project_head:'Project Head',sales:'Salesperson',reception:'Receptionist'};
 
 let db={instance:INSTANCE,users:[],leads:[],transfers:[],crossInterest:[],pricingRequests:[],targets:[],promotions:[],tasks:[],reportData:{}};
 let reportMonth=null, reportProject='Earthscape';
@@ -571,7 +586,7 @@ let projById={}, projByName={}, pendingInvite=null;
 function projName(id){return projById[id]||null;}
 function projId(name){return projByName[name]||null;}
 function memberName(id){const u=user(id);return u?u.name:'';}
-function titleFor(m){const p=projName(m.project_id);if(m.role==='sales_head')return 'Sales Head';if(m.role==='project_head')return 'Project Head'+(p?' · '+p:'');return 'Salesperson'+(p?' · '+p:'');}
+function titleFor(m){const p=projName(m.project_id);if(m.role==='sales_head')return 'Sales Head';if(m.role==='project_head')return 'Project Head'+(p?' · '+p:'');if(m.role==='reception')return 'Receptionist';return 'Salesperson'+(p?' · '+p:'');}
 function leadFromRow(r){return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',source:r.source,srcDetail:r.src_detail||'',walkinSource:r.walkin_source||'',cpName:r.cp_name||'',location:r.location||'',company:r.company_name||'',project:projName(r.project_id),budget:r.budget||'',notes:r.notes||'',stage:r.stage,ownerId:r.owner_id||null,qualified:r.qualified,nqReason:r.nq_reason||'',disqualifiedBy:r.disqualified_by||'',lostReason:r.lost_reason||'',temp:r.temp||null,nextFollowUp:r.next_follow_up||null,assignedAt:r.assigned_at||null,createdAt:r.created_at,assessment:null,booking:r.booking||null,walkinPhase:r.walkin_phase||'',dealStatus:r.deal_status||'',metProjectHead:!!r.met_project_head,phMeetingDate:r.ph_meeting_date||'',labels:Array.isArray(r.labels)?r.labels:[],coOwners:Array.isArray(r.co_owners)?r.co_owners:[],priceOffered:r.price_offered||'',blocks:Array.isArray(r.blocks)?r.blocks:[],competitors:r.competitors||'',referralName:r.referral_name||'',referralLeadId:r.referral_lead_id||null,wwSuggested:!!r.wonderwall_suggested,wwVisited:!!r.wonderwall_visited,lostTo:r.lost_to||'',lastQuote:r.last_quote||null,revisits:[],log:[]};}
 
 async function loadAll(){
@@ -725,7 +740,7 @@ function renderLogin(){
   } else {
     const signup=st==='signup';
     body=`<div class="auth-body"><p>${signup?'Create your account.':'Sign in to your account.'}</p>
-      ${authField('em','Email','email','you@company.com',loginView.email)}
+      ${authField('em','Email or username','text','Email or username',loginView.email)}
       ${authField('pw','Password','password',signup?'At least 6 characters':'Your password','')}
       ${err}
       <div class="auth-actions"><button class="btn wide" onclick="authSubmit()">${signup?'Create account':'Sign in'}</button></div>
@@ -738,6 +753,8 @@ function renderLogin(){
   const f=document.getElementById('em')||document.getElementById('ob_company');if(f)f.focus();
 }
 function gotoAuth(step){loginView={step,err:'',email:loginView.email||'',name:loginView.name||'',company:loginView.company||''};renderLogin();}
+const LOGIN_DOMAIN='bnm.local';
+function toEmail(id){id=(id||'').trim();return id.includes('@')?id:(id?id.toLowerCase()+'@'+LOGIN_DOMAIN:'');}
 async function authSubmit(){
   const st=loginView.step;
   if(st==='onboard'){
@@ -757,7 +774,7 @@ async function authSubmit(){
     if(error){loginView.err=error.message;return renderLogin();}
     pendingInvite=null;await afterLogin();return;
   }
-  const email=(document.getElementById('em').value||'').trim();loginView.email=email;
+  const email=toEmail(document.getElementById('em').value);loginView.email=email;
   if(st==='reset'){
     if(!email){loginView.err='Enter your email first.';return renderLogin();}
     const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.href});
@@ -801,9 +818,15 @@ async function renderTeam(){
       <div class="ai-tag" style="margin-top:8px">Bulk-imported customers tagged with an agent who wasn't a member yet are held unassigned. Once that agent has a login, click this to attach them all at once.</div></div>
     <div class="block"><label>Invite a teammate</label>
       <div class="fu-form">
-        <div class="r" style="gap:8px"><input class="field" id="inv_email" placeholder="Their email"/><select class="field" id="inv_role"><option value="sales">Salesperson</option><option value="project_head">Project Head</option></select></div>
+        <div class="r" style="gap:8px"><input class="field" id="inv_email" placeholder="Their email"/><select class="field" id="inv_role"><option value="sales">Salesperson</option><option value="project_head">Project Head</option><option value="reception">Receptionist (front desk)</option></select></div>
         <div class="r" style="gap:8px;margin-top:8px"><select class="field" id="inv_project">${projOpts}</select><button class="btn" style="white-space:nowrap" onclick="inviteTeammate()">Create invite link</button></div>
         <div class="ai-tag" style="margin-top:8px">You'll get a link to send them (WhatsApp etc.). They open it, set a password, and they're in — with the role &amp; project you picked.</div>
+      </div></div>
+    <div class="block"><label>Create a front-desk login (username + password)</label>
+      <div class="fu-form">
+        <div class="r" style="gap:8px"><input class="field" id="fd_user" placeholder="Username (e.g. gre_earthscape)" autocomplete="off"/><input class="field" id="fd_pass" type="text" placeholder="Password (min 6 chars)" autocomplete="off"/></div>
+        <div style="margin-top:8px"><button class="btn" id="fd_btn" onclick="createFrontDeskLogin()">Create login</button></div>
+        <div class="ai-tag" style="margin-top:8px">Instantly makes a <b>Receptionist</b> account — no email needed. They sign in with this username &amp; password and land on the walk-in entry screen; every walk-in they add goes to the salesperson they pick.</div>
       </div></div>
     ${invs&&invs.length?`<div class="block"><label>Pending invites</label>${invRows}</div>`:''}`;
 }
@@ -815,6 +838,29 @@ async function inviteTeammate(){
   const {data,error}=await sb.from('invitations').insert({company_id:myCompanyId,email,role,project_id:projId(project)||null,status:'pending'}).select().single();
   if(error){alert('Could not create invite: '+error.message);return;}
   await renderTeam();copyText(inviteLink(data.token));
+}
+async function createFrontDeskLogin(){
+  if(currentUser().role!=='sales_head')return;
+  const uname=((document.getElementById('fd_user')||{}).value||'').trim();
+  const pw=((document.getElementById('fd_pass')||{}).value||'');
+  if(!uname){alert('Enter a username, e.g. gre_earthscape');return;}
+  if(pw.length<6){alert('Password must be at least 6 characters.');return;}
+  const email=toEmail(uname);
+  const btn=document.getElementById('fd_btn');if(btn){btn.disabled=true;btn.textContent='Creating…';}
+  try{
+    const {data:inv,error:e1}=await sb.from('invitations').insert({company_id:myCompanyId,email,role:'reception',project_id:null,status:'pending'}).select().single();
+    if(e1)throw new Error(/role|check/i.test(e1.message)?'Please run the receptionist database update first, then try again.':e1.message);
+    const sb2=supabase.createClient(ENV.url,ENV.anon,{auth:{storageKey:'bm_tmp_'+Date.now(),persistSession:false,autoRefreshToken:false}});
+    const {data:su,error:e2}=await sb2.auth.signUp({email,password:pw});
+    if(e2)throw new Error(/registered|already/i.test(e2.message)?'That username is already taken.':e2.message);
+    if(!su.session)throw new Error('Email confirmation is ON in Supabase — turn it OFF (Auth → Providers → Email) to create logins this way.');
+    const {error:e3}=await sb2.rpc('accept_invite',{p_token:inv.token,full_name:uname});
+    if(e3)throw new Error(/role|check/i.test(e3.message)?'Please run the receptionist database update first, then try again.':e3.message);
+    await sb2.auth.signOut();
+    await loadAll();await renderTeam();
+    alert('✓ Front-desk login created.\n\nUsername:  '+uname+'\nPassword:  '+pw+'\n\nThey can sign in with these now — they land straight on the walk-in entry screen.');
+  }catch(err){alert('Could not create login: '+(err.message||err));}
+  finally{const b=document.getElementById('fd_btn');if(b){b.disabled=false;b.textContent='Create login';}}
 }
 
 /* ============ bulk walk-in import (Sales Head only) ============ */
@@ -1103,9 +1149,74 @@ function attachLabelPick(id){const v=(document.getElementById('lbl_pick_'+id)||{
 async function removeLabel(id,name){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const set=(l.labels||[]).filter(x=>x!==name);if(!await updateLead(id,{labels:set}))return;await refresh();}
 async function createLabelFor(id){const name=(document.getElementById('lbl_new_'+id).value||'').trim();if(!name)return;const color=(document.getElementById('lbl_col_'+id)||{}).value||'#6C7A93';const list=myLabels().slice();if(!list.some(x=>x.name===name))list.push({name,color});if(await savePrefs(Object.assign({},myPrefs,{labels:list})))await attachLabel(id,name);}
 
+/* ============ receptionist (front desk) ============ */
+let rcSession=[], rcLastOwner='';
+const RC_SUBSOURCES=['Hoarding','Digital','Referral'];
+function renderReception(){
+  const u=currentUser();
+  const ctx=document.getElementById('ctx');if(ctx)ctx.textContent='Front desk · new walk-ins';
+  ['filterBtn','bulkBtn','newBtn'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});
+  const search=document.querySelector('#appRoot header .search');if(search)search.style.display='none';
+  document.getElementById('whoami').innerHTML=`<div class="u-av sales">${initials(u.name)}</div><div><div class="nm">${u.name}</div><div class="rl">Receptionist</div></div><button class="signout" onclick="signOut()">Sign out</button>`;
+  ['tabs','permNote','kpis','myTarget','savedBar'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});
+  const cnt=document.getElementById('count');if(cnt)cnt.textContent='';
+  document.getElementById('main').innerHTML=receptionFormHTML();
+  const first=document.getElementById('rc_name');if(first)first.focus();
+}
+function receptionFormHTML(){
+  const reps=salespeople();
+  const ownerOpts=`<option value="">Choose salesperson…</option>`+reps.map(r=>`<option value="${r.id}" ${rcLastOwner===r.id?'selected':''}>${r.name}${r.project?' · '+r.project:''}</option>`).join('');
+  const subOpts=RC_SUBSOURCES.map(s=>`<option>${s}</option>`).join('');
+  const sessionHTML=rcSession.length?`<div class="rc-log"><div class="rc-log-h">Entered today (${rcSession.length})</div>${rcSession.map(e=>`<div class="rc-log-row"><b>${escapeHtml(e.name)}</b><span>${escapeHtml(e.src)} · 📅 ${fmtDate(e.date)} → ${escapeHtml(e.owner)}</span></div>`).join('')}</div>`:'';
+  const noReps=reps.length?'':`<div class="rc-warn">No salespeople have a login yet. Ask the Sales Head to add them before entering walk-ins.</div>`;
+  return `<div class="rc-wrap">
+    <form class="rc-card" onsubmit="event.preventDefault();rcSubmit();return false;">
+      <h2>New walk-in</h2>
+      <div class="rc-sub">Fill this in as the customer arrives. Press <b>Enter</b> to save — it goes straight to the salesperson you pick.</div>
+      ${noReps}
+      <div class="rc-field"><label>Customer name *</label><input class="field" id="rc_name" autocomplete="off" placeholder="Full name"/></div>
+      <div class="rc-row">
+        <div class="rc-field"><label>Phone (optional)</label><input class="field" id="rc_phone" autocomplete="off" placeholder="+91 …"/></div>
+        <div class="rc-field"><label>Walk-in date</label><input type="date" class="field" id="rc_date" value="${iso(today())}"/></div>
+      </div>
+      <div class="rc-row">
+        <div class="rc-field"><label>Source</label><select class="field" id="rc_source" onchange="rcToggleSource()"><option value="Direct">Direct</option><option value="CP">Channel Partner</option></select></div>
+        <div class="rc-field" id="rc_sub_wrap"><label>Sub-source</label><select class="field" id="rc_sub">${subOpts}</select></div>
+        <div class="rc-field hidden" id="rc_cp_wrap"><label>Channel Partner name</label><input class="field" id="rc_cp" autocomplete="off" placeholder="CP / agent name"/></div>
+      </div>
+      <div class="rc-field"><label>Location (optional)</label><input class="field" id="rc_location" autocomplete="off" placeholder="Where they came from / area of interest"/></div>
+      <div class="rc-field"><label>Assign to salesperson *</label><select class="field" id="rc_owner">${ownerOpts}</select></div>
+      <button class="btn rc-submit" type="submit">＋ Add walk-in</button>
+    </form>
+    ${sessionHTML}
+  </div>`;
+}
+function rcToggleSource(){const cp=document.getElementById('rc_source').value==='CP';
+  document.getElementById('rc_cp_wrap').classList.toggle('hidden',!cp);
+  document.getElementById('rc_sub_wrap').classList.toggle('hidden',cp);}
+async function rcSubmit(){
+  const v=id=>((document.getElementById(id)||{}).value||'').trim();
+  const name=v('rc_name');if(!name){alert('Enter the customer name.');document.getElementById('rc_name').focus();return;}
+  const ownerId=v('rc_owner');if(!ownerId){alert('Choose which salesperson gets this walk-in.');document.getElementById('rc_owner').focus();return;}
+  const owner=db.users.find(x=>x.id===ownerId);
+  const src=document.getElementById('rc_source').value;const cp=v('rc_cp');const sub=document.getElementById('rc_sub').value;
+  const date=v('rc_date')||iso(today());
+  const walkin_source=src==='CP'?'CP':'Direct';
+  const src_detail=src==='CP'?'Channel Partner':(sub||'Direct');
+  const row={company_id:myCompanyId,project_id:projId(owner?owner.project:null),owner_id:ownerId,name,phone:v('rc_phone'),email:'',source:'walkin',src_detail,walkin_source,cp_name:src==='CP'?cp:'',location:v('rc_location'),company_name:'',budget:'',notes:'',stage:'assigned',qualified:null,temp:null,next_follow_up:null,assigned_at:date,created_at:date};
+  const btn=document.querySelector('.rc-submit');if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  const {error}=await sb.from('leads').insert(row);
+  if(btn){btn.disabled=false;btn.textContent='＋ Add walk-in';}
+  if(error){alert('Could not add the walk-in: '+error.message);return;}
+  rcLastOwner=ownerId;
+  rcSession.unshift({name,owner:owner?owner.name:'',date,src:walkin_source==='CP'?('CP'+(cp?' · '+cp:'')):src_detail});
+  renderReception();
+  showToast({title:'Walk-in added',msg:name+' → '+(owner?owner.name:''),go:()=>{}});
+}
 /* ============ render ============ */
 function render(){
   const u=currentUser();if(!u)return;
+  if(u.role==='reception'){renderReception();return;}
   // header context + identity
   const scopeTxt=u.role==='sales_head'?'All projects':(u.project||'');
   document.getElementById('ctx').innerHTML=`<span class="chip">${scopeTxt}</span>`;
