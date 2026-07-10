@@ -353,6 +353,9 @@
   .list-table{width:100%;}
   .list-table th{white-space:nowrap;}
   .list-table tbody tr,.list-table tr{cursor:pointer;}
+  .list-table .cmt-cell{max-width:320px;min-width:190px;}
+  .cmt{font-size:12px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px;line-height:1.55;}
+  .cmt-d{color:var(--soft);font-size:10.5px;margin-right:4px;}
   .rc-wrap{max-width:620px;margin:26px auto;padding:0 16px;}
   .rc-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:26px 26px 22px;box-shadow:0 12px 36px rgba(21,34,56,.08);}
   .rc-card h2{font-family:'Space Grotesk';font-size:22px;margin:0 0 4px;}
@@ -1315,6 +1318,8 @@ function pipelineListHTML(leads){
     let extra='';
     if(l.stage==='lost'&&l.lostTo)extra=`<br><span style="color:var(--lost);font-size:11px">lost to ${escapeHtml(l.lostTo)}</span>`;
     else if(l.stage==='not_qualified'&&l.nqReason)extra=`<br><span style="color:var(--soft);font-size:11px">NQ · ${escapeHtml(l.nqReason)}</span>`;
+    const cmts=(l.log||[]).filter(e=>(e.kind==='note'||e.kind==='revisit')&&e.t&&String(e.t).trim());
+    const cmtCell=cmts.length?cmts.slice(-3).reverse().map(e=>`<div class="cmt" title="${escapeHtml(e.t)}"><span class="cmt-d">${fmtDate(e.d)}</span> ${escapeHtml(e.t)}</div>`).join(''):'<span style="color:var(--soft)">—</span>';
     return `<tr onclick="openDrawer('${l.id}')">
       <td><b class="mono">${l.name}</b>${labels?'<br>'+labels:''}${extra}</td>
       <td style="font-size:12px">${l.phone||'—'}${l.email?'<br><span style="color:var(--soft)">'+l.email+'</span>':''}</td>
@@ -1327,8 +1332,8 @@ function pipelineListHTML(leads){
       <td class="mono" style="font-size:12px;white-space:nowrap">${fmtDate(l.createdAt)}</td>
       <td style="white-space:nowrap">${fu}</td>
       <td class="mono" style="text-align:center">${rv}</td>
-      <td class="mono" style="white-space:nowrap">${l.budget?'₹'+l.budget:'—'}</td></tr>`;}).join('');
-  return filterBanner()+`<div style="overflow-x:auto"><table class="list-table"><thead><tr><th>Lead</th><th>Contact</th><th>Source</th><th>Project</th><th>Walk-in via</th><th>Owner</th><th>Stage</th><th>Deal status</th><th>Captured</th><th>Next follow-up</th><th>↩</th><th>Budget</th></tr></thead><tbody>${rows||'<tr><td colspan="12" style="text-align:center;color:var(--soft);padding:30px">No leads in view.</td></tr>'}</tbody></table></div>`;
+      <td class="cmt-cell">${cmtCell}</td></tr>`;}).join('');
+  return filterBanner()+`<div style="overflow-x:auto"><table class="list-table"><thead><tr><th>Lead</th><th>Contact</th><th>Source</th><th>Project</th><th>Walk-in via</th><th>Owner</th><th>Stage</th><th>Deal status</th><th>Captured</th><th>Next follow-up</th><th>↩</th><th>Recent comments</th></tr></thead><tbody>${rows||'<tr><td colspan="12" style="text-align:center;color:var(--soft);padding:30px">No leads in view.</td></tr>'}</tbody></table></div>`;
 }
 function filterBanner(){
   const af=activeFilters();if(!af.length)return '';
