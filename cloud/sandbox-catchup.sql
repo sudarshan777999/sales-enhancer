@@ -1,4 +1,4 @@
--- Sandbox catch-up: migrations 8..11 (idempotent, safe to re-run)
+-- Sandbox catch-up: migrations 8..12 (idempotent)
 
 -- ===== migration-8 =====
 -- =====================================================================
@@ -124,3 +124,9 @@ create policy msg_select on public.messages for select using (company_id = publi
 drop policy if exists msg_insert on public.messages;
 create policy msg_insert on public.messages for insert with check (company_id = public.auth_company_id() and member_id = auth.uid());
 grant select, insert, update, delete on public.messages to authenticated;
+
+-- ===== migration-12 =====
+-- =====================================================================
+-- Migration 12 — last price quoted to the customer (up to 3 units + price)
+-- =====================================================================
+alter table public.leads add column if not exists last_quote jsonb;   -- { units:[{unit,price}], at }

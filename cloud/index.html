@@ -160,7 +160,7 @@
   /* ---------- Drawer ---------- */
   .scrim{position:fixed;inset:0;background:rgba(21,34,56,.34);backdrop-filter:blur(2px);z-index:60;opacity:0;pointer-events:none;transition:opacity .2s;}
   .scrim.on{opacity:1;pointer-events:auto;}
-  .drawer{position:fixed;top:0;right:0;height:100%;width:min(468px,94vw);background:var(--surface);z-index:70;box-shadow:-12px 0 40px rgba(21,34,56,.16);transform:translateX(100%);transition:transform .26s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;}
+  .drawer{position:fixed;top:0;right:0;height:100%;width:min(880px,96vw);background:var(--surface);z-index:70;box-shadow:-12px 0 40px rgba(21,34,56,.16);transform:translateX(100%);transition:transform .26s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;}
   .drawer.on{transform:translateX(0);}
   .dr-head{padding:20px 22px 16px;border-bottom:1px solid var(--line);}
   .dr-head .row1{display:flex;align-items:flex-start;gap:12px;}
@@ -168,7 +168,11 @@
   .dr-head .sub{color:var(--soft);font-size:13px;margin-top:2px;}
   .x{margin-left:auto;border:1px solid var(--line);background:var(--surface);width:32px;height:32px;border-radius:8px;color:var(--soft);font-size:17px;display:grid;place-items:center;flex:none;}
   .x:hover{border-color:var(--brand);color:var(--brand);}
-  .dr-body{overflow-y:auto;padding:20px 22px 32px;flex:1;}
+  .dr-body{overflow-y:auto;padding:20px 24px 40px;flex:1;display:grid;grid-template-columns:1fr 1fr;gap:20px 26px;align-items:start;}
+  .dr-body>.block{margin-bottom:0;}
+  .dr-body>.block:first-child,.dr-body>.block:last-child{grid-column:1/-1;}
+  .dr-body>.block:has(.banner),.dr-body>.block:has(.facts),.dr-body>.block:has(.edit-block){grid-column:1/-1;}
+  @media(max-width:760px){.dr-body{grid-template-columns:1fr;}}
   .block{margin-bottom:22px;}
   .block>label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--soft);font-weight:600;display:block;margin-bottom:9px;}
   .facts{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;}
@@ -505,7 +509,7 @@ function projName(id){return projById[id]||null;}
 function projId(name){return projByName[name]||null;}
 function memberName(id){const u=user(id);return u?u.name:'';}
 function titleFor(m){const p=projName(m.project_id);if(m.role==='sales_head')return 'Sales Head';if(m.role==='project_head')return 'Project Head'+(p?' · '+p:'');return 'Salesperson'+(p?' · '+p:'');}
-function leadFromRow(r){return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',source:r.source,srcDetail:r.src_detail||'',walkinSource:r.walkin_source||'',cpName:r.cp_name||'',location:r.location||'',company:r.company_name||'',project:projName(r.project_id),budget:r.budget||'',notes:r.notes||'',stage:r.stage,ownerId:r.owner_id||null,qualified:r.qualified,nqReason:r.nq_reason||'',disqualifiedBy:r.disqualified_by||'',lostReason:r.lost_reason||'',temp:r.temp||null,nextFollowUp:r.next_follow_up||null,assignedAt:r.assigned_at||null,createdAt:r.created_at,assessment:null,booking:r.booking||null,walkinPhase:r.walkin_phase||'',dealStatus:r.deal_status||'',metProjectHead:!!r.met_project_head,phMeetingDate:r.ph_meeting_date||'',labels:Array.isArray(r.labels)?r.labels:[],coOwners:Array.isArray(r.co_owners)?r.co_owners:[],priceOffered:r.price_offered||'',blocks:Array.isArray(r.blocks)?r.blocks:[],competitors:r.competitors||'',referralName:r.referral_name||'',referralLeadId:r.referral_lead_id||null,wwSuggested:!!r.wonderwall_suggested,wwVisited:!!r.wonderwall_visited,lostTo:r.lost_to||'',revisits:[],log:[]};}
+function leadFromRow(r){return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',source:r.source,srcDetail:r.src_detail||'',walkinSource:r.walkin_source||'',cpName:r.cp_name||'',location:r.location||'',company:r.company_name||'',project:projName(r.project_id),budget:r.budget||'',notes:r.notes||'',stage:r.stage,ownerId:r.owner_id||null,qualified:r.qualified,nqReason:r.nq_reason||'',disqualifiedBy:r.disqualified_by||'',lostReason:r.lost_reason||'',temp:r.temp||null,nextFollowUp:r.next_follow_up||null,assignedAt:r.assigned_at||null,createdAt:r.created_at,assessment:null,booking:r.booking||null,walkinPhase:r.walkin_phase||'',dealStatus:r.deal_status||'',metProjectHead:!!r.met_project_head,phMeetingDate:r.ph_meeting_date||'',labels:Array.isArray(r.labels)?r.labels:[],coOwners:Array.isArray(r.co_owners)?r.co_owners:[],priceOffered:r.price_offered||'',blocks:Array.isArray(r.blocks)?r.blocks:[],competitors:r.competitors||'',referralName:r.referral_name||'',referralLeadId:r.referral_lead_id||null,wwSuggested:!!r.wonderwall_suggested,wwVisited:!!r.wonderwall_visited,lostTo:r.lost_to||'',lastQuote:r.last_quote||null,revisits:[],log:[]};}
 
 async function loadAll(){
   const {data:projs}=await sb.from('projects').select('*');
@@ -1106,6 +1110,7 @@ function renderDrawer(){
     flow+=metPHBlock(l);
     flow+=wonderwallBlock(l);
     flow+=salesInfoBlock(l);
+    flow+=lastQuoteBlock(l);
     flow+=pricingBlock(l);
     flow+=followBlock(l);
     flow+=interestBlock(l);
@@ -1227,6 +1232,19 @@ async function setWonderwall(id,which,checked){const l=db.leads.find(x=>x.id===i
   if(which==='visited'&&checked&&!l.wwSuggested)patch.wonderwall_suggested=true;
   if(!await updateLead(id,patch))return;
   await addActivityRow(id,{kind:'system',body:which==='suggested'?(checked?'Suggested Wonderwall':'Cleared Wonderwall suggested'):(checked?'Customer visited Wonderwall':'Cleared Wonderwall visited')});
+  await refresh();}
+/* ---- last price quoted to the customer ---- */
+function lastQuoteBlock(l){
+  if(!can('edit',l))return '';
+  const q=(l.lastQuote&&Array.isArray(l.lastQuote.units))?l.lastQuote.units:[];
+  const row=i=>{const u=q[i]||{};return `<div class="r" style="gap:8px;margin-bottom:8px"><input class="field" id="lq_u_${l.id}_${i}" placeholder="Unit ${i+1}" value="${(u.unit||'').replace(/"/g,'&quot;')}"/><input class="field" id="lq_p_${l.id}_${i}" placeholder="Price ₹" value="${(u.price||'').replace(/"/g,'&quot;')}"/></div>`;};
+  return `<div class="block"><label>Last price quoted to customer${l.lastQuote&&l.lastQuote.at?` · <span style="color:var(--soft);font-weight:400;text-transform:none;letter-spacing:normal">${fmtDate(l.lastQuote.at)}</span>`:''}</label>
+    <div class="fu-form">${[0,1,2].map(row).join('')}<button class="btn" onclick="saveLastQuote('${l.id}')">Save quote</button></div></div>`;
+}
+async function saveLastQuote(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;
+  const units=[0,1,2].map(i=>({unit:(document.getElementById('lq_u_'+id+'_'+i).value||'').trim(),price:(document.getElementById('lq_p_'+id+'_'+i).value||'').trim()})).filter(u=>u.unit||u.price);
+  if(!await updateLead(id,{last_quote:{units,at:iso(today())}}))return;
+  await addActivityRow(id,{kind:'note',body:'Quoted to customer — '+(units.map(u=>u.unit+(u.price?' @ ₹'+u.price:'')).join(', ')||'—')});
   await refresh();}
 /* ---- pricing-approval requests ---- */
 let pricingMode='new', pricingReqId=null, pricingLeadId=null;
