@@ -359,6 +359,9 @@
   .ask-bar{display:flex;align-items:center;gap:9px;margin-bottom:10px;}
   .ask-bar .ask-ic{color:var(--brand);font-size:15px;flex:none;}
   .ask-bar input{flex:1;min-width:0;}
+  .sfchip.askc{background:#EEF4FB;border-color:#cfe0f2;color:#2C5D80;}
+  .sfchip.askc .xx{margin-left:6px;opacity:.55;font-size:11px;}
+  .sfchip.askc .xx:hover{opacity:1;color:var(--lost);}
   .drill{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;}
   .drill:hover{opacity:.72;}
   .mini-lead{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;background:var(--surface);}
@@ -1134,6 +1137,16 @@ function renderFilterBuilder(){
 function applyFilters(){_returnTab=null;closeFilters();render();}
 function clearFilters(){_returnTab=null;filters=[];filterMode='AND';closeFilters();render();}
 function savedFilters(){return myPrefs.savedFilters||[];}
+function savedAsks(){return myPrefs.savedAsks||[];}
+async function saveAsk(){
+  const q=((document.getElementById('askBox')||{}).value||'').trim();if(!q){alert('Type a question first, then Save.');return;}
+  const name=prompt('Name this saved question:',q.slice(0,44));if(name===null)return;
+  const nm=(name||q).trim();const list=savedAsks().slice();
+  if(!list.some(x=>x.q.toLowerCase()===q.toLowerCase()))list.push({name:nm,q});
+  if(await savePrefs(Object.assign({},myPrefs,{savedAsks:list})))renderSavedBar();
+}
+function applySavedAsk(i){const s=savedAsks()[i];if(!s)return;lastAsk=s.q;const b=document.getElementById('askBox');if(b)b.value=s.q;runAsk();}
+async function deleteSavedAsk(i){const list=savedAsks().slice();list.splice(i,1);if(await savePrefs(Object.assign({},myPrefs,{savedAsks:list})))renderSavedBar();}
 async function saveCurrentFilter(){
   const name=(document.getElementById('sf_name').value||'').trim();if(!name){alert('Name your filter first.');return;}
   const a=activeFilters();if(!a.length){alert('Add at least one filter to save.');return;}
@@ -1150,8 +1163,9 @@ function renderSavedBar(){
   const qv=(days,label)=>{const val=addDays(-days)+'|'+addDays(0);const on=filters.length===2&&filters.some(f=>f.field==='captured'&&f.value===val)&&filters.some(f=>f.field==='source'&&f.value==='walkin');return `<button class="sfchip ${on?'on':''}" onclick="applyQuickView(${days})">${label}</button>`;};
   const quick=qv(15,'Last 15 days')+qv(30,'Last 30 days');
   const chips=list.map((sf,i)=>{const on=JSON.stringify({m:sf.mode||'AND',f:sf.filters})===cur;return `<button class="sfchip ${on?'on':''}" onclick="applySaved(${i})">${sf.name}</button>`;}).join('');
-  const ask=`<div class="ask-bar"><span class="ask-ic">✦</span><input class="field" id="askBox" autocomplete="off" placeholder="Ask in plain words… e.g. revisited and project head didn't meet and lost" value="${(lastAsk||'').replace(/"/g,'&quot;')}" onkeydown="if(event.key==='Enter')runAsk()"/><button class="btn" onclick="runAsk()">Show walk-ins</button></div>`;
-  el.innerHTML=ask+`<div class="sfbar">${quick}${chips}${active?`<button class="sfchip clear" onclick="clearFilters()">✕ Clear filters (${active})</button>`:''}<button class="sfchip add" onclick="openFilters()">＋ Filter / save</button></div>`;
+  const ask=`<div class="ask-bar"><span class="ask-ic">✦</span><input class="field" id="askBox" autocomplete="off" placeholder="Ask in plain words… e.g. revisited and project head didn't meet and lost" value="${(lastAsk||'').replace(/"/g,'&quot;')}" onkeydown="if(event.key==='Enter')runAsk()"/><button class="btn" onclick="runAsk()">Show walk-ins</button><button class="btn ghost" onclick="saveAsk()" title="Save this question">★ Save</button></div>`;
+  const askChips=savedAsks().map((s,i)=>`<button class="sfchip askc" onclick="applySavedAsk(${i})" title="${escapeHtml(s.q)}">✦ ${escapeHtml(s.name)}<span class="xx" onclick="event.stopPropagation();deleteSavedAsk(${i})">✕</span></button>`).join('');
+  el.innerHTML=ask+`<div class="sfbar">${askChips}${quick}${chips}${active?`<button class="sfchip clear" onclick="clearFilters()">✕ Clear filters (${active})</button>`:''}<button class="sfchip add" onclick="openFilters()">＋ Filter / save</button></div>`;
 }
 /* ---- custom labels ---- */
 const LABEL_COLORS=['#2C5D80','#2E9E5B','#D9982B','#C0524A','#7E57C2','#2C9C9A','#4A6FA5','#98A2B0'];
@@ -1393,8 +1407,9 @@ function tableHTML(leads){
 }
 
 /* ============ drawer ============ */
-function openDrawer(id){openId=id;renderDrawer();document.getElementById('scrim').classList.add('on');document.getElementById('drawer').classList.add('on');}
-function closeDrawer(){openId=null;document.getElementById('scrim').classList.remove('on');document.getElementById('drawer').classList.remove('on');}
+function openDrawer(id){listReturn=null;openId=id;renderDrawer();document.getElementById('scrim').classList.add('on');document.getElementById('drawer').classList.add('on');}
+function openFromList(id){const ret=curList;closeLeadList();openDrawer(id);listReturn=ret;}
+function closeDrawer(){openId=null;document.getElementById('scrim').classList.remove('on');document.getElementById('drawer').classList.remove('on');if(listReturn){const lr=listReturn;listReturn=null;openLeadList(lr.title,db.leads.filter(l=>lr.ids.includes(l.id)));}}
 function getLead(){return db.leads.find(l=>l.id===openId);}
 function renderDrawer(){
   const l=getLead();if(!l)return;
@@ -1980,7 +1995,7 @@ function fnlBuildDS(leads,keyFn){const m={};leads.forEach(l=>{const k=keyFn(l);i
 function fnlDsTable(m,label){const cols=[...DEAL_STATUSES,'Revisits'];const keys=Object.keys(m).sort();if(!keys.length)return '<div class="locked-note">Nothing in this window.</div>';
   return `<table style="box-shadow:none"><thead><tr><th>${label}</th>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${keys.map(k=>`<tr><td><b class="mono">${k}</b></td>${cols.map(c=>{const arr=m[k][c]||[];return `<td class="mono">${arr.length?drillN(arr,label+' · '+k+' · '+c):'0'}</td>`;}).join('')}</tr>`).join('')}</tbody></table>`;}
 /* ---- drill-down list popup (shared by funnel numbers + ask box) ---- */
-let drillReg={},drillSeq=0;
+let drillReg={},drillSeq=0,curList=null,listReturn=null;
 function drillN(arr,label){const k='d'+(drillSeq++);drillReg[k]={leads:arr,label};return `<span class="drill" onclick="event.stopPropagation();openDrill('${k}')">${arr.length}</span>`;}
 function openDrill(k){const d=drillReg[k];if(!d)return;openLeadList(d.label,d.leads);}
 function leadRowMini(l){
@@ -1989,11 +2004,12 @@ function leadRowMini(l){
   const cmtHTML=cmts.length?cmts.map(e=>`<div class="mini-cmt"><span>${fmtDate(e.d)}</span> ${escapeHtml(e.t)}</div>`).join(''):'<div class="mini-cmt" style="color:var(--soft)">No comments yet.</div>';
   const assign=canAssignTask(l)?`<div class="mini-assign"><input class="field" id="qt_${l.id}" placeholder="Assign a task to ${escapeHtml(userName(l.ownerId))}…" onkeydown="if(event.key==='Enter')quickAssignTask('${l.id}')"/><button class="btn" onclick="quickAssignTask('${l.id}')">Send</button></div>`:'';
   return `<div class="mini-lead">
-    <div class="mini-top"><div><b>${escapeHtml(l.name)}</b> <span class="tchip" style="background:${st.color}1c;color:${st.color}">${st.label}</span>${l.dealStatus?` <span class="tchip" style="background:#E7EEF5;color:#2C5D80">${l.dealStatus}</span>`:''}</div><button class="btn ghost" style="padding:5px 11px" onclick="closeLeadList();openDrawer('${l.id}')">Open</button></div>
+    <div class="mini-top"><div><b>${escapeHtml(l.name)}</b> <span class="tchip" style="background:${st.color}1c;color:${st.color}">${st.label}</span>${l.dealStatus?` <span class="tchip" style="background:#E7EEF5;color:#2C5D80">${l.dealStatus}</span>`:''}</div><button class="btn ghost" style="padding:5px 11px" onclick="openFromList('${l.id}')">Open</button></div>
     <div class="mini-sub">${l.project||'—'} · ${l.ownerId?escapeHtml(userName(l.ownerId)):'Unassigned'} · 📅 ${fmtDate(l.createdAt)}${(l.revisits||[]).length?' · ↩ '+l.revisits.length:''}${(l.metProjectHead===false&&(l.revisits||[]).length)?' · <span style="color:#A03027">no PH mtg</span>':''}${l.lostTo?' · lost to '+escapeHtml(l.lostTo):''}</div>
     <div class="mini-cmts">${cmtHTML}</div>${assign}</div>`;
 }
 function openLeadList(title,leads){
+  curList={title,ids:leads.map(l=>l.id)};
   document.getElementById('listTitle').textContent=title+' · '+leads.length;
   document.getElementById('listBody').innerHTML=leads.length?leads.map(leadRowMini).join(''):'<div class="locked-note">No walk-ins match.</div>';
   document.getElementById('listScrim').classList.add('on');
