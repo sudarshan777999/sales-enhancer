@@ -1,35 +1,168 @@
--- Promote to production: run migrations 6 + 7 (idempotent, safe)
+-- Promote to production: migrations 8..13 (idempotent, safe)
 
--- ===== migration-6 (deal status + Met-Project-Head lock) =====
+-- ===== migration-8 =====
 -- =====================================================================
--- Migration 6 — deal status + "Met Project Head" accountability check
+-- Migration 8 — shared owners (co-ownership) + price offered + block(s) + competitors
 -- =====================================================================
-alter table public.leads add column if not exists deal_status      text;    -- Prospect/Negotiation/Booked/Closed Won/Closed Lost
-alter table public.leads add column if not exists met_project_head  boolean not null default false;
-alter table public.leads add column if not exists ph_meeting_date   date;
+alter table public.leads add column if not exists co_owners     uuid[];   -- extra salespeople with equal access
+alter table public.leads add column if not exists price_offered text;     -- price quoted to the customer
+alter table public.leads add column if not exists blocks        jsonb;    -- blocks of interest, e.g. ["A","C"]
+alter table public.leads add column if not exists competitors   text;     -- other projects/competitors in play
 
--- The Project Head must NOT be able to change the Met-Project-Head flag/date
--- (it is an accountability check on them). Enforced server-side like the walk-in lock.
-create or replace function public.enforce_ph_meeting_lock() returns trigger
-  language plpgsql as $$
-begin
-  if (new.met_project_head is distinct from old.met_project_head
-   or new.ph_meeting_date  is distinct from old.ph_meeting_date)
-     and public.auth_role() = 'project_head' then
-    raise exception 'The Project Head cannot change the Met-Project-Head status';
-  end if;
-  return new;
-end $$;
+-- Let a salesperson also reach leads shared with them (co_owners), with equal access.
+drop policy if exists lead_select on public.leads;
+create policy lead_select on public.leads for select
+  using (
+    company_id = public.auth_company_id()
+    and (
+      public.auth_role() = 'sales_head'
+      or (public.auth_role() = 'project_head' and project_id = public.auth_project_id())
+      or (public.auth_role() = 'sales' and (owner_id = auth.uid() or auth.uid() = any(co_owners)))
+    )
+  );
 
-drop trigger if exists trg_ph_meeting_lock on public.leads;
-create trigger trg_ph_meeting_lock before update on public.leads
-  for each row execute function public.enforce_ph_meeting_lock();
+drop policy if exists lead_update on public.leads;
+create policy lead_update on public.leads for update
+  using (
+    company_id = public.auth_company_id()
+    and (
+      public.auth_role() = 'sales_head'
+      or (public.auth_role() = 'project_head' and project_id = public.auth_project_id())
+      or (public.auth_role() = 'sales' and (owner_id = auth.uid() or auth.uid() = any(co_owners)))
+    )
+  )
+  with check (company_id = public.auth_company_id());
 
--- ===== migration-7 (saved filters + labels) =====
+-- Activity/assessment visibility follows the same rule.
+create or replace function public.can_see_lead(p_lead uuid) returns boolean
+  language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.leads l
+    where l.id = p_lead
+      and l.company_id = public.auth_company_id()
+      and (
+        public.auth_role() = 'sales_head'
+        or (public.auth_role() = 'project_head' and l.project_id = public.auth_project_id())
+        or (public.auth_role() = 'sales' and (l.owner_id = auth.uid() or auth.uid() = any(l.co_owners)))
+      )
+  )
+$$;
+
+-- ===== migration-9 =====
 -- =====================================================================
--- Migration 7 — saved (named) filters + salesperson custom labels
---   members.prefs  : per-user JSON (saved filters, personal label definitions)
---   leads.labels   : labels attached to a lead (array of strings)
+-- Migration 9 — Referral walk-in source + pricing-approval requests
 -- =====================================================================
-alter table public.members add column if not exists prefs  jsonb;
-alter table public.leads   add column if not exists labels jsonb;
+
+-- Referral as a walk-in source, with referrer name + optional link to an existing lead
+alter table public.leads drop constraint if exists leads_walkin_source_check;
+alter table public.leads add constraint leads_walkin_source_check
+  check (walkin_source in ('Direct','CP','Referral',''));
+alter table public.leads add column if not exists referral_name    text;
+alter table public.leads add column if not exists referral_lead_id uuid references public.leads(id) on delete set null;
+
+-- Pricing-approval requests: salesperson sends 3 unit options; heads set pre-final + final price
+create table if not exists public.pricing_requests (
+  id           uuid primary key default gen_random_uuid(),
+  company_id   uuid not null references public.companies(id) on delete cascade,
+  lead_id      uuid not null references public.leads(id) on delete cascade,
+  lead_name    text,
+  project_id   uuid references public.projects(id),
+  requested_by uuid references public.members(id),
+  units        jsonb,      -- [{unit, prefinal, finalp}]
+  note         text,
+  status       text not null default 'pending' check (status in ('pending','priced')),
+  responded_by uuid references public.members(id),
+  created_at   timestamptz not null default now(),
+  responded_at timestamptz
+);
+create index if not exists idx_pr_company on public.pricing_requests(company_id);
+alter table public.pricing_requests enable row level security;
+
+-- Visible to: Sales Head, the request's Project Head, and the requester
+drop policy if exists pr_select on public.pricing_requests;
+create policy pr_select on public.pricing_requests for select
+  using (company_id = public.auth_company_id() and (
+    public.auth_role() = 'sales_head'
+    or (public.auth_role() = 'project_head' and project_id = public.auth_project_id())
+    or requested_by = auth.uid()));
+drop policy if exists pr_insert on public.pricing_requests;
+create policy pr_insert on public.pricing_requests for insert
+  with check (company_id = public.auth_company_id() and requested_by = auth.uid());
+drop policy if exists pr_update on public.pricing_requests;
+create policy pr_update on public.pricing_requests for update
+  using (company_id = public.auth_company_id() and (
+    public.auth_role() = 'sales_head'
+    or (public.auth_role() = 'project_head' and project_id = public.auth_project_id())))
+  with check (company_id = public.auth_company_id());
+
+grant select, insert, update, delete on public.pricing_requests to authenticated;
+
+-- ===== migration-10 =====
+-- =====================================================================
+-- Migration 10 — Wonderwall tracking (proposed at first visit) + conversion
+-- =====================================================================
+alter table public.leads add column if not exists wonderwall_suggested boolean not null default false;
+alter table public.leads add column if not exists wonderwall_visited   boolean not null default false;
+
+-- ===== migration-11 =====
+-- =====================================================================
+-- Migration 11 — "lost to competitor" + team group chat
+-- =====================================================================
+alter table public.leads add column if not exists lost_to text;   -- competitor we lost the deal to
+
+create table if not exists public.messages (
+  id         uuid primary key default gen_random_uuid(),
+  company_id uuid not null references public.companies(id) on delete cascade,
+  member_id  uuid references public.members(id),
+  body       text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_msg on public.messages(company_id, created_at);
+alter table public.messages enable row level security;
+drop policy if exists msg_select on public.messages;
+create policy msg_select on public.messages for select using (company_id = public.auth_company_id());
+drop policy if exists msg_insert on public.messages;
+create policy msg_insert on public.messages for insert with check (company_id = public.auth_company_id() and member_id = auth.uid());
+grant select, insert, update, delete on public.messages to authenticated;
+
+-- ===== migration-12 =====
+-- =====================================================================
+-- Migration 12 — last price quoted to the customer (up to 3 units + price)
+-- =====================================================================
+alter table public.leads add column if not exists last_quote jsonb;   -- { units:[{unit,price}], at }
+
+-- ===== migration-13 =====
+-- =====================================================================
+-- Migration 13 — monthly targets & incentives per salesperson
+-- =====================================================================
+create table if not exists public.targets (
+  id         uuid primary key default gen_random_uuid(),
+  company_id uuid not null references public.companies(id) on delete cascade,
+  member_id  uuid not null references public.members(id) on delete cascade,
+  month      text not null,            -- 'YYYY-MM'
+  target     int default 0,            -- bookings target
+  incentive  numeric default 0,        -- potential incentive (INR)
+  unique(member_id, month)
+);
+create index if not exists idx_tg_company on public.targets(company_id);
+alter table public.targets enable row level security;
+
+-- Read: Sales Head (all), the salesperson themselves, the Project Head for their project's reps
+drop policy if exists tg_select on public.targets;
+create policy tg_select on public.targets for select
+  using (company_id = public.auth_company_id() and (
+    public.auth_role() = 'sales_head'
+    or member_id = auth.uid()
+    or (public.auth_role() = 'project_head' and exists (
+        select 1 from public.members m where m.id = targets.member_id and m.project_id = public.auth_project_id()))));
+
+-- Write: Sales Head, or the Project Head for their project's reps
+drop policy if exists tg_write on public.targets;
+create policy tg_write on public.targets for all
+  using (company_id = public.auth_company_id() and (
+    public.auth_role() = 'sales_head'
+    or (public.auth_role() = 'project_head' and exists (
+        select 1 from public.members m where m.id = targets.member_id and m.project_id = public.auth_project_id()))))
+  with check (company_id = public.auth_company_id());
+
+grant select, insert, update, delete on public.targets to authenticated;

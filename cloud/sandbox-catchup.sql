@@ -1,4 +1,4 @@
--- Sandbox catch-up: migrations 8..13 (idempotent)
+-- Sandbox catch-up: migrations 8..13 (idempotent, safe to re-run)
 
 -- ===== migration-8 =====
 -- =====================================================================

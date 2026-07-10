@@ -171,7 +171,7 @@
   .dr-body{overflow-y:auto;padding:20px 24px 40px;flex:1;display:grid;grid-template-columns:1fr 1fr;gap:20px 26px;align-items:start;}
   .dr-body>.block{margin-bottom:0;}
   .dr-body>.block:first-child,.dr-body>.block:last-child{grid-column:1/-1;}
-  .dr-body>.block:has(.banner),.dr-body>.block:has(.facts),.dr-body>.block:has(.edit-block){grid-column:1/-1;}
+  .dr-body>.block:has(.banner),.dr-body>.block:has(.facts),.dr-body>.block:has(.edit-block),.dr-body>.block.upd{grid-column:1/-1;}
   @media(max-width:760px){.dr-body{grid-template-columns:1fr;}}
   .block{margin-bottom:22px;}
   .block>label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--soft);font-weight:600;display:block;margin-bottom:9px;}
@@ -489,7 +489,7 @@ const NQ_REASONS=['Budget mismatch','Just browsing / not serious','Wrong locatio
 const LOST_REASONS=['Went with a competitor','Price / negotiation gap','Postponed purchase','Went unresponsive','Location not suitable','Home loan rejected'];
 const PAYMENT_STRUCTURES=['TES Pre EMI','Solcrest Payment Holiday','Normal CLP'];
 const PHASES=['Phase 1','Phase 2'];
-const DEAL_STATUSES=['Prospect','Negotiation','Booked','Closed Won','Closed Lost'];
+const DEAL_STATUSES=['Prospect','Negotiation','Closed Won','Closed Lost'];
 
 const DEFAULT_USERS=[
   {id:'head',   name:'You',    role:'sales_head',  title:'Sales Head',            project:null,        pass:null},
@@ -969,19 +969,19 @@ function myLabels(){return myPrefs.labels||[];}
 function labelColor(name){const l=myLabels().find(x=>x.name===name);return l?l.color:'#6C7A93';}
 function labelsBlock(l){
   const cur=l.labels||[];const editable=can('edit',l);
-  const chips=cur.map(n=>`<span class="lchip" style="background:${labelColor(n)}">${n}${editable?`<span class="rm" onclick="removeLabel('${l.id}','${n.replace(/'/g,"&#39;")}')">✕</span>`:''}</span>`).join(' ');
+  const chip=(n,rm)=>`<span class="lchip" style="background:${labelColor(n)}">${escapeHtml(n)}${rm?`<span class="rm" onclick="removeLabel('${l.id}','${n.replace(/'/g,"&#39;")}')">×</span>`:''}</span>`;
+  const chips=cur.map(n=>chip(n,editable)).join(' ');
   if(!editable)return cur.length?`<div class="block"><label>Labels</label><div style="display:flex;flex-wrap:wrap;gap:6px">${chips}</div></div>`:'';
   const avail=myLabels().filter(x=>!cur.includes(x.name));
+  const availChips=avail.map(x=>`<button class="lchip" style="background:${x.color};border:none;cursor:pointer;padding:3px 10px" onclick="attachLabel('${l.id}','${x.name.replace(/'/g,"&#39;")}')">+ ${escapeHtml(x.name)}</button>`).join(' ');
   return `<div class="block"><label>Labels</label>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">${chips||'<span style="color:var(--soft);font-size:12.5px">No labels attached</span>'}</div>
-    <div class="fu-form"><div class="r" style="gap:8px;margin-bottom:8px">
-      <select class="field" id="lbl_pick_${l.id}">${avail.length?avail.map(x=>`<option value="${x.name}">${x.name}</option>`).join(''):'<option value="">— create one below —</option>'}</select>
-      <button class="btn" style="white-space:nowrap" onclick="attachLabelPick('${l.id}')" ${avail.length?'':'disabled'}>Attach</button></div>
-      <div class="r" style="gap:8px;align-items:center">
-        <input class="field" id="lbl_new_${l.id}" placeholder="New label name"/>
-        <select class="field" id="lbl_col_${l.id}" style="max-width:120px">${LABEL_COLORS.map((c,i)=>`<option value="${c}">Colour ${i+1}</option>`).join('')}</select>
-        <button class="btn ghost" style="white-space:nowrap" onclick="createLabelFor('${l.id}')">＋ Create</button></div>
-    </div></div>`;
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:${avail.length?'10px':'8px'}">${chips||'<span style="color:var(--soft);font-size:12.5px">None attached</span>'}</div>
+    ${avail.length?`<div style="font-size:11px;color:var(--soft);margin-bottom:5px">Tap a label to add it:</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${availChips}</div>`:''}
+    <div class="fu-form"><div class="r" style="gap:8px;margin-bottom:0;align-items:center">
+      <input class="field" id="lbl_new_${l.id}" placeholder="Make a new label…"/>
+      <input type="color" id="lbl_col_${l.id}" value="#2C5D80" title="Pick a colour" style="width:46px;height:38px;padding:3px;border:1px solid var(--line);border-radius:9px;background:#fff;cursor:pointer;flex:none"/>
+      <button class="btn" style="white-space:nowrap" onclick="createLabelFor('${l.id}')">Create &amp; add</button></div>
+    <div class="ai-tag" style="margin-top:8px">Your labels are personal — create as many as you like (e.g. <b>NRI</b>, <b>Hot lead</b>, <b>Loan case</b>) and tap to tag any lead.</div></div></div>`;
 }
 async function attachLabel(id,name){const l=db.leads.find(x=>x.id===id);if(!can('edit',l)||!name)return;const set=Array.from(new Set([...(l.labels||[]),name]));if(!await updateLead(id,{labels:set}))return;await refresh();}
 function attachLabelPick(id){const v=(document.getElementById('lbl_pick_'+id)||{}).value;if(v)attachLabel(id,v);}
@@ -1133,7 +1133,6 @@ function renderDrawer(){
     flow+=salesInfoBlock(l);
     flow+=lastQuoteBlock(l);
     flow+=pricingBlock(l);
-    flow+=followBlock(l);
     flow+=interestBlock(l);
     flow+=handoffBlock(l);
   } else if(terminal){
@@ -1156,6 +1155,7 @@ function renderDrawer(){
       <div style="margin-top:12px"><span class="stage-now" style="background:${st.color}1c;color:${st.color}"><i style="background:${st.color}"></i>${st.label}</span></div></div>
     <div class="dr-body">
       <div class="block"><div class="facts">${facts.map(([k,v,m])=>`<div class="fact"><div class="k">${k}</div><div class="v ${m?'mono':''}">${v}</div></div>`).join('')}</div></div>
+      ${updateBlock(l)}
       ${visitsBlock(l)}
       ${labelsBlock(l)}
       ${phaseBlock(l)}
@@ -1180,6 +1180,40 @@ function followBlock(l){
     </div></div>`;
 }
 async function addNote(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const t=document.getElementById('note_text').value.trim();if(!t)return;await addActivityRow(id,{kind:'note',body:t});await refresh();}
+function updateBlock(l){
+  if(!can('edit',l))return '';
+  const d=l.nextFollowUp?dueState(l.nextFollowUp):null;
+  const badge=d?`<span class="pill ${d.cls}" style="margin-left:8px">${clock}${d.cls==='over'?'Overdue':d.cls==='today'?'Today':fmtDate(l.nextFollowUp)}</span>`:'';
+  const cbLab='display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink);cursor:pointer;text-transform:none;letter-spacing:normal;font-weight:500';
+  return `<div class="block upd"><label>Add an update ${badge}</label>
+    <div class="fu-form">
+      <textarea class="field" id="upd_note_${l.id}" placeholder="What happened? A note, a call, a visit…" style="min-height:64px"></textarea>
+      <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:11px;align-items:center">
+        <label style="${cbLab}"><input type="checkbox" id="upd_fu_${l.id}" onchange="document.getElementById('upd_fud_${l.id}').style.display=this.checked?'':'none'"/> Set a follow-up</label>
+        <input type="date" class="field" id="upd_fud_${l.id}" style="display:none;max-width:170px" value="${l.nextFollowUp||addDays(3)}"/>
+        <label style="${cbLab}"><input type="checkbox" id="upd_rv_${l.id}" onchange="document.getElementById('upd_rvd_${l.id}').style.display=this.checked?'':'none'"/> Log as a revisit</label>
+        <input type="date" class="field" id="upd_rvd_${l.id}" style="display:none;max-width:170px" value="${iso(today())}"/>
+      </div>
+      <div style="margin-top:11px"><button class="btn" onclick="saveUpdate('${l.id}')">Save update</button></div>
+    </div></div>`;
+}
+async function saveUpdate(id){
+  const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;
+  const note=((document.getElementById('upd_note_'+id)||{}).value||'').trim();
+  const fuOn=!!(document.getElementById('upd_fu_'+id)||{}).checked;
+  const fuDate=fuOn?((document.getElementById('upd_fud_'+id)||{}).value||''):'';
+  const rvOn=!!(document.getElementById('upd_rv_'+id)||{}).checked;
+  const rvDate=rvOn?((document.getElementById('upd_rvd_'+id)||{}).value||iso(today())):'';
+  if(!note&&!fuOn&&!rvOn){alert('Type an update, or tick follow-up / revisit.');return;}
+  if(fuOn&&fuDate){if(!await updateLead(id,{next_follow_up:fuDate}))return;}
+  if(rvOn){
+    const visitNo=(l.source==='walkin'?1:0)+(l.revisits||[]).length+1;
+    await addActivityRow(id,{kind:'revisit',body:note||('Revisited (visit #'+visitNo+')'),next:fuOn?fuDate:null,date:rvDate});
+  } else if(note||fuOn){
+    await addActivityRow(id,{kind:'note',body:note||'Follow-up set',next:fuOn?fuDate:null});
+  }
+  await refresh();
+}
 
 /* ============ mutations ============ */
 async function assign(id,repId){if(!can('assign'))return;const l=db.leads.find(x=>x.id===id);const was=l.ownerId;const patch={owner_id:repId||null};if(repId&&l.stage==='new')patch.stage='assigned';if(repId&&repId!==was)patch.assigned_at=iso(today());if(!await updateLead(id,patch))return;if(repId&&repId!==was)await addActivityRow(id,{kind:'system',body:'Assigned to '+userName(repId)});await refresh();}
@@ -1192,7 +1226,6 @@ function dealStatusBlock(l){
   return `<div class="block"><label>Deal status${cur?` · <span style="color:var(--ink)">${cur}</span>`:''}</label>
     <div class="actions">
       ${seg('Prospect')}${seg('Negotiation')}
-      <button class="act ${cur==='Booked'?'ds-on':''}" onclick="openBooking('${l.id}','Booked')">Booked</button>
       <button class="act win ${cur==='Closed Won'?'ds-on':''}" onclick="openBooking('${l.id}','Closed Won')">Closed Won</button>
     </div>
     <div class="fu-form" style="margin-top:9px"><div class="r" style="margin-bottom:0;gap:8px;flex-wrap:wrap">
@@ -1358,7 +1391,7 @@ function visitsBlock(l){
   const rv=l.revisits||[];const editable=can('edit',l);const terminal=['booked','lost','not_qualified'].includes(l.stage);
   const total=(l.source==='walkin'?1:0)+rv.length;
   const hist=rv.length?`<div class="log" style="margin-top:12px">`+rv.slice().reverse().map((r,i)=>`<div class="log-item"><div class="dot" style="background:#7E57C2"></div><div><div class="lt">Revisit ${rv.length-i}</div><div class="lb">${fmtDate(r.date)}${r.by?' · '+r.by:''}${r.note?' — '+r.note:''}</div></div></div>`).join('')+`</div>`:'';
-  const control=(editable&&!terminal)?`<div class="fu-form" style="margin-top:10px"><textarea class="field" id="rv_note" placeholder="What happened this visit? (optional)"></textarea><div class="r" style="margin-bottom:0;margin-top:9px"><input type="date" class="field" id="rv_date" value="${iso(today())}"/><button class="btn" style="white-space:nowrap" onclick="logRevisit('${l.id}')">↩ Log revisit</button></div></div>`:'';
+  const control='';
   return `<div class="block"><label>Visits &amp; revisits</label>
     <div class="facts" style="grid-template-columns:1fr 1fr;gap:10px">
       <div class="fact"><div class="k">Total visits</div><div class="v mono" style="font-size:19px">${total}</div></div>
@@ -1444,7 +1477,7 @@ function statsHTML(leads){
 }
 function wordCloudHTML(leads){
   const stop=new Set('the a an and or but to of in on for with at by from is are was were be been being have has had do does did will would can could should not no yes he she it they them his her their our your you i we as this that these those about into over under out up down very more most also them him her can call called spoke said told want wants need needs get got very just now'.split(' '));
-  const freq={};leads.forEach(l=>(l.log||[]).filter(e=>e.kind==='note').forEach(e=>{String(e.t||'').toLowerCase().split(/[^a-z0-9]+/).forEach(w=>{if(w.length>=3&&!stop.has(w))freq[w]=(freq[w]||0)+1;});}));
+  const freq={};leads.forEach(l=>(l.log||[]).filter(e=>e.kind==='note'||e.kind==='revisit').forEach(e=>{String(e.t||'').toLowerCase().split(/[^a-z0-9]+/).forEach(w=>{if(w.length>=3&&!stop.has(w))freq[w]=(freq[w]||0)+1;});}));
   const words=Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,40);
   if(!words.length)return '<div class="locked-note">No comment words yet. As the team logs follow-ups, common themes appear here.</div>';
   const max=words[0][1];
