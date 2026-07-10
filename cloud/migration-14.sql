@@ -20,11 +20,11 @@ drop policy if exists promo_select on public.promotions;
 create policy promo_select on public.promotions for select
   using (company_id = public.auth_company_id());
 
--- Manage: Sales Head or Project Head
+-- Manage: Sales Head only
 drop policy if exists promo_write on public.promotions;
 create policy promo_write on public.promotions for all
-  using (company_id = public.auth_company_id() and public.auth_role() in ('sales_head','project_head'))
-  with check (company_id = public.auth_company_id() and public.auth_role() in ('sales_head','project_head'));
+  using (company_id = public.auth_company_id() and public.auth_role() = 'sales_head')
+  with check (company_id = public.auth_company_id() and public.auth_role() = 'sales_head');
 
 grant select, insert, update, delete on public.promotions to authenticated;
 
