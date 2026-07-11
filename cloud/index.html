@@ -355,6 +355,25 @@
   .age-chip{background:#EEF2F7;border:1px solid var(--line);border-radius:14px;padding:2px 10px;font-size:12px;cursor:pointer;white-space:nowrap;}
   .age-chip:hover{border-color:var(--brand);}
   .age-chip.over{background:#FBE9E7;border-color:#f3c6bf;color:#A03027;font-weight:600;}
+  .tree{font-size:13.5px;}
+  .tnode{margin:1px 0;}
+  .tnode>summary{cursor:pointer;list-style:none;padding:5px 8px;border-radius:8px;display:flex;align-items:center;gap:7px;}
+  .tnode>summary::-webkit-details-marker{display:none;}
+  .tnode>summary:hover{background:#F1F5F9;}
+  .tcar{display:inline-block;transition:transform .12s;color:var(--soft);font-size:11px;flex:none;}
+  .tnode[open]>summary .tcar{transform:rotate(90deg);}
+  .tsum{display:inline-flex;align-items:center;gap:8px;font-family:'Space Grotesk';font-weight:600;flex-wrap:wrap;}
+  .tct{background:#E7EEF5;color:#2C5D80;border-radius:10px;padding:0 8px;font-size:11px;font-weight:700;}
+  .tover{background:#FBE9E7;color:#A03027;border-radius:10px;padding:0 8px;font-size:11px;font-weight:700;}
+  .tkids{margin-left:15px;border-left:2px solid var(--line);padding-left:12px;display:flex;flex-wrap:wrap;align-items:flex-start;}
+  .tkids .tnode{width:100%;}
+  .leaf{display:inline-flex;align-items:center;gap:7px;padding:4px 10px;margin:3px 6px 3px 0;border:1px solid var(--line);border-radius:14px;cursor:pointer;background:var(--surface);}
+  .leaf:hover{border-color:var(--brand);}
+  .leaf .dot{width:7px;height:7px;border-radius:50%;background:var(--qualified);flex:none;}
+  .leaf.red{background:#FBE9E7;border-color:#f3c6bf;color:#A03027;}
+  .leaf.red .dot{background:var(--lost);}
+  .leaf b{font-weight:700;}
+  .leaf .ls{font-size:11px;color:var(--soft);}
   .filter-banner{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:#FFF7E8;border:1px solid #F0D9A8;color:#7A5B12;border-radius:10px;padding:9px 13px;margin-bottom:14px;font-size:13px;}
   .filter-banner .fb-chip{background:#fff;border:1px solid #E6CB8E;border-radius:20px;padding:2px 10px;font-weight:600;}
   .filter-banner button{margin-left:auto;border:1px solid #E0A32E;background:#fff;color:#8a6412;border-radius:8px;padding:4px 12px;font-weight:600;cursor:pointer;}
@@ -1303,6 +1322,7 @@ function render(){
   else if(activeTab==='followups')m.innerHTML=followupsHTML(leads);
   else if(activeTab==='stats')m.innerHTML=statsHTML(scoped());
   else if(activeTab==='funnel')m.innerHTML=funnelHTML();
+  else if(activeTab==='ageing')m.innerHTML=ageingTreeHTML();
   else if(activeTab==='crossproject')m.innerHTML=crossProjectHTML();
   else if(activeTab==='report')m.innerHTML=reportHTML();
   else m.innerHTML=tableHTML(leads);
@@ -1334,7 +1354,7 @@ function renderTabs(){
   const dueCount=s.filter(l=>l.stage==='qualified'&&l.nextFollowUp&&dueState(l.nextFollowUp).n<=0).length;
   const cu=currentUser();
   const tabs=[['pipeline','Pipeline',s.length]];
-  if(cu&&(cu.role==='sales_head'||cu.role==='project_head'))tabs.push(['funnel','Funnel','']);
+  if(cu&&(cu.role==='sales_head'||cu.role==='project_head'))tabs.push(['funnel','Funnel',''],['ageing','Ageing','']);
   tabs.push(['followups','Follow-ups due',dueCount],['stats','Follow-up stats',''],['all','All leads',s.length]);
   if(cu&&(cu.role==='sales_head'||cu.role==='project_head')){const ci=(db.crossInterest||[]).filter(c=>c.status==='open'&&(cu.role==='sales_head'||c.target_project_id===myProjId())).length;tabs.push(['crossproject','Cross-project',ci||'']);}
   if(cu&&cu.role==='sales_head')tabs.push(['report','Report','']);
@@ -2178,6 +2198,34 @@ function funnelHTML(){
     const ns=arr.filter(l=>!AGE_STAGES.includes(l.dealStatus||''));const nsRow=ns.length?`<div class="age-row"><span class="age-lbl">No status</span><span class="age-chips">${ns.map(ageChip).join('')}</span></div>`:'';
     return `<div class="age-rep"><div class="age-head"><b>${nm}</b> <span style="color:var(--soft);font-weight:400">${arr.length} qualified</span>${over?` · <span style="color:var(--lost);font-weight:600">${over} over 7 days</span>`:''}</div>${rows}${nsRow}</div>`;}).join(''):'<div class="locked-note">No open qualified walk-ins right now.</div>'}</div>`;
   return filterNote+rb+slaPanel+targetsPanel()+funnel+stagePanel+ageingPanel+`<div class="split">${qualPanel}${tempPanel}</div>`+`<div class="panel"><h3>Deal status by salesperson</h3>${fnlDsTable(spMap,'Salesperson')}</div>`+`<div class="panel"><h3>Deal status by project</h3>${fnlDsTable(projMap,'Project')}</div>`+wwPanel+wwNPPanel+ltPanel+noPHPanel+rvPanel;
+}
+let ageGroup='rep';
+function setAgeGroup(g){ageGroup=g;render();}
+function ageingTreeHTML(){
+  const base=scoped().filter(l=>l.source==='walkin'&&l.stage==='qualified'&&!l.mergedInto);
+  const total=base.length,over=base.filter(l=>qualAgeDays(l)>7).length;
+  const avg=total?Math.round(base.reduce((a,l)=>a+qualAgeDays(l),0)/total):0;
+  const toggle=`<div class="range-bar"><span style="font-weight:600;font-size:13px;color:var(--soft)">Branch by</span><div class="seg2"><button class="${ageGroup==='rep'?'on':''}" onclick="setAgeGroup('rep')">Salesperson → Stage</button><button class="${ageGroup==='stage'?'on':''}" onclick="setAgeGroup('stage')">Stage → Salesperson</button></div><span style="margin-left:auto;color:var(--soft);font-size:12.5px">${total} qualified · <b style="color:${over?'var(--lost)':'inherit'}">${over} over 7 days</b> · avg ${avg}d</span></div>`;
+  if(!total)return toggle+'<div class="panel"><div class="locked-note">No open qualified walk-ins right now.</div></div>';
+  const AGE_STAGES=['Prospect','Negotiation','No status'];
+  const stageOf=l=>AGE_STAGES.includes(l.dealStatus)?l.dealStatus:'No status';
+  const repOf=l=>l.ownerId?userName(l.ownerId):'Unassigned';
+  const groupBy=(arr,fn)=>{const m={};arr.forEach(l=>{const k=fn(l);(m[k]=m[k]||[]).push(l);});return m;};
+  const leaf=l=>{const d=qualAgeDays(l);return `<div class="leaf ${d>7?'red':''}" onclick="openDrawer('${l.id}')" title="Qualified ${d} day(s) ago"><span class="dot"></span>${escapeHtml(l.name)} <b>${d}d</b>${l.dealStatus?` <span class="ls">${l.dealStatus}</span>`:''}</div>`;};
+  const node=(label,arr,kids,open)=>{const o=arr.filter(l=>qualAgeDays(l)>7).length;return `<details ${open?'open':''} class="tnode"><summary><span class="tcar">▸</span><span class="tsum">${label} <span class="tct">${arr.length}</span>${o?`<span class="tover">${o} over 7d</span>`:''}</span></summary><div class="tkids">${kids}</div></details>`;};
+  let body='';
+  if(ageGroup==='rep'){
+    const byRep=groupBy(base,repOf);const reps=Object.keys(byRep).sort((a,b)=>byRep[b].filter(l=>qualAgeDays(l)>7).length-byRep[a].filter(l=>qualAgeDays(l)>7).length);
+    body=reps.map(rp=>{const arr=byRep[rp];const bs=groupBy(arr,stageOf);
+      const kids=AGE_STAGES.filter(s=>bs[s]).map(s=>{const g=bs[s].slice().sort((a,b)=>qualAgeDays(b)-qualAgeDays(a));return node(s,g,g.map(leaf).join(''),true);}).join('');
+      return node('👤 '+rp,arr,kids,true);}).join('');
+  } else {
+    const bs=groupBy(base,stageOf);
+    body=AGE_STAGES.filter(s=>bs[s]).map(s=>{const arr=bs[s];const byRep=groupBy(arr,repOf);const reps=Object.keys(byRep).sort((a,b)=>byRep[b].filter(l=>qualAgeDays(l)>7).length-byRep[a].filter(l=>qualAgeDays(l)>7).length);
+      const kids=reps.map(rp=>{const g=byRep[rp].slice().sort((a,b)=>qualAgeDays(b)-qualAgeDays(a));return node('👤 '+rp,g,g.map(leaf).join(''),true);}).join('');
+      return node(s,arr,kids,true);}).join('');
+  }
+  return toggle+`<div class="panel"><div class="tree">${body}</div><div class="ai-tag" style="margin-top:10px"><b style="color:var(--lost)">Red = over 7 days</b> since qualified. Tap a branch to fold it, or a customer to open the walk-in.</div></div>`;
 }
 function crossProjectHTML(){
   const u=currentUser();const pid=myProjId();
