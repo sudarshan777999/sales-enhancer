@@ -399,6 +399,13 @@
   .rb-cfg-l{font-size:12px;font-weight:600;color:var(--soft);width:72px;flex:none;padding-top:6px;}
   .rb-colchips{display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0;}
   .rb-colchips .sfchip{font-size:12px;padding:3px 10px;}
+  .rb-active{margin-top:6px;}
+  .rb-fblock{border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin:8px 0;background:var(--surface);}
+  .rb-fbhead{display:flex;align-items:center;gap:8px;font-family:'Space Grotesk';margin-bottom:8px;font-size:13.5px;}
+  .rb-fbany{font-size:11px;color:var(--soft);font-weight:400;}
+  .rb-vals{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+  .rb-vals .sfchip{font-size:12px;padding:3px 10px;}
+  .sfchip.sub{background:transparent;border-style:dashed;color:var(--brand);}
   .filter-banner{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:#FFF7E8;border:1px solid #F0D9A8;color:#7A5B12;border-radius:10px;padding:9px 13px;margin-bottom:14px;font-size:13px;}
   .filter-banner .fb-chip{background:#fff;border:1px solid #E6CB8E;border-radius:20px;padding:2px 10px;font-weight:600;}
   .filter-banner button{margin-left:auto;border:1px solid #E0A32E;background:#fff;color:#8a6412;border-radius:8px;padding:4px 12px;font-weight:600;cursor:pointer;}
@@ -2290,7 +2297,8 @@ function ageingTreeHTML(){
   return toggle+`<div class="panel"><div class="tree">${build(base,dims)}</div><div class="ai-tag" style="margin-top:10px"><b style="color:var(--lost)">Red = over 7 days</b> since qualified. Tap a branch to fold it, or a customer to open the walk-in.${u.role==='sales_head'?' New projects appear here automatically once they have qualified walk-ins.':''}</div></div>`;
 }
 /* ============ report builder (visual AND/OR query) ============ */
-let reportDef={op:'AND',items:[{kind:'cond',field:'stage',value:'',not:false}]};
+let rbFilters=[], rbMatch='AND';
+const RB_F2C={stage:'stage',source:'source',captured:'captured',dstatus:'dealStatus',metph:'metph',phase:'phase',project:'project',owner:'owner',walkin:'walkinVia',comment:'lastcomment',label:'labels',competitor:'competitors',budget:'budget',company:'company',cp:'walkinVia',name:'name',phone:'phone',wwsug:'wwsug',wwvis:'wwvis',revisits:'revisits',followup:'nextfu'};
 let rbNameVal='';
 const RB_DEF_COLS=['name','project','owner','stage','dealStatus','captured'];
 let reportCols=RB_DEF_COLS.slice(), reportGroupBy='';
@@ -2325,32 +2333,26 @@ const REPORT_COLS=[
 const REPORT_GROUPS=['owner','project','stage','dealStatus','walkinVia','phase','source','metph','gre','wwsug','wwvis','lostto','competitors','labels'];
 function reportCol(k){return REPORT_COLS.find(c=>c.k===k);}
 function rbCell(c,l){let v=c.get(l);if((c.k==='captured'||c.k==='nextfu')&&v)v=fmtDate(v);return v==null?'':String(v);}
-function rbItem(path){let n=reportDef;path.forEach(i=>{n=n.items[i];});return n;}
 function rbRerender(){const m=document.getElementById('main');if(m)m.innerHTML=reportBuilderHTML();}
-function rbAddCond(ps){rbItem(JSON.parse(ps)).items.push({kind:'cond',field:'stage',value:'',not:false});rbRerender();}
-function rbAddGroup(ps){rbItem(JSON.parse(ps)).items.push({kind:'group',op:'OR',items:[{kind:'cond',field:'stage',value:'',not:false}]});rbRerender();}
-function rbRemove(ps){const p=JSON.parse(ps);if(!p.length)return;const parent=rbItem(p.slice(0,-1));parent.items.splice(p[p.length-1],1);rbRerender();}
-function rbSetOp(ps,op){rbItem(JSON.parse(ps)).op=op;rbRerender();}
-function rbSetField(ps,f){const it=rbItem(JSON.parse(ps));it.field=f;it.value='';rbRerender();}
-function rbSetNot(ps,not){rbItem(JSON.parse(ps)).not=not;rbRerender();}
-function rbSetValue(ps,v){rbItem(JSON.parse(ps)).value=v;rbRefresh();}
-function rbSetDate(ps,which,v){const it=rbItem(JSON.parse(ps));const p=(it.value||'').split('|');let from=p[0]||'',to=p[1]||'';if(which==='from')from=v;else to=v;it.value=(from||to)?(from+'|'+to):'';rbRefresh();}
-function rbActive(c){return c.field&&c.value!==''&&c.value!=null&&c.value!=='|';}
-function rbHasActive(g){return g.items.some(it=>it.kind==='group'?rbHasActive(it):rbActive(it));}
-function rbEvalCond(l,c){const m=matchFilter(l,{field:c.field,value:c.value});return c.not?!m:m;}
-function rbEval(l,g){const parts=[];g.items.forEach(it=>{if(it.kind==='group'){if(rbHasActive(it))parts.push(rbEval(l,it));}else if(rbActive(it))parts.push(rbEvalCond(l,it));});if(!parts.length)return true;return g.op==='AND'?parts.every(Boolean):parts.some(Boolean);}
-function rbMatches(){return scoped().filter(l=>!l.mergedInto&&rbEval(l,reportDef));}
-function rbRenderCond(c,path){
-  const ps=JSON.stringify(path);const fields=FILTER_FIELDS.filter(f=>f.k!=='owner'||currentUser().role!=='sales');const meta=fieldMeta(c.field);let val;
-  if(meta.type==='text')val=`<input class="field" value="${(c.value||'').replace(/"/g,'&quot;')}" placeholder="type…" oninput="rbSetValue('${ps}',this.value)"/>`;
-  else if(meta.type==='daterange'){const p=(c.value||'').split('|');val=`<input type="date" class="field" style="max-width:140px" value="${p[0]||''}" onchange="rbSetDate('${ps}','from',this.value)"/><span style="color:var(--soft);font-size:12px">to</span><input type="date" class="field" style="max-width:140px" value="${p[1]||''}" onchange="rbSetDate('${ps}','to',this.value)"/>`;}
-  else val=`<select class="field" onchange="rbSetValue('${ps}',this.value)">${['<option value=\"\">any…</option>',...meta.opts().map(o=>`<option value="${o[0]}" ${c.value===o[0]?'selected':''}>${o[1]}</option>`)].join('')}</select>`;
-  return `<div class="rb-cond"><select class="field rb-field" onchange="rbSetField('${ps}',this.value)">${fields.map(f=>`<option value="${f.k}" ${c.field===f.k?'selected':''}>${f.label}</option>`).join('')}</select><div class="seg rb-not"><button class="${!c.not?'on':''}" onclick="rbSetNot('${ps}',false)">is</button><button class="${c.not?'on':''}" onclick="rbSetNot('${ps}',true)">is not</button></div>${val}<button class="rb-x" title="Remove" onclick="rbRemove('${ps}')">✕</button></div>`;
-}
-function rbRenderGroup(g,path){
-  const ps=JSON.stringify(path);const isRoot=path.length===0;
-  const items=g.items.map((it,i)=>it.kind==='group'?`<div class="rb-group">${rbRenderGroup(it,path.concat(i))}</div>`:rbRenderCond(it,path.concat(i))).join('');
-  return `<div class="rb-grouphead"><span class="rb-match">Match</span><div class="seg"><button class="${g.op==='AND'?'on':''}" onclick="rbSetOp('${ps}','AND')">ALL · and</button><button class="${g.op==='OR'?'on':''}" onclick="rbSetOp('${ps}','OR')">ANY · or</button></div>${isRoot?'':`<button class="rb-x" style="margin-left:auto" onclick="rbRemove('${ps}')">✕ remove group</button>`}</div><div class="rb-items">${items||'<div class="rb-empty">No conditions yet.</div>'}</div><div class="rb-add"><button class="btn ghost" onclick="rbAddCond('${ps}')">＋ Condition</button><button class="btn ghost" onclick="rbAddGroup('${ps}')">＋ Group (nested and/or)</button></div>`;
+function rbSetMatch(m){rbMatch=m;rbRerender();}
+function rbToggleField(k){const i=rbFilters.findIndex(f=>f.field===k);
+  if(i>=0){rbFilters.splice(i,1);const ck=RB_F2C[k];if(ck&&ck!=='name'&&!RB_DEF_COLS.includes(ck)){const ci=reportCols.indexOf(ck);if(ci>=0)reportCols.splice(ci,1);}}
+  else{rbFilters.push({field:k,values:[],value:''});const ck=RB_F2C[k];if(ck&&!reportCols.includes(ck))reportCols.push(ck);}
+  rbRerender();}
+function rbToggleVal(fi,oi){const f=rbFilters[fi];if(!f)return;const v=fieldMeta(f.field).opts()[oi][0];f.values=f.values||[];const j=f.values.indexOf(v);if(j>=0)f.values.splice(j,1);else f.values.push(v);rbRerender();}
+function rbAllVals(fi){const f=rbFilters[fi];if(!f)return;const opts=fieldMeta(f.field).opts();f.values=(f.values&&f.values.length===opts.length)?[]:opts.map(o=>o[0]);rbRerender();}
+function rbSetFilterText(fi,v){if(rbFilters[fi]){rbFilters[fi].value=v;rbRefresh();}}
+function rbSetFilterDate(fi,which,v){const f=rbFilters[fi];if(!f)return;const p=(f.value||'').split('|');let from=p[0]||'',to=p[1]||'';if(which==='from')from=v;else to=v;f.value=(from||to)?(from+'|'+to):'';rbRefresh();}
+function rbFilterHasVal(f){const m=fieldMeta(f.field);return m.type==='select'?!!(f.values&&f.values.length):!!(f.value&&f.value!=='|');}
+function rbFilterMatch(l,f){const m=fieldMeta(f.field);if(m.type==='select'){if(!f.values||!f.values.length)return true;return f.values.some(v=>matchFilter(l,{field:f.field,value:v}));}if(!f.value||f.value==='|')return true;return matchFilter(l,{field:f.field,value:f.value});}
+function rbMatches(){const act=rbFilters.filter(rbFilterHasVal);return scoped().filter(l=>!l.mergedInto&&(act.length?(rbMatch==='AND'?act.every(f=>rbFilterMatch(l,f)):act.some(f=>rbFilterMatch(l,f))):true));}
+function rbRenderFilter(f,i){
+  const meta=fieldMeta(f.field);let body,note='';
+  if(meta.type==='select'){const opts=meta.opts();const sel=(f.values||[]).length;note=sel?sel+' selected':'any';
+    body=opts.map((o,oi)=>`<button class="sfchip ${(f.values||[]).includes(o[0])?'on':''}" onclick="rbToggleVal(${i},${oi})">${o[1]}</button>`).join('')+`<button class="sfchip sub" onclick="rbAllVals(${i})">${(f.values&&f.values.length===opts.length)?'clear all':'select all'}</button>`;}
+  else if(meta.type==='daterange'){const p=(f.value||'').split('|');body=`<input type="date" class="field" style="max-width:150px" value="${p[0]||''}" onchange="rbSetFilterDate(${i},'from',this.value)"/><span style="color:var(--soft);font-size:12px">to</span><input type="date" class="field" style="max-width:150px" value="${p[1]||''}" onchange="rbSetFilterDate(${i},'to',this.value)"/>`;}
+  else body=`<input class="field" style="max-width:280px" placeholder="contains…" value="${(f.value||'').replace(/"/g,'&quot;')}" oninput="rbSetFilterText(${i},this.value)"/>`;
+  return `<div class="rb-fblock"><div class="rb-fbhead"><b>${meta.label}</b>${note?` <span class="rb-fbany">${note}</span>`:''}<button class="rb-x" style="margin-left:auto" title="Remove" onclick="rbToggleField('${f.field}')">✕</button></div><div class="rb-vals">${body}</div></div>`;
 }
 function rbToggleCol(k){const i=reportCols.indexOf(k);if(i>=0)reportCols.splice(i,1);else reportCols.push(k);rbRefresh();}
 function rbSetGroupBy(k){reportGroupBy=k;rbRefresh();}
@@ -2392,14 +2394,21 @@ function rbRefresh(){const el=document.getElementById('rbResults');if(el)el.inne
 function rbShow(){openLeadList('Report — '+(rbNameVal||'results'),rbMatches());}
 function rbReports(){return myPrefs.reports||[];}
 function rbSavedChips(){const list=rbReports();if(!list.length)return '';return `<div class="rb-saved"><div style="font-size:12px;color:var(--soft);margin:12px 0 6px;font-weight:600">Saved reports</div>${list.map((r,i)=>`<button class="sfchip" onclick="rbLoad(${i})">${escapeHtml(r.name)}<span class="xx" style="margin-left:6px" onclick="event.stopPropagation();rbDelReport(${i})">✕</span></button>`).join('')}</div>`;}
-async function rbSave(){const name=(rbNameVal||'').trim();if(!name){alert('Name the report first.');return;}const list=rbReports().slice();const rep={name,def:JSON.parse(JSON.stringify(reportDef)),cols:reportCols.slice(),groupBy:reportGroupBy};const ex=list.findIndex(r=>r.name.toLowerCase()===name.toLowerCase());if(ex>=0)list[ex]=rep;else list.push(rep);if(await savePrefs(Object.assign({},myPrefs,{reports:list}))){rbRerender();}}
-function rbLoad(i){const r=rbReports()[i];if(!r)return;reportDef=JSON.parse(JSON.stringify(r.def));reportCols=(r.cols&&r.cols.length)?r.cols.slice():RB_DEF_COLS.slice();reportGroupBy=r.groupBy||'';rbNameVal=r.name;rbRerender();}
+async function rbSave(){const name=(rbNameVal||'').trim();if(!name){alert('Name the report first.');return;}const list=rbReports().slice();const rep={name,filters:JSON.parse(JSON.stringify(rbFilters)),match:rbMatch,cols:reportCols.slice(),groupBy:reportGroupBy};const ex=list.findIndex(r=>r.name.toLowerCase()===name.toLowerCase());if(ex>=0)list[ex]=rep;else list.push(rep);if(await savePrefs(Object.assign({},myPrefs,{reports:list}))){rbRerender();}}
+function rbLoad(i){const r=rbReports()[i];if(!r)return;rbFilters=r.filters?JSON.parse(JSON.stringify(r.filters)):[];rbMatch=r.match||'AND';reportCols=(r.cols&&r.cols.length)?r.cols.slice():RB_DEF_COLS.slice();reportGroupBy=r.groupBy||'';rbNameVal=r.name;rbRerender();}
 async function rbDelReport(i){const list=rbReports().slice();list.splice(i,1);if(await savePrefs(Object.assign({},myPrefs,{reports:list})))rbRerender();}
-function rbReset(){reportDef={op:'AND',items:[{kind:'cond',field:'stage',value:'',not:false}]};rbNameVal='';reportCols=RB_DEF_COLS.slice();reportGroupBy='';rbRerender();}
+function rbReset(){rbFilters=[];rbMatch='AND';rbNameVal='';reportCols=RB_DEF_COLS.slice();reportGroupBy='';rbRerender();}
 function reportBuilderHTML(){
+  const fields=FILTER_FIELDS.filter(f=>f.k!=='owner'||currentUser().role!=='sales');
+  const fieldChips=fields.map(f=>`<button class="sfchip ${rbFilters.some(x=>x.field===f.k)?'on':''}" onclick="rbToggleField('${f.k}')">${f.label}</button>`).join('');
+  const active=rbFilters.map((f,i)=>rbRenderFilter(f,i)).join('');
   return `<div class="panel"><h3>Report builder</h3>
-    <div class="ai-tag" style="margin-bottom:12px">Add conditions and combine them with <b>ALL · and</b> / <b>ANY · or</b>. Add a nested <b>Group</b> for “this AND (that OR the other)”. Results update live below. Save it to reuse anytime.</div>
-    <div class="rb-builder">${rbRenderGroup(reportDef,[])}</div>
+    <div class="ai-tag" style="margin-bottom:12px">Tap a field to filter by it, then pick its values (one or many). Combine everything with <b>ALL · and</b> / <b>ANY · or</b>. Whatever you filter by is added as a column in the results — tweak columns below. Leave it empty to include everyone.</div>
+    <div class="rb-builder">
+      <div class="rb-cfg-row"><span class="rb-cfg-l">Match</span><div class="seg"><button class="${rbMatch==='AND'?'on':''}" onclick="rbSetMatch('AND')">ALL · and</button><button class="${rbMatch==='OR'?'on':''}" onclick="rbSetMatch('OR')">ANY · or</button></div></div>
+      <div class="rb-cfg-row" style="margin-top:11px"><span class="rb-cfg-l">Filter by</span><div class="rb-colchips">${fieldChips}</div></div>
+      <div class="rb-active">${active||'<div class="rb-empty">Tap a field above to start.</div>'}</div>
+    </div>
     <div class="rb-saverow"><input class="field" id="rbName" placeholder="Name this report…" style="max-width:280px" value="${(rbNameVal||'').replace(/"/g,'&quot;')}" oninput="rbNameVal=this.value"/><button class="btn" onclick="rbSave()">Save report</button><button class="btn ghost" onclick="rbReset()">Clear</button></div>
     ${rbSavedChips()}</div>
   <div class="panel"><h3>Results</h3><div id="rbResults">${rbResultsHTML(rbMatches())}</div></div>`;
