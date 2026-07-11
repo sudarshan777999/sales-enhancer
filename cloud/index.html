@@ -1427,7 +1427,8 @@ function renderTabs(){
   const dueCount=s.filter(l=>l.stage==='qualified'&&l.nextFollowUp&&dueState(l.nextFollowUp).n<=0).length;
   const cu=currentUser();
   const tabs=[['pipeline','Pipeline',s.length]];
-  tabs.push(['followups','Follow-ups due',dueCount],['stats','Follow-up stats',''],['builder','Builder',''],['all','All leads',s.length]);
+  if(cu&&(cu.role==='sales_head'||cu.role==='project_head'))tabs.push(['funnel','Funnel','']);
+  tabs.push(['ageing','Ageing',''],['followups','Follow-ups due',dueCount],['stats','Follow-up stats',''],['builder','Builder',''],['all','All leads',s.length]);
   if(cu&&(cu.role==='sales_head'||cu.role==='project_head')){const ci=(db.crossInterest||[]).filter(c=>c.status==='open'&&(cu.role==='sales_head'||c.target_project_id===myProjId())).length;tabs.push(['crossproject','Cross-project',ci||'']);}
   if(cu&&cu.role==='sales_head')tabs.push(['report','Report','']);
   document.getElementById('tabs').innerHTML=tabs.map(([k,l,n])=>`<button class="tab ${activeTab===k?'on':''}" onclick="setTab('${k}')">${l}<span class="n">${n}</span></button>`).join('');
