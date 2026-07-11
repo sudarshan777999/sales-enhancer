@@ -394,6 +394,11 @@
   .rb-resulthead{margin-bottom:12px;}
   .rb-saved .sfchip .xx{opacity:.55;font-size:11px;}
   .rb-saved .sfchip .xx:hover{opacity:1;color:var(--lost);}
+  .rb-cfg{margin:12px 0 14px;display:flex;flex-direction:column;gap:9px;padding:11px 12px;background:#F6F9FC;border:1px solid var(--line);border-radius:10px;}
+  .rb-cfg-row{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;}
+  .rb-cfg-l{font-size:12px;font-weight:600;color:var(--soft);width:72px;flex:none;padding-top:6px;}
+  .rb-colchips{display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0;}
+  .rb-colchips .sfchip{font-size:12px;padding:3px 10px;}
   .filter-banner{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:#FFF7E8;border:1px solid #F0D9A8;color:#7A5B12;border-radius:10px;padding:9px 13px;margin-bottom:14px;font-size:13px;}
   .filter-banner .fb-chip{background:#fff;border:1px solid #E6CB8E;border-radius:20px;padding:2px 10px;font-weight:600;}
   .filter-banner button{margin-left:auto;border:1px solid #E0A32E;background:#fff;color:#8a6412;border-radius:8px;padding:4px 12px;font-weight:600;cursor:pointer;}
@@ -2287,6 +2292,39 @@ function ageingTreeHTML(){
 /* ============ report builder (visual AND/OR query) ============ */
 let reportDef={op:'AND',items:[{kind:'cond',field:'stage',value:'',not:false}]};
 let rbNameVal='';
+const RB_DEF_COLS=['name','project','owner','stage','dealStatus','captured'];
+let reportCols=RB_DEF_COLS.slice(), reportGroupBy='';
+const REPORT_COLS=[
+  {k:'name',label:'Customer',get:l=>l.name},
+  {k:'phone',label:'Phone',get:l=>l.phone||''},
+  {k:'email',label:'Email',get:l=>l.email||''},
+  {k:'project',label:'Project',get:l=>l.project||''},
+  {k:'owner',label:'Owner',get:l=>l.ownerId?userName(l.ownerId):'Unassigned'},
+  {k:'stage',label:'Stage',get:l=>STAGES[l.stage]?STAGES[l.stage].label:l.stage},
+  {k:'dealStatus',label:'Deal status',get:l=>l.dealStatus||''},
+  {k:'source',label:'Source',get:l=>l.source==='digital'?'Digital':'Walk-in'},
+  {k:'walkinVia',label:'Walk-in via',get:l=>l.source==='walkin'?(l.walkinSource==='CP'?('CP'+(l.cpName?' · '+l.cpName:'')):(l.walkinSource||'Direct')):''},
+  {k:'phase',label:'Phase',get:l=>l.walkinPhase||''},
+  {k:'captured',label:'Captured',get:l=>l.createdAt||''},
+  {k:'qage',label:'Days since qualified',get:l=>l.stage==='qualified'?String(qualAgeDays(l)):''},
+  {k:'nextfu',label:'Next follow-up',get:l=>l.nextFollowUp||''},
+  {k:'revisits',label:'Revisits',get:l=>String((l.revisits||[]).length)},
+  {k:'metph',label:'Met PH',get:l=>l.metProjectHead?'Yes':'No'},
+  {k:'budget',label:'Budget',get:l=>l.budget||''},
+  {k:'location',label:'Location',get:l=>l.location||''},
+  {k:'company',label:'Company',get:l=>l.company||''},
+  {k:'labels',label:'Labels',get:l=>(l.labels||[]).join(', ')},
+  {k:'competitors',label:'Competitors',get:l=>l.competitors||''},
+  {k:'lostto',label:'Lost to',get:l=>l.lostTo||''},
+  {k:'price',label:'Price offered',get:l=>l.priceOffered||''},
+  {k:'wwsug',label:'WW proposed',get:l=>l.wwSuggested?'Yes':'No'},
+  {k:'wwvis',label:'WW visited',get:l=>l.wwVisited?'Yes':'No'},
+  {k:'gre',label:'GRE',get:l=>l.viaGre?'Yes':'No'},
+  {k:'lastcomment',label:'Last comment',get:l=>{const c=(l.log||[]).filter(e=>(e.kind==='note'||e.kind==='revisit')&&e.t);return c.length?c[c.length-1].t:'';}}
+];
+const REPORT_GROUPS=['owner','project','stage','dealStatus','walkinVia','phase','source','metph','gre','wwsug','wwvis','lostto','competitors','labels'];
+function reportCol(k){return REPORT_COLS.find(c=>c.k===k);}
+function rbCell(c,l){let v=c.get(l);if((c.k==='captured'||c.k==='nextfu')&&v)v=fmtDate(v);return v==null?'':String(v);}
 function rbItem(path){let n=reportDef;path.forEach(i=>{n=n.items[i];});return n;}
 function rbRerender(){const m=document.getElementById('main');if(m)m.innerHTML=reportBuilderHTML();}
 function rbAddCond(ps){rbItem(JSON.parse(ps)).items.push({kind:'cond',field:'stage',value:'',not:false});rbRerender();}
@@ -2314,21 +2352,50 @@ function rbRenderGroup(g,path){
   const items=g.items.map((it,i)=>it.kind==='group'?`<div class="rb-group">${rbRenderGroup(it,path.concat(i))}</div>`:rbRenderCond(it,path.concat(i))).join('');
   return `<div class="rb-grouphead"><span class="rb-match">Match</span><div class="seg"><button class="${g.op==='AND'?'on':''}" onclick="rbSetOp('${ps}','AND')">ALL · and</button><button class="${g.op==='OR'?'on':''}" onclick="rbSetOp('${ps}','OR')">ANY · or</button></div>${isRoot?'':`<button class="rb-x" style="margin-left:auto" onclick="rbRemove('${ps}')">✕ remove group</button>`}</div><div class="rb-items">${items||'<div class="rb-empty">No conditions yet.</div>'}</div><div class="rb-add"><button class="btn ghost" onclick="rbAddCond('${ps}')">＋ Condition</button><button class="btn ghost" onclick="rbAddGroup('${ps}')">＋ Group (nested and/or)</button></div>`;
 }
-function rbPreviewTable(res){
-  const rows=res.map(l=>{const st=STAGES[l.stage];return `<tr onclick="openDrawer('${l.id}')"><td><b class="mono">${escapeHtml(l.name)}</b></td><td>${l.project||'—'}</td><td>${l.ownerId?escapeHtml(userName(l.ownerId)):'—'}</td><td><span class="stg" style="background:${st.color}22;color:${st.color}">${st.label}</span></td><td>${l.dealStatus||'—'}</td><td class="mono" style="white-space:nowrap">${fmtDate(l.createdAt)}</td></tr>`;}).join('');
-  return `<div style="overflow-x:auto"><table class="list-table"><thead><tr><th>Lead</th><th>Project</th><th>Owner</th><th>Stage</th><th>Deal status</th><th>Captured</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+function rbToggleCol(k){const i=reportCols.indexOf(k);if(i>=0)reportCols.splice(i,1);else reportCols.push(k);rbRefresh();}
+function rbSetGroupBy(k){reportGroupBy=k;rbRefresh();}
+function rbColTable(res){
+  const cols=REPORT_COLS.filter(c=>reportCols.includes(c.k));
+  if(!cols.length)return '<div class="locked-note">Pick at least one column above.</div>';
+  const rows=res.map(l=>`<tr onclick="openDrawer('${l.id}')">${cols.map(c=>`<td class="mono" style="white-space:nowrap">${escapeHtml(rbCell(c,l))||'—'}</td>`).join('')}</tr>`).join('');
+  return `<div style="overflow-x:auto"><table class="list-table"><thead><tr>${cols.map(c=>`<th>${c.label}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function rbGroupTable(res){
+  const c=reportCol(reportGroupBy);const g={};const total=res.length;
+  res.forEach(l=>{let k=c?rbCell(c,l):'';k=(k===''||k==null)?'—':k;(g[k]=g[k]||[]).push(l);});
+  const rows=Object.entries(g).sort((a,b)=>b[1].length-a[1].length);const max=Math.max(1,...rows.map(r=>r[1].length));
+  return `<div style="overflow-x:auto"><table class="list-table"><thead><tr><th>${c?c.label:'Group'}</th><th>Count</th><th>Share</th><th></th></tr></thead><tbody>${rows.map(([k,arr])=>`<tr><td><b class="mono">${escapeHtml(k)}</b></td><td class="mono">${drillN(arr,(c?c.label:'Group')+' · '+k)}</td><td class="mono">${Math.round(arr.length/total*100)}%</td><td><div class="track" style="max-width:170px"><div class="fillb" style="width:${Math.round(arr.length/max*100)}%;background:var(--brand)">${arr.length}</div></div></td></tr>`).join('')}</tbody></table></div><div class="ai-tag" style="margin-top:8px">${rows.length} group(s) · click a count to open those walk-ins.</div>`;
 }
 function rbResultsHTML(res){
-  return `<div class="rb-resulthead"><b style="font-size:20px;font-family:'Space Grotesk'">${res.length}</b> walk-in${res.length===1?'':'s'} match${res.length===1?'es':''}${res.length?` · <button class="btn" style="padding:5px 12px" onclick="rbShow()">Open all</button>`:''}</div>${res.length?rbPreviewTable(res.slice(0,12))+(res.length>12?`<div class="ai-tag" style="margin-top:8px">Showing first 12 · tap “Open all” for the full ${res.length}.</div>`:''):'<div class="locked-note">No walk-ins match yet. Add or relax a condition.</div>'}`;
+  drillReg={};drillSeq=0;
+  const total=res.length;
+  const colChips=REPORT_COLS.map(c=>`<button class="sfchip ${reportCols.includes(c.k)?'on':''}" onclick="rbToggleCol('${c.k}')">${c.label}</button>`).join('');
+  const grpOpts=`<option value="">No grouping — show the list</option>`+REPORT_GROUPS.map(k=>{const c=reportCol(k);return `<option value="${k}" ${reportGroupBy===k?'selected':''}>Count by ${c?c.label.toLowerCase():k}</option>`;}).join('');
+  const head=`<div class="rb-resulthead"><b style="font-size:20px;font-family:'Space Grotesk'">${total}</b> walk-in${total===1?'':'s'} match${total===1?'es':''}<button class="btn ghost" style="padding:5px 11px;margin-left:10px" onclick="rbExportCSV()">⬇ CSV</button>${total?`<button class="btn" style="padding:5px 11px" onclick="rbShow()">Open all</button>`:''}</div>
+    <div class="rb-cfg"><div class="rb-cfg-row"><span class="rb-cfg-l">Group by</span><select class="field" style="max-width:240px" onchange="rbSetGroupBy(this.value)">${grpOpts}</select></div>
+    ${reportGroupBy?'':`<div class="rb-cfg-row"><span class="rb-cfg-l">Columns</span><div class="rb-colchips">${colChips}</div></div>`}</div>`;
+  if(!total)return head+'<div class="locked-note">No walk-ins match yet. Add or relax a condition.</div>';
+  if(reportGroupBy)return head+rbGroupTable(res);
+  return head+rbColTable(res.slice(0,50))+(total>50?`<div class="ai-tag" style="margin-top:8px">Showing first 50 rows · use ⬇ CSV to download all ${total}.</div>`:'');
+}
+function rbExportCSV(){
+  const res=rbMatches();if(!res.length){alert('Nothing to export yet.');return;}
+  let cols,data;
+  if(reportGroupBy){const c=reportCol(reportGroupBy);const g={};res.forEach(l=>{let k=c?rbCell(c,l):'';k=(k===''||k==null)?'—':k;g[k]=(g[k]||0)+1;});cols=[c?c.label:'Group','Count'];data=Object.entries(g).sort((a,b)=>b[1]-a[1]).map(([k,n])=>[k,String(n)]);}
+  else{const cs=REPORT_COLS.filter(c=>reportCols.includes(c.k));if(!cs.length){alert('Pick at least one column first.');return;}cols=cs.map(c=>c.label);data=res.map(l=>cs.map(c=>rbCell(c,l)));}
+  const esc=s=>{s=String(s==null?'':s);return /[",\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+  const csv=[cols.map(esc).join(',')].concat(data.map(r=>r.map(esc).join(','))).join('\r\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=((rbNameVal||'report').replace(/[^a-z0-9]+/gi,'-').replace(/^-+|-+$/g,'')||'report')+'.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
 function rbRefresh(){const el=document.getElementById('rbResults');if(el)el.innerHTML=rbResultsHTML(rbMatches());}
 function rbShow(){openLeadList('Report — '+(rbNameVal||'results'),rbMatches());}
 function rbReports(){return myPrefs.reports||[];}
 function rbSavedChips(){const list=rbReports();if(!list.length)return '';return `<div class="rb-saved"><div style="font-size:12px;color:var(--soft);margin:12px 0 6px;font-weight:600">Saved reports</div>${list.map((r,i)=>`<button class="sfchip" onclick="rbLoad(${i})">${escapeHtml(r.name)}<span class="xx" style="margin-left:6px" onclick="event.stopPropagation();rbDelReport(${i})">✕</span></button>`).join('')}</div>`;}
-async function rbSave(){const name=(rbNameVal||'').trim();if(!name){alert('Name the report first.');return;}const list=rbReports().slice();const def=JSON.parse(JSON.stringify(reportDef));const ex=list.findIndex(r=>r.name.toLowerCase()===name.toLowerCase());if(ex>=0)list[ex]={name,def};else list.push({name,def});if(await savePrefs(Object.assign({},myPrefs,{reports:list}))){rbRerender();}}
-function rbLoad(i){const r=rbReports()[i];if(!r)return;reportDef=JSON.parse(JSON.stringify(r.def));rbNameVal=r.name;rbRerender();}
+async function rbSave(){const name=(rbNameVal||'').trim();if(!name){alert('Name the report first.');return;}const list=rbReports().slice();const rep={name,def:JSON.parse(JSON.stringify(reportDef)),cols:reportCols.slice(),groupBy:reportGroupBy};const ex=list.findIndex(r=>r.name.toLowerCase()===name.toLowerCase());if(ex>=0)list[ex]=rep;else list.push(rep);if(await savePrefs(Object.assign({},myPrefs,{reports:list}))){rbRerender();}}
+function rbLoad(i){const r=rbReports()[i];if(!r)return;reportDef=JSON.parse(JSON.stringify(r.def));reportCols=(r.cols&&r.cols.length)?r.cols.slice():RB_DEF_COLS.slice();reportGroupBy=r.groupBy||'';rbNameVal=r.name;rbRerender();}
 async function rbDelReport(i){const list=rbReports().slice();list.splice(i,1);if(await savePrefs(Object.assign({},myPrefs,{reports:list})))rbRerender();}
-function rbReset(){reportDef={op:'AND',items:[{kind:'cond',field:'stage',value:'',not:false}]};rbNameVal='';rbRerender();}
+function rbReset(){reportDef={op:'AND',items:[{kind:'cond',field:'stage',value:'',not:false}]};rbNameVal='';reportCols=RB_DEF_COLS.slice();reportGroupBy='';rbRerender();}
 function reportBuilderHTML(){
   return `<div class="panel"><h3>Report builder</h3>
     <div class="ai-tag" style="margin-bottom:12px">Add conditions and combine them with <b>ALL · and</b> / <b>ANY · or</b>. Add a nested <b>Group</b> for “this AND (that OR the other)”. Results update live below. Save it to reuse anytime.</div>
