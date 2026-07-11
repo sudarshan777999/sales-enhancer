@@ -1354,8 +1354,8 @@ function renderTabs(){
   const dueCount=s.filter(l=>l.stage==='qualified'&&l.nextFollowUp&&dueState(l.nextFollowUp).n<=0).length;
   const cu=currentUser();
   const tabs=[['pipeline','Pipeline',s.length]];
-  if(cu&&(cu.role==='sales_head'||cu.role==='project_head'))tabs.push(['funnel','Funnel',''],['ageing','Ageing','']);
-  tabs.push(['followups','Follow-ups due',dueCount],['stats','Follow-up stats',''],['all','All leads',s.length]);
+  if(cu&&(cu.role==='sales_head'||cu.role==='project_head'))tabs.push(['funnel','Funnel','']);
+  tabs.push(['ageing','Ageing',''],['followups','Follow-ups due',dueCount],['stats','Follow-up stats',''],['all','All leads',s.length]);
   if(cu&&(cu.role==='sales_head'||cu.role==='project_head')){const ci=(db.crossInterest||[]).filter(c=>c.status==='open'&&(cu.role==='sales_head'||c.target_project_id===myProjId())).length;tabs.push(['crossproject','Cross-project',ci||'']);}
   if(cu&&cu.role==='sales_head')tabs.push(['report','Report','']);
   document.getElementById('tabs').innerHTML=tabs.map(([k,l,n])=>`<button class="tab ${activeTab===k?'on':''}" onclick="setTab('${k}')">${l}<span class="n">${n}</span></button>`).join('');
@@ -2202,30 +2202,42 @@ function funnelHTML(){
 let ageGroup='rep';
 function setAgeGroup(g){ageGroup=g;render();}
 function ageingTreeHTML(){
+  const u=currentUser();
   const base=scoped().filter(l=>l.source==='walkin'&&l.stage==='qualified'&&!l.mergedInto);
   const total=base.length,over=base.filter(l=>qualAgeDays(l)>7).length;
   const avg=total?Math.round(base.reduce((a,l)=>a+qualAgeDays(l),0)/total):0;
-  const toggle=`<div class="range-bar"><span style="font-weight:600;font-size:13px;color:var(--soft)">Branch by</span><div class="seg2"><button class="${ageGroup==='rep'?'on':''}" onclick="setAgeGroup('rep')">Salesperson → Stage</button><button class="${ageGroup==='stage'?'on':''}" onclick="setAgeGroup('stage')">Stage → Salesperson</button></div><span style="margin-left:auto;color:var(--soft);font-size:12.5px">${total} qualified · <b style="color:${over?'var(--lost)':'inherit'}">${over} over 7 days</b> · avg ${avg}d</span></div>`;
-  if(!total)return toggle+'<div class="panel"><div class="locked-note">No open qualified walk-ins right now.</div></div>';
+  // dimensions available for the tree
   const AGE_STAGES=['Prospect','Negotiation','No status'];
-  const stageOf=l=>AGE_STAGES.includes(l.dealStatus)?l.dealStatus:'No status';
-  const repOf=l=>l.ownerId?userName(l.ownerId):'Unassigned';
-  const groupBy=(arr,fn)=>{const m={};arr.forEach(l=>{const k=fn(l);(m[k]=m[k]||[]).push(l);});return m;};
-  const leaf=l=>{const d=qualAgeDays(l);return `<div class="leaf ${d>7?'red':''}" onclick="openDrawer('${l.id}')" title="Qualified ${d} day(s) ago"><span class="dot"></span>${escapeHtml(l.name)} <b>${d}d</b>${l.dealStatus?` <span class="ls">${l.dealStatus}</span>`:''}</div>`;};
-  const node=(label,arr,kids,open)=>{const o=arr.filter(l=>qualAgeDays(l)>7).length;return `<details ${open?'open':''} class="tnode"><summary><span class="tcar">▸</span><span class="tsum">${label} <span class="tct">${arr.length}</span>${o?`<span class="tover">${o} over 7d</span>`:''}</span></summary><div class="tkids">${kids}</div></details>`;};
-  let body='';
-  if(ageGroup==='rep'){
-    const byRep=groupBy(base,repOf);const reps=Object.keys(byRep).sort((a,b)=>byRep[b].filter(l=>qualAgeDays(l)>7).length-byRep[a].filter(l=>qualAgeDays(l)>7).length);
-    body=reps.map(rp=>{const arr=byRep[rp];const bs=groupBy(arr,stageOf);
-      const kids=AGE_STAGES.filter(s=>bs[s]).map(s=>{const g=bs[s].slice().sort((a,b)=>qualAgeDays(b)-qualAgeDays(a));return node(s,g,g.map(leaf).join(''),true);}).join('');
-      return node('👤 '+rp,arr,kids,true);}).join('');
-  } else {
-    const bs=groupBy(base,stageOf);
-    body=AGE_STAGES.filter(s=>bs[s]).map(s=>{const arr=bs[s];const byRep=groupBy(arr,repOf);const reps=Object.keys(byRep).sort((a,b)=>byRep[b].filter(l=>qualAgeDays(l)>7).length-byRep[a].filter(l=>qualAgeDays(l)>7).length);
-      const kids=reps.map(rp=>{const g=byRep[rp].slice().sort((a,b)=>qualAgeDays(b)-qualAgeDays(a));return node('👤 '+rp,g,g.map(leaf).join(''),true);}).join('');
-      return node(s,arr,kids,true);}).join('');
+  const DIM={
+    project:{get:l=>l.project||'—',icon:'📁 '},
+    rep:{get:l=>l.ownerId?userName(l.ownerId):'Unassigned',icon:'👤 '},
+    stage:{get:l=>AGE_STAGES.includes(l.dealStatus)?l.dealStatus:'No status',icon:''}
+  };
+  const mid=ageGroup==='rep'?['rep','stage']:['stage','rep'];
+  let dims;
+  if(u.role==='sales')dims=['stage'];
+  else if(u.role==='project_head')dims=mid;
+  else dims=['project',...mid];               // sales_head → project-wise
+  // role-aware "branch by" toggle
+  let toggleBtns='';
+  if(u.role!=='sales'){
+    const A=u.role==='sales_head'?'Project → Salesperson → Stage':'Salesperson → Stage';
+    const B=u.role==='sales_head'?'Project → Stage → Salesperson':'Stage → Salesperson';
+    toggleBtns=`<div class="seg2"><button class="${ageGroup==='rep'?'on':''}" onclick="setAgeGroup('rep')">${A}</button><button class="${ageGroup==='stage'?'on':''}" onclick="setAgeGroup('stage')">${B}</button></div>`;
   }
-  return toggle+`<div class="panel"><div class="tree">${body}</div><div class="ai-tag" style="margin-top:10px"><b style="color:var(--lost)">Red = over 7 days</b> since qualified. Tap a branch to fold it, or a customer to open the walk-in.</div></div>`;
+  const toggle=`<div class="range-bar"><span style="font-weight:600;font-size:13px;color:var(--soft)">${u.role==='sales'?'Your qualified walk-ins':'Branch by'}</span>${toggleBtns}<span style="margin-left:auto;color:var(--soft);font-size:12.5px">${total} qualified · <b style="color:${over?'var(--lost)':'inherit'}">${over} over 7 days</b> · avg ${avg}d</span></div>`;
+  if(!total)return toggle+'<div class="panel"><div class="locked-note">No open qualified walk-ins right now.</div></div>';
+  const groupBy=(arr,fn)=>{const m={};arr.forEach(l=>{const k=fn(l);(m[k]=m[k]||[]).push(l);});return m;};
+  const overCount=arr=>arr.filter(l=>qualAgeDays(l)>7).length;
+  const leaf=l=>{const d=qualAgeDays(l);return `<div class="leaf ${d>7?'red':''}" onclick="openDrawer('${l.id}')" title="Qualified ${d} day(s) ago"><span class="dot"></span>${escapeHtml(l.name)} <b>${d}d</b>${l.dealStatus?` <span class="ls">${l.dealStatus}</span>`:''}</div>`;};
+  const node=(label,arr,kids)=>{const o=overCount(arr);return `<details open class="tnode"><summary><span class="tcar">▸</span><span class="tsum">${label} <span class="tct">${arr.length}</span>${o?`<span class="tover">${o} over 7d</span>`:''}</span></summary><div class="tkids">${kids}</div></details>`;};
+  const build=(arr,ds)=>{
+    if(!ds.length)return arr.slice().sort((a,b)=>qualAgeDays(b)-qualAgeDays(a)).map(leaf).join('');
+    const d=DIM[ds[0]];const g=groupBy(arr,d.get);
+    const keys=Object.keys(g).sort((a,b)=>overCount(g[b])-overCount(g[a])||g[b].length-g[a].length);
+    return keys.map(k=>node(d.icon+escapeHtml(k),g[k],build(g[k],ds.slice(1)))).join('');
+  };
+  return toggle+`<div class="panel"><div class="tree">${build(base,dims)}</div><div class="ai-tag" style="margin-top:10px"><b style="color:var(--lost)">Red = over 7 days</b> since qualified. Tap a branch to fold it, or a customer to open the walk-in.${u.role==='sales_head'?' New projects appear here automatically once they have qualified walk-ins.':''}</div></div>`;
 }
 function crossProjectHTML(){
   const u=currentUser();const pid=myProjId();
