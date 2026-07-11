@@ -374,6 +374,11 @@
   .leaf.red .dot{background:var(--lost);}
   .leaf b{font-weight:700;}
   .leaf .ls{font-size:11px;color:var(--soft);}
+  .draggable-panel{position:relative;}
+  .drag-h{position:absolute;top:9px;right:11px;cursor:grab;color:var(--soft);font-size:17px;line-height:1;letter-spacing:-3px;opacity:.45;z-index:3;padding:2px 4px;user-select:none;}
+  .drag-h:hover{opacity:1;color:var(--brand);}
+  .drag-h:active{cursor:grabbing;}
+  .draggable-panel.dragging{opacity:.55;outline:2px dashed var(--brand);outline-offset:2px;}
   .filter-banner{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:#FFF7E8;border:1px solid #F0D9A8;color:#7A5B12;border-radius:10px;padding:9px 13px;margin-bottom:14px;font-size:13px;}
   .filter-banner .fb-chip{background:#fff;border:1px solid #E6CB8E;border-radius:20px;padding:2px 10px;font-weight:600;}
   .filter-banner button{margin-left:auto;border:1px solid #E0A32E;background:#fff;color:#8a6412;border-radius:8px;padding:4px 12px;font-weight:600;cursor:pointer;}
@@ -1326,6 +1331,7 @@ function render(){
   else if(activeTab==='crossproject')m.innerHTML=crossProjectHTML();
   else if(activeTab==='report')m.innerHTML=reportHTML();
   else m.innerHTML=tableHTML(leads);
+  if(['funnel','stats','ageing'].includes(activeTab))makeReorderable(m,activeTab);
   const total=scoped().length;
   document.getElementById('count').textContent=total+(u.role==='sales'?' of your leads':' leads in view');
   refreshNotifyBadge();renderSavedBar();renderMyTarget();
@@ -2061,6 +2067,29 @@ function phaseBlock(l){if(l.source!=='walkin')return '';const terminal=['booked'
 function fnlBuildDS(leads,keyFn){const m={};leads.forEach(l=>{const k=keyFn(l);if(!k)return;m[k]=m[k]||{};if(l.dealStatus){(m[k][l.dealStatus]=m[k][l.dealStatus]||[]).push(l);}if((l.revisits||[]).length){(m[k].Revisits=m[k].Revisits||[]).push(l);}});return m;}
 function fnlDsTable(m,label){const cols=[...DEAL_STATUSES,'Revisits'];const keys=Object.keys(m).sort();if(!keys.length)return '<div class="locked-note">Nothing in this window.</div>';
   return `<table style="box-shadow:none"><thead><tr><th>${label}</th>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${keys.map(k=>`<tr><td><b class="mono">${k}</b></td>${cols.map(c=>{const arr=m[k][c]||[];return `<td class="mono">${arr.length?drillN(arr,label+' · '+k+' · '+c):'0'}</td>`;}).join('')}</tr>`).join('')}</tbody></table>`;}
+/* ---- drag-to-reorder panels (funnel / stats / ageing) ---- */
+function panelKey(el,i){const h=el.querySelector('h3');let b=h?h.textContent.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''):(el.classList.contains('split')?'split':'blk');return b||('blk'+i);}
+function reorderables(container){return [...container.children].filter(el=>el.classList.contains('panel')||el.classList.contains('split'));}
+function savePanelOrder(container,sectionKey){const order=reorderables(container).map(el=>el.dataset.pk);const po=Object.assign({},myPrefs.panelOrder||{});po[sectionKey]=order;savePrefs(Object.assign({},myPrefs,{panelOrder:po}));}
+function makeReorderable(container,sectionKey){
+  const nodes=reorderables(container);if(nodes.length<2)return;
+  const seen={};nodes.forEach((el,i)=>{let k=panelKey(el,i);if(seen[k]!=null)k=k+'-'+i;seen[k]=1;el.dataset.pk=k;el.classList.add('draggable-panel');
+    if(!el.querySelector(':scope > .drag-h')){const h=document.createElement('div');h.className='drag-h';h.title='Drag to reorder';h.textContent='⠿';el.insertBefore(h,el.firstChild);}});
+  const saved=((myPrefs.panelOrder||{})[sectionKey])||[];
+  if(saved.length){const byKey={};nodes.forEach(el=>byKey[el.dataset.pk]=el);const ordered=[];
+    saved.forEach(k=>{if(byKey[k]){ordered.push(byKey[k]);delete byKey[k];}});
+    nodes.forEach(el=>{if(byKey[el.dataset.pk])ordered.push(el);});
+    const ph=document.createComment('ph');container.insertBefore(ph,nodes[0]);ordered.forEach(el=>container.insertBefore(el,ph));ph.remove();}
+  let drag=null;
+  reorderables(container).forEach(el=>{
+    const h=el.querySelector(':scope > .drag-h');if(!h)return;
+    h.addEventListener('mousedown',()=>el.setAttribute('draggable','true'));
+    h.addEventListener('mouseup',()=>el.removeAttribute('draggable'));
+    el.addEventListener('dragstart',e=>{drag=el;el.classList.add('dragging');e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain','');}catch(_){}});
+    el.addEventListener('dragend',()=>{el.classList.remove('dragging');el.removeAttribute('draggable');if(drag){drag=null;savePanelOrder(container,sectionKey);}});
+    el.addEventListener('dragover',e=>{if(!drag||drag===el)return;e.preventDefault();const r=el.getBoundingClientRect();const after=(e.clientY-r.top)/r.height>0.5;container.insertBefore(drag,after?el.nextSibling:el);});
+  });
+}
 /* ---- drill-down list popup (shared by funnel numbers + ask box) ---- */
 let drillReg={},drillSeq=0,curList=null,listReturn=null;
 function drillN(arr,label){const k='d'+(drillSeq++);drillReg[k]={leads:arr,label};return `<span class="drill" onclick="event.stopPropagation();openDrill('${k}')">${arr.length}</span>`;}
