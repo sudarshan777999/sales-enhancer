@@ -317,6 +317,23 @@
   .task-b{font-size:13.5px;font-weight:500;}
   .task-resp{font-size:12.5px;color:var(--ink);margin-top:4px;}
   .task-meta{font-size:11.5px;color:var(--soft);margin-top:3px;}
+  .tk-wrap{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-items:start;}
+  @media(max-width:900px){.tk-wrap{grid-template-columns:1fr;}}
+  .tk-col{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;box-shadow:var(--shadow);}
+  .tk-head{font-family:'Space Grotesk';font-weight:600;font-size:14px;padding:9px 12px;border-radius:10px;margin-bottom:11px;display:flex;justify-content:space-between;align-items:center;}
+  .tk-head span{font-size:12px;background:rgba(255,255,255,.5);border-radius:20px;padding:1px 10px;font-weight:700;}
+  .tk-h-tome{background:#FDECEA;color:#A5322A;}
+  .tk-h-byme{background:#E9F0FA;color:#2C5D80;}
+  .tk-h-done{background:#E7F6EC;color:#2E7D45;}
+  .tk-card{border:1px solid var(--line);border-left:3px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:9px;background:#fff;}
+  .tk-card.tome{border-left-color:#C0524A;background:linear-gradient(#FFF7F5,#fff);}
+  .tk-card.byme{border-left-color:#4A6FA5;}
+  .tk-card.done{border-left-color:#2E9E5B;opacity:.9;}
+  .tk-body{font-size:13.5px;font-weight:500;line-height:1.4;}
+  .tk-meta{font-size:11.5px;color:var(--soft);margin-top:5px;}
+  .tk-lead{font-family:'Space Grotesk';color:var(--brand);cursor:pointer;text-decoration:underline;}
+  .tk-resp{font-size:12.5px;margin-top:5px;color:var(--ink);}
+  .tk-empty{color:var(--soft);font-size:13px;padding:16px 6px;text-align:center;}
   @media(max-width:820px){.stat-grid{grid-template-columns:repeat(2,1fr);}.split{flex-direction:column;}}
 
   /* ---------- Modal ---------- */
@@ -1369,6 +1386,7 @@ function render(){
   else if(activeTab==='crossproject')m.innerHTML=crossProjectHTML();
   else if(activeTab==='report')m.innerHTML=reportHTML();
   else if(activeTab==='builder')m.innerHTML=reportBuilderHTML();
+  else if(activeTab==='tasks')m.innerHTML=tasksHTML();
   else m.innerHTML=tableHTML(leads);
   m.classList.toggle('wide',activeTab==='pipeline');
   if(['funnel','stats','ageing'].includes(activeTab))makeReorderable(m,activeTab);
@@ -1401,7 +1419,8 @@ function renderTabs(){
   const cu=currentUser();
   const tabs=[['pipeline','Pipeline',s.length]];
   if(cu&&(cu.role==='sales_head'||cu.role==='project_head'))tabs.push(['funnel','Funnel','']);
-  tabs.push(['ageing','Ageing',''],['followups','Follow-ups due',dueCount],['stats','Follow-up stats',''],['builder','Builder',''],['all','All leads',s.length]);
+  const myTk=(db.tasks||[]).filter(t=>t.status==='open'&&t.assigned_to===session).length;
+  tabs.push(['tasks','Tasks',myTk||''],['ageing','Ageing',''],['followups','Follow-ups due',dueCount],['stats','Follow-up stats',''],['builder','Builder',''],['all','All leads',s.length]);
   if(cu&&(cu.role==='sales_head'||cu.role==='project_head')){const ci=(db.crossInterest||[]).filter(c=>c.status==='open'&&(cu.role==='sales_head'||c.target_project_id===myProjId())).length;tabs.push(['crossproject','Cross-project',ci||'']);}
   if(cu&&cu.role==='sales_head')tabs.push(['report','Report','']);
   document.getElementById('tabs').innerHTML=tabs.map(([k,l,n])=>`<button class="tab ${activeTab===k?'on':''}" onclick="setTab('${k}')">${l}<span class="n">${n}</span></button>`).join('');
@@ -1581,11 +1600,13 @@ function followBlock(l){
 async function addNote(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const t=document.getElementById('note_text').value.trim();if(!t)return;await addActivityRow(id,{kind:'note',body:t});await refresh();}
 function leadTasks(id){return (db.tasks||[]).filter(t=>t.lead_id===id);}
 function canAssignTask(l){const u=currentUser();if(!u||!l.ownerId)return false;if(u.role==='sales_head')return true;if(u.role==='project_head'&&myProjId()&&projId(l.project)===myProjId())return true;return false;}
+function assigneePeople(l){const rank=u=>u.role==='sales_head'?0:u.role==='project_head'?1:2;return (db.users||[]).filter(u=>u.id!==session&&u.role!=='reception').sort((a,b)=>rank(a)-rank(b)||String(a.name).localeCompare(b.name));}
+function roleTag(u){return u.role==='sales_head'?' · Sales Head':u.role==='project_head'?' · Project Head':'';}
 function taskBlock(l){
   const ts=leadTasks(l.id).slice().sort((a,b)=>(a.status===b.status)?0:(a.status==='open'?-1:1));
-  const isHead=canAssignTask(l);
+  const canAssign=can('edit',l);
   const mine=ts.filter(t=>t.assigned_to===session&&t.status==='open');
-  if(!isHead&&!ts.length)return '';
+  if(!canAssign&&!ts.length)return '';
   const rows=ts.map(t=>{
     const from=userName(t.assigned_by),to=userName(t.assigned_to);
     if(t.status==='done')return `<div class="task-row done"><div class="task-b">✓ ${escapeHtml(t.body)}</div>${t.response?`<div class="task-resp">↳ ${escapeHtml(t.response)}</div>`:''}<div class="task-meta">from ${escapeHtml(from)} · done by ${escapeHtml(to)}</div></div>`;
@@ -1594,17 +1615,25 @@ function taskBlock(l){
     else inner+=`<div class="task-meta" style="color:var(--amber)">waiting on ${escapeHtml(to)}</div>`;
     return `<div class="task-row open">${inner}</div>`;
   }).join('');
-  const form=isHead?`<div style="margin-top:10px"><textarea class="field" id="task_new" placeholder="e.g. Which competitor did we lose to? Add any details."></textarea>
-      <div style="margin-top:8px"><button class="btn" onclick="assignTask('${l.id}')">Assign task to ${escapeHtml(userName(l.ownerId))}</button></div></div>`:'';
+  let form='';
+  if(canAssign){
+    const people=assigneePeople(l);
+    const opts=`<option value="">— choose person —</option>`+people.map(u=>`<option value="${u.id}" ${l.ownerId===u.id?'selected':''}>${escapeHtml(u.name)}${roleTag(u)}${l.ownerId===u.id?' · owner':''}</option>`).join('');
+    form=`<div style="margin-top:10px"><div class="r" style="gap:8px;margin-bottom:8px;align-items:center"><span style="font-size:12px;color:var(--soft);white-space:nowrap">Assign to</span><select class="field" id="task_to" style="max-width:230px">${opts}</select></div>
+      <textarea class="field" id="task_new" placeholder="e.g. Which competitor did we lose to? Add any details."></textarea>
+      <div style="margin-top:8px"><button class="btn" onclick="assignTask('${l.id}')">Assign task</button></div></div>`;
+  }
   return `<div class="block"><label>Tasks${mine.length?` <span class="tchip" style="background:#FBE9E7;color:#A03027">${mine.length} for you</span>`:''}</label>${rows||'<div class="ai-tag">No tasks yet.</div>'}${form}</div>`;
 }
 async function assignTask(id){
-  const l=db.leads.find(x=>x.id===id);if(!l||!canAssignTask(l))return;
-  const el=document.getElementById('task_new');if(!el)return;const body=(el.value||'').trim();
-  if(!body){alert('Type the task first.');el.focus();return;}
-  const {error}=await sb.from('tasks').insert({company_id:myCompanyId,lead_id:l.id,lead_name:l.name,assigned_to:l.ownerId,assigned_by:session,body,status:'open'});
+  const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;
+  const to=((document.getElementById('task_to')||{}).value)||'';
+  if(!to){alert('Choose who to assign the task to.');return;}
+  const el=document.getElementById('task_new');const body=(el&&el.value||'').trim();
+  if(!body){alert('Type the task first.');if(el)el.focus();return;}
+  const {error}=await sb.from('tasks').insert({company_id:myCompanyId,lead_id:l.id,lead_name:l.name,assigned_to:to,assigned_by:session,body,status:'open'});
   if(error){alert('Could not assign: '+error.message);return;}
-  await addActivityRow(id,{kind:'system',body:'Assigned a task to '+userName(l.ownerId)+': '+body});
+  await addActivityRow(id,{kind:'system',body:'Assigned a task to '+userName(to)+': '+body});
   await refresh();
 }
 async function completeTask(tid){
@@ -1615,6 +1644,28 @@ async function completeTask(tid){
   await addActivityRow(t.lead_id,{kind:'note',body:'Completed task'+(resp?': '+resp:'')});
   await refresh();
 }
+function taskCard(t,mode){
+  const from=userName(t.assigned_by),to=userName(t.assigned_to);
+  const who=mode==='tome'?('from '+escapeHtml(from)):mode==='byme'?('to '+escapeHtml(to)):(escapeHtml(from)+' → '+escapeHtml(to));
+  const dt=mode==='done'?((t.done_at||'').slice(0,10)):((t.created_at||'').slice(0,10));
+  const lead=t.lead_name?`<b class="tk-lead" onclick="event.stopPropagation();openDrawer('${t.lead_id}')">${escapeHtml(t.lead_name)}</b> · `:'';
+  const resp=(t.response&&(mode==='done'||mode==='byme'))?`<div class="tk-resp">↳ ${escapeHtml(t.response)}</div>`:'';
+  const act=mode==='tome'?`<div class="r" style="gap:8px;margin-top:8px;align-items:center"><input class="field" id="tkr_${t.id}" placeholder="Answer / info…" value="${(t.response||'').replace(/"/g,'&quot;')}"/><button class="btn" style="white-space:nowrap" onclick="completeTaskFrom('${t.id}')">✓ Done</button></div>`:'';
+  return `<div class="tk-card ${mode}"><div class="tk-body">${escapeHtml(t.body)}</div><div class="tk-meta">${lead}${who} · ${fmtDate(dt)}</div>${resp}${act}</div>`;
+}
+function tasksHTML(){
+  const all=db.tasks||[];const sortNew=(a,b)=>((b.created_at||'')<(a.created_at||'')?-1:1);
+  const toMe=all.filter(t=>t.status==='open'&&t.assigned_to===session).sort(sortNew);
+  const byMe=all.filter(t=>t.status==='open'&&t.assigned_by===session).sort(sortNew);
+  const done=all.filter(t=>t.status==='done'&&(t.assigned_to===session||t.assigned_by===session)).sort((a,b)=>((b.done_at||'')<(a.done_at||'')?-1:1)).slice(0,10);
+  const col=(cls,icon,title,arr,mode,empty)=>`<div class="tk-col"><div class="tk-head ${cls}">${icon} ${title} <span>${arr.length}</span></div>${arr.length?arr.map(t=>taskCard(t,mode)).join(''):`<div class="tk-empty">${empty}</div>`}</div>`;
+  return `<div class="tk-wrap">
+    ${col('tk-h-tome','📥','Assigned to me',toMe,'tome','Nothing on your plate right now. 🎉')}
+    ${col('tk-h-byme','📤','Assigned by me',byMe,'byme','You haven’t assigned any open tasks.')}
+    ${col('tk-h-done','✅','Recently completed',done,'done','No completed tasks yet.')}
+  </div>`;
+}
+async function completeTaskFrom(tid){const t=(db.tasks||[]).find(x=>x.id===tid);if(!t)return;const resp=((document.getElementById('tkr_'+tid)||{}).value||'').trim();const {error}=await sb.from('tasks').update({status:'done',response:resp,done_at:new Date().toISOString()}).eq('id',tid);if(error){alert('Could not update: '+error.message);return;}await addActivityRow(t.lead_id,{kind:'note',body:'Completed task'+(resp?': '+resp:'')});await refresh();}
 function digits(s){return String(s||'').replace(/\D/g,'');}
 function revisitMergeBlock(l){
   if(!l.pendingRevisit||!can('edit',l))return '';
