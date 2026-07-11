@@ -788,6 +788,8 @@ function user(id){return db.users.find(u=>u.id===id);}
 function currentUser(){return user(session);}
 function userName(id){const u=user(id);return u?u.name:'—';}
 function salespeople(project){return db.users.filter(u=>u.role==='sales'&&(!project||u.project===project));}
+function assignees(project){const sh=currentUser()&&currentUser().role==='sales_head';return db.users.filter(u=>(u.role==='sales'||(sh&&u.role==='project_head'))&&(!project||u.project===project)).sort((a,b)=>(a.role==='project_head'?0:1)-(b.role==='project_head'?0:1));}
+function assigneeLabel(r){return r.name+(r.role==='project_head'?' · Project Head':'');}
 
 /* ============ permissions ============ */
 function can(action,lead){
@@ -1491,7 +1493,7 @@ function renderDrawer(){
   if(editable&&!terminal){
     // owner
     if(canAssign){
-      flow+=`<div class="block"><label>Owner</label><select class="field" onchange="assign('${l.id}',this.value)"><option value="">Unassigned</option>${salespeople(l.project).map(r=>`<option value="${r.id}" ${l.ownerId===r.id?'selected':''}>${r.name}</option>`).join('')}</select></div>`;
+      flow+=`<div class="block"><label>Owner</label><select class="field" onchange="assign('${l.id}',this.value)"><option value="">Unassigned</option>${assignees(l.project).map(r=>`<option value="${r.id}" ${l.ownerId===r.id?'selected':''}>${assigneeLabel(r)}</option>`).join('')}</select></div>`;
     } else {
       flow+=`<div class="block"><label>Owner</label><div class="locked-note">Owned by you (${userName(l.ownerId)}). Salespeople can't reassign leads.</div></div>`;
     }
@@ -1515,7 +1517,7 @@ function renderDrawer(){
     if(l.stage==='booked'){flow+=`<div class="block"><div class="banner win"><span>🎉</span><div>Won — <b>${l.dealStatus||'Booked'}</b>.</div></div></div>`;flow+=bookingFactsHTML(l);flow+=wonderwallBlock(l);if(editable)flow+=dealStatusBlock(l);}
     if(l.stage==='lost'){flow+=`<div class="block"><div class="banner lost"><span>✕</span><div>Lost — <b>${l.lostReason||l.dealStatus||'Closed Lost'}</b></div></div></div>`;flow+=wonderwallBlock(l);if(editable)flow+=dealStatusBlock(l);}
     if(l.stage==='not_qualified'){flow+=`<div class="block"><div class="banner nq"><span>–</span><div>Disqualified — <b>${l.nqReason}</b>${l.disqualifiedBy?' · by '+l.disqualifiedBy:''}. Now in the disqualified pool.</div></div></div>`;
-      if(can('assign'))flow+=`<div class="block"><label>Reassign for follow-up</label><select class="field" onchange="reassignPool('${l.id}',this.value)"><option value="">Assign to a salesperson…</option>${salespeople(l.project).map(r=>`<option value="${r.id}">${r.name}</option>`).join('')}</select><div class="ai-tag">Moves this disqualified walk-in out of the pool into the chosen rep's active bucket for a fresh follow-up.</div></div>`;}
+      if(can('assign'))flow+=`<div class="block"><label>Reassign for follow-up</label><select class="field" onchange="reassignPool('${l.id}',this.value)"><option value="">Assign to a person…</option>${assignees(l.project).map(r=>`<option value="${r.id}">${assigneeLabel(r)}</option>`).join('')}</select><div class="ai-tag">Moves this disqualified walk-in out of the pool into the chosen person's active bucket for a fresh follow-up.</div></div>`;}
     if(editable&&l.stage!=='not_qualified')flow+=`<div class="block"><button class="act" onclick="reopen('${l.id}')">↺ Reopen lead</button></div>`;
   }
   // delete (privileged only)
