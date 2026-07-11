@@ -111,8 +111,13 @@
 
   /* ---------- Board ---------- */
   main{max-width:1360px;margin:0 auto;padding:8px 24px 60px;}
-  .board{display:flex;gap:14px;overflow-x:auto;padding-bottom:12px;}
-  .col{flex:0 0 262px;display:flex;flex-direction:column;}
+  main.wide{max-width:min(1760px,98vw);}
+  .board{display:flex;gap:14px;overflow-x:auto;padding-bottom:14px;scrollbar-width:thin;scroll-padding-right:24px;}
+  .board::after{content:"";flex:0 0 10px;}
+  .board::-webkit-scrollbar{height:9px;}
+  .board::-webkit-scrollbar-thumb{background:#cdd6e0;border-radius:20px;}
+  .board::-webkit-scrollbar-thumb:hover{background:#b6c1cf;}
+  .col{flex:0 0 254px;display:flex;flex-direction:column;}
   .col-head{display:flex;align-items:center;gap:9px;padding:4px 4px 10px;}
   .col-head i{width:9px;height:9px;border-radius:3px;flex:none;}
   .col-head h3{font-size:13.5px;font-weight:600;}
@@ -121,6 +126,10 @@
   .empty-col{border:1.5px dashed var(--line);border-radius:11px;padding:18px 12px;text-align:center;color:var(--soft);font-size:12.5px;}
   .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:13px 14px;box-shadow:var(--shadow);cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .12s;border-left:3px solid var(--l,var(--new));}
   .card:hover{transform:translateY(-2px);border-color:#cbd4df;box-shadow:0 4px 8px rgba(21,34,56,.08),0 14px 32px rgba(21,34,56,.09);}
+  .card.attn{background:linear-gradient(#FFFBF3,var(--surface));}
+  .card.crit{background:linear-gradient(#FFF3F1,var(--surface));}
+  .pill.warn{background:#FFF3E0;color:#B26A00;}
+  .pill.crit{background:#FBE7E4;color:#A5322A;}
   .card .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
   .card .nm{font-family:'Space Grotesk';font-weight:600;font-size:14.5px;}
   .card .proj{font-size:12px;color:var(--soft);margin-top:1px;}
@@ -1361,6 +1370,7 @@ function render(){
   else if(activeTab==='report')m.innerHTML=reportHTML();
   else if(activeTab==='builder')m.innerHTML=reportBuilderHTML();
   else m.innerHTML=tableHTML(leads);
+  m.classList.toggle('wide',activeTab==='pipeline');
   if(['funnel','stats','ageing'].includes(activeTab))makeReorderable(m,activeTab);
   const total=scoped().length;
   document.getElementById('count').textContent=total+(u.role==='sales'?' of your leads':' leads in view');
@@ -1406,10 +1416,12 @@ function cardHTML(l){
   const st=STAGES[l.stage];let dueHTML='';
   if(l.stage==='qualified'&&l.nextFollowUp){const d=dueState(l.nextFollowUp);dueHTML=`<span class="pill ${d.cls}">${clock}${d.cls==='over'?'Overdue':d.cls==='today'?'Follow up today':'Follow up '+fmtDate(l.nextFollowUp)}</span>`;}
   let slaHTML='';const _sla=slaState(l);if(_sla)slaHTML=`<span class="pill ${_sla.over?'slaover':'sla'}">${_sla.over?'Decision overdue '+(-_sla.left)+'d':'Decide in '+_sla.left+'d'}</span>`;const _st=staleQualified(l);if(_st)slaHTML+=`<span class="pill slaover">No follow-up ${_st.days}d</span>`;
+  const _ut=daysUntouched(l);const attn=_ut!=null&&_ut>5;const crit=_ut!=null&&_ut>7;
+  if(attn&&!_st)slaHTML+=`<span class="pill ${crit?'crit':'warn'}" title="No update logged for ${_ut} days">${clock}Untouched ${_ut}d</span>`;
   let reason='';
   if(l.stage==='not_qualified'&&l.nqReason)reason=`<div class="reason-tag">Disqualified · <b>${l.nqReason}</b>${l.disqualifiedBy?' · by '+l.disqualifiedBy:''}</div>`;
   if(l.stage==='lost'&&l.lostReason)reason=`<div class="reason-tag">Lost · <b>${l.lostReason}</b></div>`;
-  return `<div class="card" style="--l:${st.color}" onclick="openDrawer('${l.id}')">
+  return `<div class="card ${crit?'crit':attn?'attn':''}" style="--l:${st.color}" onclick="openDrawer('${l.id}')">
     <div class="top"><div><div class="nm">${l.name}</div><div class="proj">${l.project||'—'} · <span title="${l.source==='walkin'?'Walk-in date':'Captured'}">📅 ${fmtDate(l.createdAt)}</span></div></div><span class="src ${l.source}">${l.source==='digital'?'Digital':'Walk-in'}</span></div>
     <div class="meta">${l.ownerId?`<div class="avatar" title="${userName(l.ownerId)}">${initials(userName(l.ownerId))}</div>`:`<div class="avatar none" title="Unassigned">–</div>`}${l.viaGre?`<span class="tchip" style="background:#E8F5E9;color:#2E7D32" title="Entered at the front desk (GRE)">GRE</span>`:''}${l.pendingRevisit?`<span class="tchip" style="background:#FFF3E0;color:#B26A00" title="Marked as a revisit by the front desk — needs merge">↩ Revisit · merge</span>`:''}${l.dealStatus?`<span class="tchip" style="background:#E7EEF5;color:#2C5D80">${l.dealStatus}</span>`:''}${(l.metProjectHead===false&&(l.revisits&&l.revisits.length))?`<span class="tchip" style="background:#FBE9E7;color:#A03027" title="Revisited but no Project-Head meeting">No PH mtg</span>`:''}${(l.revisits&&l.revisits.length)?`<span class="tchip" style="background:#EDE7F6;color:#5E35B1">↩ ${l.revisits.length}</span>`:''}${(l.labels||[]).map(n=>`<span class="lchip" style="background:${labelColor(n)}">${n}</span>`).join('')}${slaHTML}${dueHTML}${l.budget?`<span class="budget">₹${l.budget}</span>`:''}</div>
     ${reason}</div>`;
@@ -2511,6 +2523,7 @@ function toggleReportEditor(){const e=document.getElementById('reportEditor');if
 async function saveReport(){const rd=Object.assign({},db.reportData||{});rd.performanceText=document.getElementById('rd_perf').value;rd.historicText=document.getElementById('rd_hist').value;if(await saveReportData(rd))render();}
 /* ============ alerts / notifications ============ */
 function staleQualified(l){if(l.stage!=='qualified')return null;let last=parseD(l.createdAt);(l.log||[]).forEach(e=>{const t=parseD(e.d);if(t>last)last=t;});const days=Math.round((today()-last)/86400000);return days>=7?{days}:null;}
+function daysUntouched(l){if(['booked','lost','not_qualified'].includes(l.stage))return null;let last=parseD(l.createdAt);(l.log||[]).forEach(e=>{const t=parseD(e.d);if(t>last)last=t;});return Math.round((today()-last)/86400000);}
 function qualifiedAt(l){let d=null;(l.log||[]).forEach(e=>{if(!d&&e.kind==='system'&&/qualified/i.test(e.t||''))d=e.d;});return d||l.assignedAt||l.createdAt;}
 function qualAgeDays(l){return Math.round((today()-parseD(qualifiedAt(l)))/86400000);}
 function myProjId(){const u=currentUser();return u&&u.project?projByName[u.project]:null;}
