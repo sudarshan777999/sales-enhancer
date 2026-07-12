@@ -308,7 +308,13 @@
   .rem-note{background:var(--line2);border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-size:13.5px;color:var(--ink);max-height:130px;overflow:auto;white-space:pre-wrap;}
   .tl-rem{display:inline-flex;align-items:center;gap:4px;margin-top:5px;font-size:11.5px;color:#B26A00;background:#FFF3E0;border:1px solid #FFE0B2;border-radius:20px;padding:1px 9px;cursor:pointer;user-select:none;}
   .tl-rem:hover{background:#FFE9CC;}
-  .tl-note{cursor:context-menu;}
+  .td-noteadd{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-family:inherit;font-size:12.5px;resize:vertical;min-height:46px;color:var(--ink);}
+  .td-noteaddbtn{margin:6px 0 9px;width:100%;background:var(--brand);color:#fff;border:none;border-radius:8px;padding:7px;font-size:12px;font-weight:600;cursor:pointer;}
+  .td-notelist{overflow-y:auto;}
+  .td-note{position:relative;background:#fff;border:1px solid var(--line);border-left:3px solid #D9982B;border-radius:9px;padding:8px 22px 8px 10px;margin-bottom:7px;cursor:context-menu;}
+  .td-note-t{font-size:12.5px;color:var(--ink);white-space:pre-wrap;word-break:break-word;line-height:1.35;}
+  .td-note-x{position:absolute;top:4px;right:6px;border:none;background:none;color:var(--soft);cursor:pointer;font-size:15px;line-height:1;}
+  .td-note-x:hover{color:var(--over);}
   .task-row{border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:8px;background:var(--surface);}
   .task-row.open{border-left:3px solid var(--brand);}
   .task-row.done{opacity:.72;border-left:3px solid var(--booked);}
@@ -1604,7 +1610,7 @@ function renderDrawer(){
           ${flow}
         </div>
         <div class="dr-right">
-          <div class="block"><label>Notes <span style="font-weight:400;color:var(--soft);font-size:11px">· right-click a note to set a reminder</span></label>${timelineHTML(l)}</div>
+          <div class="block"><label>Comments &amp; history</label>${timelineHTML(l)}</div>
         </div>
       </div>
     </div>`;
@@ -1946,16 +1952,11 @@ function timelineHTML(l){
   return `<div class="log">`+l.log.slice().reverse().map(e=>{
     const isNote=e.kind==='note';const isRev=e.kind==='revisit';
     const dot=isNote?'background:var(--teal)':isRev?'background:#7E57C2':'';
-    const remindable=(isNote||isRev)&&e.t&&String(e.t).trim();
-    const key=remindable?remNoteKey(l.id,e):'';
-    const rem=remindable?remForKey(key):null;
-    const chip=rem?`<span class="tl-rem" title="Reminder set — click to change" onclick="event.stopPropagation();remFromEl(this)">⏰ ${fmtWhen(rem.dueAt)}</span>`:'';
     let body;
-    if(isNote)body=`<div class="tl-note"><div class="q">"${e.t}"</div><div class="tl-by">${e.by||''}${e.next?' · next follow-up '+fmtDate(e.next):''}</div>${chip}</div>`;
-    else if(isRev)body=`<div class="lt tl-note" style="color:#5E35B1">↩ ${e.t}${chip?'<br>'+chip:''}</div>`;
+    if(isNote)body=`<div class="tl-note"><div class="q">"${e.t}"</div><div class="tl-by">${e.by||''}${e.next?' · next follow-up '+fmtDate(e.next):''}</div></div>`;
+    else if(isRev)body=`<div class="lt" style="color:#5E35B1">↩ ${e.t}</div>`;
     else body=`<div class="lt">${e.t}</div>`;
-    const attrs=remindable?` data-note="1" data-lead="${l.id}" data-key="${escapeHtml(key)}" data-text="${escapeHtml(e.t)}"`:'';
-    return `<div class="log-item"${attrs}><div class="dot" style="${dot}"></div><div style="flex:1;min-width:0">${body}<div class="lb">${fmtDate(e.d)}${(e.by&&!isNote)?' · '+e.by:''}</div></div></div>`;
+    return `<div class="log-item"><div class="dot" style="${dot}"></div><div style="flex:1;min-width:0">${body}<div class="lb">${fmtDate(e.d)}${(e.by&&!isNote)?' · '+e.by:''}</div></div></div>`;
   }).join('')+`</div>`;
 }
 function statsHTML(leads){
@@ -2738,18 +2739,20 @@ function saveReminder(){
   const drawerOpen=document.getElementById('drawer').classList.contains('on');
   closeReminder();
   if(drawerOpen)renderDrawer();
+  renderTaskDock();
   showToast({icon:'✅',title:'Reminder set',msg:'You’ll be reminded on '+fmtWhen(when)});
 }
 function removeReminder(id){
   hideNoteCtx();
   savePrefsField('reminders',myReminders().filter(r=>r.id!==id));
   if(document.getElementById('drawer').classList.contains('on'))renderDrawer();
+  renderTaskDock();
 }
 function fireDueReminders(){
   const list=myReminders();if(!list.length)return;
   const now=Date.now();let changed=false;
   list.forEach(r=>{if(!r.fired&&r.dueAt&&new Date(r.dueAt).getTime()<=now){
-    showToast({icon:'⏰',title:'Reminder'+(r.leadName?' · '+r.leadName:''),msg:r.text||'(note)',go:()=>openDrawer(r.leadId)});
+    showToast({icon:'⏰',title:'Reminder'+(r.leadName?' · '+r.leadName:''),msg:r.text||'(note)',go:r.leadId?()=>openDrawer(r.leadId):undefined});
     r.fired=true;changed=true;
   }});
   if(changed)savePrefsField('reminders',list);
@@ -2761,6 +2764,23 @@ function tdSave(){try{localStorage.setItem('bm_taskdock',JSON.stringify(taskDock
 function tdSetSeg(s){taskDock.seg=s;tdSave();renderTaskDock();}
 function tdToggleCollapse(){taskDock.collapsed=!taskDock.collapsed;tdSave();renderTaskDock();}
 function tdOpen(leadId){if(leadId)openDrawer(leadId);}
+function myNotes(){return (myPrefs.notes||[]).slice();}
+function noteKeyFor(id){return 'note:'+id;}
+function tdNoteCard(n){
+  const key=noteKeyFor(n.id);const rem=remForKey(key);
+  const chip=rem?`<span class="tl-rem" title="Reminder set — click to change" onclick="event.stopPropagation();remFromEl(this)">⏰ ${fmtWhen(rem.dueAt)}</span>`:'';
+  return `<div class="td-note" data-note="1" data-key="${escapeHtml(key)}" data-text="${escapeHtml(n.text)}"><button class="td-note-x" title="Delete note" onclick="event.stopPropagation();tdDeleteNote('${n.id}')">×</button><div class="td-note-t">${escapeHtml(n.text)}</div>${chip}</div>`;
+}
+function tdAddNote(){
+  const el=document.getElementById('tdNoteAdd');const t=(el&&el.value||'').trim();if(!t)return;
+  const list=myNotes();list.push({id:'n_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),text:t,at:localDT(new Date())});
+  savePrefsField('notes',list);renderTaskDock();
+}
+function tdDeleteNote(id){
+  savePrefsField('notes',myNotes().filter(n=>n.id!==id));
+  savePrefsField('reminders',myReminders().filter(r=>r.noteKey!==noteKeyFor(id))); // drop its reminder too
+  renderTaskDock();
+}
 function renderTaskDock(){
   const el=document.getElementById('taskDock');if(!el)return;
   const u=currentUser();
@@ -2770,9 +2790,17 @@ function renderTaskDock(){
   const toMe=all.filter(t=>t.status==='open'&&t.assigned_to===session);
   const byMe=all.filter(t=>t.status==='open'&&t.assigned_by===session);
   const done=all.filter(t=>t.status==='done'&&(t.assigned_to===session||t.assigned_by===session)).sort((a,b)=>((b.done_at||'')<(a.done_at||'')?-1:1)).slice(0,10);
-  const arr=taskDock.seg==='byme'?byMe:taskDock.seg==='done'?done:toMe;
-  const item=t=>`<div class="td-item ${taskDock.seg}" onclick="tdOpen('${t.lead_id}')"><div class="td-b">${escapeHtml(t.body)}</div><div class="td-m">${t.lead_name?escapeHtml(t.lead_name)+' · ':''}${taskDock.seg==='tome'?'from '+escapeHtml(userName(t.assigned_by)):taskDock.seg==='byme'?'to '+escapeHtml(userName(t.assigned_to)):'✓ done'}</div></div>`;
-  const body=taskDock.collapsed?'':`<div class="td-seg"><button class="${taskDock.seg==='tome'?'on':''}" onclick="event.stopPropagation();tdSetSeg('tome')">To me${toMe.length?' '+toMe.length:''}</button><button class="${taskDock.seg==='byme'?'on':''}" onclick="event.stopPropagation();tdSetSeg('byme')">By me${byMe.length?' '+byMe.length:''}</button><button class="${taskDock.seg==='done'?'on':''}" onclick="event.stopPropagation();tdSetSeg('done')">Done</button></div><div class="td-list">${arr.length?arr.map(item).join(''):'<div class="td-empty">Nothing here 🎉</div>'}</div>`;
+  const seg=taskDock.seg;const notes=myNotes();
+  const item=t=>`<div class="td-item ${seg}" onclick="tdOpen('${t.lead_id}')"><div class="td-b">${escapeHtml(t.body)}</div><div class="td-m">${t.lead_name?escapeHtml(t.lead_name)+' · ':''}${seg==='tome'?'from '+escapeHtml(userName(t.assigned_by)):seg==='byme'?'to '+escapeHtml(userName(t.assigned_to)):'✓ done'}</div></div>`;
+  const segBtns=`<div class="td-seg"><button class="${seg==='tome'?'on':''}" onclick="event.stopPropagation();tdSetSeg('tome')">To me${toMe.length?' '+toMe.length:''}</button><button class="${seg==='byme'?'on':''}" onclick="event.stopPropagation();tdSetSeg('byme')">By me${byMe.length?' '+byMe.length:''}</button><button class="${seg==='done'?'on':''}" onclick="event.stopPropagation();tdSetSeg('done')">Done</button><button class="${seg==='notes'?'on':''}" onclick="event.stopPropagation();tdSetSeg('notes')">Notes${notes.length?' '+notes.length:''}</button></div>`;
+  let listBody;
+  if(seg==='notes'){
+    listBody=`<div class="td-list"><textarea class="td-noteadd" id="tdNoteAdd" placeholder="Jot a note… then right-click it to set a reminder"></textarea><button class="td-noteaddbtn" onclick="event.stopPropagation();tdAddNote()">＋ Add note</button><div class="td-notelist">${notes.length?notes.slice().reverse().map(tdNoteCard).join(''):'<div class="td-empty">No notes yet. Type above ✍️</div>'}</div></div>`;
+  } else {
+    const arr=seg==='byme'?byMe:seg==='done'?done:toMe;
+    listBody=`<div class="td-list">${arr.length?arr.map(item).join(''):'<div class="td-empty">Nothing here 🎉</div>'}</div>`;
+  }
+  const body=taskDock.collapsed?'':segBtns+listBody;
   el.className='tdock'+(taskDock.collapsed?' collapsed':'');
   el.innerHTML=`<div class="tdock-h" id="tdockH"><span>✓ Tasks</span>${toMe.length?`<span class="tdock-badge">${toMe.length}</span>`:''}<button class="tdock-min" onclick="event.stopPropagation();tdToggleCollapse()" title="${taskDock.collapsed?'Expand':'Collapse'}">${taskDock.collapsed?'▸':'▾'}</button></div>${body}`;
   if(taskDock.pos){el.style.left=Math.min(taskDock.pos.left,window.innerWidth-60)+'px';el.style.top=Math.min(taskDock.pos.top,window.innerHeight-60)+'px';el.style.right='auto';}
