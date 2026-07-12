@@ -2171,7 +2171,7 @@ function fnlDsTable(m,label){const cols=[...DEAL_STATUSES,'Revisits'];const keys
 /* ---- drag-to-reorder panels (funnel / stats / ageing) ---- */
 function panelKey(el,i){const h=el.querySelector('h3')||el.querySelector(':scope > label');let b=h?h.textContent.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''):(el.classList.contains('split')?'split':'blk');return b||('blk'+i);}
 function reorderables(container,pred){return [...container.children].filter(pred||(el=>el.classList.contains('panel')||el.classList.contains('split')));}
-function savePanelOrder(container,sectionKey,pred){const order=reorderables(container,pred).map(el=>el.dataset.pk);const po=Object.assign({},myPrefs.panelOrder||{});po[sectionKey]=order;savePrefs(Object.assign({},myPrefs,{panelOrder:po}));}
+function savePanelOrder(container,sectionKey,pred){const order=reorderables(container,pred).map(el=>el.dataset.pk);const po=Object.assign({},myPrefs.panelOrder||{});po[sectionKey]=order;const next=Object.assign({},myPrefs,{panelOrder:po});myPrefs=next;/* apply in-memory now so any re-render keeps the new order */savePrefs(next);/* persist in background */}
 function makeReorderable(container,sectionKey,pred){
   const nodes=reorderables(container,pred);if(nodes.length<2)return;
   const seen={};nodes.forEach((el,i)=>{let k=panelKey(el,i);if(seen[k]!=null)k=k+'-'+i;seen[k]=1;el.dataset.pk=k;el.classList.add('draggable-panel');
