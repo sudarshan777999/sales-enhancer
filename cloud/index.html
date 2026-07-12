@@ -1208,7 +1208,7 @@ const FILTER_FIELDS=[
   {k:'cp',label:'CP name contains',type:'text'},
   {k:'budget',label:'Budget contains',type:'text'},
   {k:'comment',label:'Comment contains',type:'text'},
-  {k:'label',label:'Label',type:'text'},
+  {k:'label',label:'Label',type:'select',opts:()=>myLabels().map(x=>[x.name,x.name])},
   {k:'block',label:'Block interest',type:'select',opts:()=>['A','B','C','D','E','F'].map(b=>[b,b])},
   {k:'competitor',label:'Competitor contains',type:'text'},
   {k:'wwsug',label:'Wonderwall suggested',type:'select',opts:()=>[['yes','Yes'],['no','No']]},
@@ -1225,7 +1225,7 @@ function matchFilter(l,f){const v=f.value;switch(f.field){
   case 'metph':return v==='yes'?!!l.metProjectHead:!l.metProjectHead;
   case 'captured':{const p=String(v||'').split('|');const from=p[0]||'',to=p[1]||'';const d=l.createdAt||'';if(!d)return false;if(from&&d<from)return false;if(to&&d>to)return false;return true;}
   case 'comment':return (l.log||[]).some(e=>inc(e.t,v));
-  case 'label':return (l.labels||[]).some(x=>inc(x,v));
+  case 'label':return (l.labels||[]).some(x=>String(x)===v||inc(x,v));
   case 'block':return (l.blocks||[]).includes(v);
   case 'competitor':return inc(l.competitors,v);
   case 'wwsug':return v==='yes'?!!l.wwSuggested:!l.wwSuggested;
@@ -2692,6 +2692,21 @@ function showToast(ev){
   d.querySelector('.tx').onclick=(e)=>{e.stopPropagation();kill();};
   d.onclick=()=>{kill();try{ev.go&&ev.go();}catch(e){}};
   wrap.appendChild(d);
+  if(ev.autoHide)setTimeout(kill,ev.autoHide);
+}
+let _audioCtx=null;
+function playChime(){
+  try{
+    _audioCtx=_audioCtx||new (window.AudioContext||window.webkitAudioContext)();
+    const ctx=_audioCtx;if(ctx.state==='suspended')ctx.resume();
+    const t0=ctx.currentTime;
+    [880,1174.66,1567.98].forEach((f,i)=>{           // a short three-note rising chime
+      const o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.value=f;
+      o.connect(g);g.connect(ctx.destination);const t=t0+i*0.16;
+      g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.3,t+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+0.32);o.start(t);o.stop(t+0.36);
+    });
+  }catch(e){}
 }
 function seenKey(){return 'bm_seen_notif_'+(session||'x');}
 function loadSeen(){try{return new Set(JSON.parse(localStorage.getItem(seenKey())||'[]'));}catch(e){return new Set();}}
@@ -2740,7 +2755,7 @@ function saveReminder(){
   closeReminder();
   if(drawerOpen)renderDrawer();
   renderTaskDock();
-  showToast({icon:'✅',title:'Reminder set',msg:'You’ll be reminded on '+fmtWhen(when)});
+  showToast({icon:'✅',title:'Reminder set',msg:'You’ll be reminded on '+fmtWhen(when),autoHide:3000});
 }
 function removeReminder(id){
   hideNoteCtx();
@@ -2755,7 +2770,7 @@ function fireDueReminders(){
     showToast({icon:'⏰',title:'Reminder'+(r.leadName?' · '+r.leadName:''),msg:r.text||'(note)',go:r.leadId?()=>openDrawer(r.leadId):undefined});
     r.fired=true;changed=true;
   }});
-  if(changed)savePrefsField('reminders',list);
+  if(changed){playChime();savePrefsField('reminders',list);}
 }
 /* ---- floating Tasks dock (movable, not closable) ---- */
 let taskDock={seg:'tome',collapsed:false,pos:null};
