@@ -302,6 +302,13 @@
   .toast .tx{position:absolute;top:7px;right:9px;color:var(--soft);font-size:15px;line-height:1;border:none;background:none;cursor:pointer;}
   @keyframes toastIn{from{opacity:0;transform:translateX(26px);}to{opacity:1;transform:none;}}
   @media(max-width:560px){.toastwrap{left:12px;right:12px;max-width:none;}}
+  .ctxmenu{position:fixed;z-index:130;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 14px 40px rgba(21,34,56,.22);padding:5px;min-width:172px;font-size:13.5px;animation:toastIn .14s ease;}
+  .ctxmenu button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;border:none;padding:9px 11px;border-radius:7px;cursor:pointer;color:var(--ink);font-size:13.5px;font-family:inherit;}
+  .ctxmenu button:hover{background:var(--line2);}
+  .rem-note{background:var(--line2);border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-size:13.5px;color:var(--ink);max-height:130px;overflow:auto;white-space:pre-wrap;}
+  .tl-rem{display:inline-flex;align-items:center;gap:4px;margin-top:5px;font-size:11.5px;color:#B26A00;background:#FFF3E0;border:1px solid #FFE0B2;border-radius:20px;padding:1px 9px;cursor:pointer;user-select:none;}
+  .tl-rem:hover{background:#FFE9CC;}
+  .tl-note{cursor:context-menu;}
   .task-row{border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:8px;background:var(--surface);}
   .task-row.open{border-left:3px solid var(--brand);}
   .task-row.done{opacity:.72;border-left:3px solid var(--booked);}
@@ -665,6 +672,20 @@
     <div class="modal-h"><h2>Payment schemes</h2></div>
     <div class="modal-b" id="schemeBody" style="display:block"></div>
     <div class="modal-f"><button class="btn ghost" onclick="closeSchemes()">Close</button><button class="btn" onclick="addScheme()">＋ Add scheme</button></div>
+  </div>
+</div>
+
+<!-- Reminder modal -->
+<div class="modal-scrim" id="remScrim">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-h"><h2>⏰ Set a reminder</h2></div>
+    <div class="modal-b" style="display:block">
+      <div class="rem-note" id="remNoteText"></div>
+      <label style="display:block;margin:15px 0 6px;font-size:12.5px;color:var(--soft)">Remind me on</label>
+      <input type="datetime-local" class="field" id="remWhen"/>
+      <div class="ai-tag" style="margin-top:9px">A floating “⏰ Reminder” label pops up at this time — while you have the app open in a browser tab. It's a personal reminder (only you see it).</div>
+    </div>
+    <div class="modal-f"><button class="btn ghost" onclick="closeReminder()">Cancel</button><button class="btn" onclick="saveReminder()">Set reminder</button></div>
   </div>
 </div>
 
@@ -1583,7 +1604,7 @@ function renderDrawer(){
           ${flow}
         </div>
         <div class="dr-right">
-          <div class="block"><label>Comments &amp; history</label>${timelineHTML(l)}</div>
+          <div class="block"><label>Notes <span style="font-weight:400;color:var(--soft);font-size:11px">· right-click a note to set a reminder</span></label>${timelineHTML(l)}</div>
         </div>
       </div>
     </div>`;
@@ -1925,11 +1946,16 @@ function timelineHTML(l){
   return `<div class="log">`+l.log.slice().reverse().map(e=>{
     const isNote=e.kind==='note';const isRev=e.kind==='revisit';
     const dot=isNote?'background:var(--teal)':isRev?'background:#7E57C2':'';
+    const remindable=(isNote||isRev)&&e.t&&String(e.t).trim();
+    const key=remindable?remNoteKey(l.id,e):'';
+    const rem=remindable?remForKey(key):null;
+    const chip=rem?`<span class="tl-rem" title="Reminder set — click to change" onclick="event.stopPropagation();remFromEl(this)">⏰ ${fmtWhen(rem.dueAt)}</span>`:'';
     let body;
-    if(isNote)body=`<div class="tl-note"><div class="q">"${e.t}"</div><div class="tl-by">${e.by||''}${e.next?' · next follow-up '+fmtDate(e.next):''}</div></div>`;
-    else if(isRev)body=`<div class="lt" style="color:#5E35B1">↩ ${e.t}</div>`;
+    if(isNote)body=`<div class="tl-note"><div class="q">"${e.t}"</div><div class="tl-by">${e.by||''}${e.next?' · next follow-up '+fmtDate(e.next):''}</div>${chip}</div>`;
+    else if(isRev)body=`<div class="lt tl-note" style="color:#5E35B1">↩ ${e.t}${chip?'<br>'+chip:''}</div>`;
     else body=`<div class="lt">${e.t}</div>`;
-    return `<div class="log-item"><div class="dot" style="${dot}"></div><div style="flex:1;min-width:0">${body}<div class="lb">${fmtDate(e.d)}${(e.by&&!isNote)?' · '+e.by:''}</div></div></div>`;
+    const attrs=remindable?` data-note="1" data-lead="${l.id}" data-key="${escapeHtml(key)}" data-text="${escapeHtml(e.t)}"`:'';
+    return `<div class="log-item"${attrs}><div class="dot" style="${dot}"></div><div style="flex:1;min-width:0">${body}<div class="lb">${fmtDate(e.d)}${(e.by&&!isNote)?' · '+e.by:''}</div></div></div>`;
   }).join('')+`</div>`;
 }
 function statsHTML(leads){
@@ -2660,7 +2686,7 @@ function notifyEvents(){
 function showToast(ev){
   const wrap=document.getElementById('toastWrap');if(!wrap)return;
   const d=document.createElement('div');d.className='toast';
-  d.innerHTML=`<button class="tx" title="Dismiss">×</button><b>🔔 ${escapeHtml(ev.title)}</b><span class="tc">${escapeHtml(ev.msg)}</span>`;
+  d.innerHTML=`<button class="tx" title="Dismiss">×</button><b>${ev.icon||'🔔'} ${escapeHtml(ev.title)}</b><span class="tc">${escapeHtml(ev.msg)}</span>`;
   let gone=false;const kill=()=>{if(gone)return;gone=true;d.style.opacity='0';d.style.transform='translateX(26px)';setTimeout(()=>d.remove(),260);};
   d.querySelector('.tx').onclick=(e)=>{e.stopPropagation();kill();};
   d.onclick=()=>{kill();try{ev.go&&ev.go();}catch(e){}};
@@ -2669,6 +2695,65 @@ function showToast(ev){
 function seenKey(){return 'bm_seen_notif_'+(session||'x');}
 function loadSeen(){try{return new Set(JSON.parse(localStorage.getItem(seenKey())||'[]'));}catch(e){return new Set();}}
 function saveSeen(s){try{localStorage.setItem(seenKey(),JSON.stringify([...s]));}catch(e){}}
+/* ---- personal note reminders (in-app floating labels) ---- */
+function savePrefsField(field,value){const next=Object.assign({},myPrefs);next[field]=value;myPrefs=next;/* in-memory now */savePrefs(next);/* persist in background */}
+function myReminders(){return (myPrefs.reminders||[]).slice();}
+function remNoteKey(leadId,e){return leadId+'@'+(e.d||'')+'#'+String(e.t||'').slice(0,60);}
+function remForKey(key){return myReminders().find(r=>!r.fired&&r.noteKey===key);}
+function fmtWhen(s){try{return new Date(s).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});}catch(e){return s;}}
+function localDT(d){const p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes());}
+let remCtxData=null,remDraft=null;
+function showNoteCtx(e){
+  const item=e.target.closest('[data-note="1"]');if(!item)return;
+  e.preventDefault();hideNoteCtx();
+  const sel=String(window.getSelection?window.getSelection().toString():'').trim();
+  remCtxData={leadId:item.dataset.lead,noteKey:item.dataset.key,text:sel||item.dataset.text||''};
+  const existing=remForKey(item.dataset.key);
+  const menu=document.createElement('div');menu.className='ctxmenu';menu.id='noteCtx';
+  menu.innerHTML=`<button onmousedown="event.preventDefault()" onclick="openReminderFromCtx()">⏰ Set reminder…</button>`+
+    (existing?`<button onmousedown="event.preventDefault()" onclick="removeReminder('${existing.id}')">🗑 Remove reminder</button>`:'');
+  document.body.appendChild(menu);
+  const mw=190,mh=existing?92:46;
+  menu.style.left=Math.min(e.clientX,window.innerWidth-mw-8)+'px';
+  menu.style.top=Math.min(e.clientY,window.innerHeight-mh-8)+'px';
+}
+function hideNoteCtx(){const m=document.getElementById('noteCtx');if(m)m.remove();}
+function openReminderFromCtx(){hideNoteCtx();if(remCtxData)openReminder(remCtxData.leadId,remCtxData.noteKey,remCtxData.text);}
+function remFromEl(elm){const item=elm.closest('[data-note="1"]');if(item)openReminder(item.dataset.lead,item.dataset.key,item.dataset.text);}
+function openReminder(leadId,noteKey,text){
+  remDraft={leadId,noteKey,text};
+  document.getElementById('remNoteText').textContent=text||'(note)';
+  document.getElementById('remWhen').value=localDT(new Date(Date.now()+60*60*1000));
+  document.getElementById('remScrim').classList.add('on');
+}
+function closeReminder(){document.getElementById('remScrim').classList.remove('on');remDraft=null;}
+function saveReminder(){
+  if(!remDraft)return;
+  const when=(document.getElementById('remWhen')||{}).value;
+  if(!when){alert('Pick a date and time first.');return;}
+  const l=db.leads.find(x=>x.id===remDraft.leadId);
+  const rem={id:'rem_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),leadId:remDraft.leadId,leadName:l?l.name:'',noteKey:remDraft.noteKey,text:remDraft.text,dueAt:when,fired:false};
+  const list=myReminders().filter(r=>r.noteKey!==remDraft.noteKey||r.fired); // one pending reminder per note
+  list.push(rem);savePrefsField('reminders',list);
+  const drawerOpen=document.getElementById('drawer').classList.contains('on');
+  closeReminder();
+  if(drawerOpen)renderDrawer();
+  showToast({icon:'✅',title:'Reminder set',msg:'You’ll be reminded on '+fmtWhen(when)});
+}
+function removeReminder(id){
+  hideNoteCtx();
+  savePrefsField('reminders',myReminders().filter(r=>r.id!==id));
+  if(document.getElementById('drawer').classList.contains('on'))renderDrawer();
+}
+function fireDueReminders(){
+  const list=myReminders();if(!list.length)return;
+  const now=Date.now();let changed=false;
+  list.forEach(r=>{if(!r.fired&&r.dueAt&&new Date(r.dueAt).getTime()<=now){
+    showToast({icon:'⏰',title:'Reminder'+(r.leadName?' · '+r.leadName:''),msg:r.text||'(note)',go:()=>openDrawer(r.leadId)});
+    r.fired=true;changed=true;
+  }});
+  if(changed)savePrefsField('reminders',list);
+}
 /* ---- floating Tasks dock (movable, not closable) ---- */
 let taskDock={seg:'tome',collapsed:false,pos:null};
 function tdLoad(){try{const s=JSON.parse(localStorage.getItem('bm_taskdock')||'{}');taskDock.seg=s.seg||'tome';taskDock.collapsed=!!s.collapsed;taskDock.pos=s.pos||null;}catch(e){}}
@@ -2699,6 +2784,7 @@ function renderTaskDock(){
 }
 function pollNotify(){
   if(!session)return;
+  fireDueReminders();
   refreshNotifyBadge();renderTaskDock();
   const p=document.getElementById('notifyPanel');if(p&&!p.classList.contains('hidden'))renderNotify();
   if(seenNotif===null)seenNotif=loadSeen();               // remember across reloads (per user)
@@ -2741,6 +2827,9 @@ document.addEventListener('keydown',function(e){
   if(openId){closeDrawer();return;}
 });
 setInterval(pollNotify,20000);
+document.addEventListener('contextmenu',showNoteCtx);
+document.addEventListener('click',hideNoteCtx);
+document.addEventListener('scroll',hideNoteCtx,true);
 </script>
 </body>
 </html>
