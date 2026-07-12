@@ -745,7 +745,7 @@ function projName(id){return projById[id]||null;}
 function projId(name){return projByName[name]||null;}
 function memberName(id){const u=user(id);return u?u.name:'';}
 function titleFor(m){const p=projName(m.project_id);if(m.role==='sales_head')return 'Sales Head';if(m.role==='project_head')return 'Project Head'+(p?' · '+p:'');if(m.role==='reception')return 'Receptionist';return 'Salesperson'+(p?' · '+p:'');}
-function leadFromRow(r){return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',source:r.source,srcDetail:r.src_detail||'',walkinSource:r.walkin_source||'',cpName:r.cp_name||'',location:r.location||'',company:r.company_name||'',project:projName(r.project_id),budget:r.budget||'',notes:r.notes||'',stage:r.stage,ownerId:r.owner_id||null,qualified:r.qualified,nqReason:r.nq_reason||'',disqualifiedBy:r.disqualified_by||'',lostReason:r.lost_reason||'',temp:r.temp||null,nextFollowUp:r.next_follow_up||null,assignedAt:r.assigned_at||null,createdAt:r.created_at,assessment:null,booking:r.booking||null,walkinPhase:r.walkin_phase||'',dealStatus:r.deal_status||'',metProjectHead:!!r.met_project_head,phMeetingDate:r.ph_meeting_date||'',labels:Array.isArray(r.labels)?r.labels:[],coOwners:Array.isArray(r.co_owners)?r.co_owners:[],priceOffered:r.price_offered||'',blocks:Array.isArray(r.blocks)?r.blocks:[],competitors:r.competitors||'',referralName:r.referral_name||'',referralLeadId:r.referral_lead_id||null,wwSuggested:!!r.wonderwall_suggested,wwVisited:!!r.wonderwall_visited,lostTo:r.lost_to||'',lastQuote:r.last_quote||null,pendingRevisit:!!r.pending_revisit,mergedInto:r.merged_into||null,viaGre:!!r.via_gre,revisits:[],log:[]};}
+function leadFromRow(r){return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',source:r.source,srcDetail:r.src_detail||'',walkinSource:r.walkin_source||'',cpName:r.cp_name||'',location:r.location||'',company:r.company_name||'',project:projName(r.project_id),budget:r.budget||'',notes:r.notes||'',stage:r.stage,ownerId:r.owner_id||null,qualified:r.qualified,nqReason:r.nq_reason||'',disqualifiedBy:r.disqualified_by||'',lostReason:r.lost_reason||'',temp:r.temp||null,nextFollowUp:r.next_follow_up||null,assignedAt:r.assigned_at||null,createdAt:r.created_at,assessment:null,booking:r.booking||null,walkinPhase:r.walkin_phase||'',dealStatus:r.deal_status||'',metProjectHead:!!r.met_project_head,phMeetingDate:r.ph_meeting_date||'',labels:Array.isArray(r.labels)?r.labels:[],coOwners:Array.isArray(r.co_owners)?r.co_owners:[],priceOffered:r.price_offered||'',blocks:Array.isArray(r.blocks)?r.blocks:[],competitors:r.competitors||'',referralName:r.referral_name||'',referralLeadId:r.referral_lead_id||null,wwSuggested:!!r.wonderwall_suggested,wwVisited:!!r.wonderwall_visited,lostTo:r.lost_to||'',lastQuote:r.last_quote||null,pendingRevisit:!!r.pending_revisit,mergedInto:r.merged_into||null,viaGre:!!r.via_gre,createdBy:r.created_by||null,revisits:[],log:[]};}
 
 async function loadAll(){
   const {data:projs}=await sb.from('projects').select('*');
@@ -1112,7 +1112,7 @@ async function doBulkImport(){
   const rows=bulkParsed.map(v=>{
     let notes=v.notes||'';
     if(!v.owner_id&&v._assignRaw)notes=('Agent: '+v._assignRaw.trim())+(notes?' · '+notes:'');
-    return {company_id:myCompanyId,project_id:projId(v.project),owner_id:v.owner_id,name:v.name,phone:v.phone||'',email:v.email,source:'walkin',src_detail:v.project,walkin_source:v.walkin_source,cp_name:v.cp_name,location:v.location,company_name:v.company_name,budget:v.budget,notes,stage:q?'qualified':(v.owner_id?'assigned':'new'),qualified:q?true:null,temp:null,next_follow_up:null,assigned_at:v.owner_id?v.created_at:null,created_at:v.created_at};
+    return {company_id:myCompanyId,project_id:projId(v.project),owner_id:v.owner_id,name:v.name,phone:v.phone||'',email:v.email,source:'walkin',src_detail:v.project,walkin_source:v.walkin_source,cp_name:v.cp_name,location:v.location,company_name:v.company_name,budget:v.budget,notes,stage:q?'qualified':(v.owner_id?'assigned':'new'),qualified:q?true:null,temp:null,next_follow_up:null,assigned_at:v.owner_id?v.created_at:null,created_at:v.created_at,created_by:session};
   });
   const {data,error}=await sb.from('leads').insert(rows).select();
   if(error){alert('Import failed: '+error.message);btn.disabled=false;btn.textContent='Import';return;}
@@ -1378,7 +1378,7 @@ async function rcSubmit(){
   const walkin_source=src==='CP'?'CP':'Direct';
   const src_detail=src==='CP'?'Channel Partner':(sub||'Direct');
   const revisit=!!(document.getElementById('rc_revisit')||{}).checked;
-  const row={company_id:myCompanyId,project_id:projId(owner?owner.project:null),owner_id:ownerId,name,phone:v('rc_phone'),email:'',source:'walkin',src_detail,walkin_source,cp_name:src==='CP'?cp:'',location:v('rc_location'),company_name:'',budget:'',notes:'',stage:'assigned',qualified:null,temp:null,next_follow_up:null,pending_revisit:revisit,via_gre:true,assigned_at:date,created_at:date};
+  const row={company_id:myCompanyId,project_id:projId(owner?owner.project:null),owner_id:ownerId,name,phone:v('rc_phone'),email:'',source:'walkin',src_detail,walkin_source,cp_name:src==='CP'?cp:'',location:v('rc_location'),company_name:'',budget:'',notes:'',stage:'assigned',qualified:null,temp:null,next_follow_up:null,pending_revisit:revisit,via_gre:true,assigned_at:date,created_at:date,created_by:session};
   const btn=document.querySelector('.rc-submit');if(btn){btn.disabled=true;btn.textContent='Saving…';}
   const {error}=await sb.from('leads').insert(row);
   if(btn){btn.disabled=false;btn.textContent='＋ Add walk-in';}
@@ -1551,7 +1551,8 @@ function renderDrawer(){
   const editable=can('edit',l);const canAssign=can('assign');const canDelete=can('delete');
   const facts=[['Phone',l.phone,true],['Email',l.email||'—',false],['Source',(l.source==='digital'?'Digital · ':'Walk-in · ')+l.srcDetail,false],['Project',l.project||'—',false]];
   if(l.source==='walkin'){facts.push(['Walk-in via',l.walkinSource==='CP'?('CP · '+(l.cpName||'—')):l.walkinSource==='Referral'?('Referral'+(l.referralName?' · '+l.referralName:'')):'Direct',false]);if(l.referralLeadId){const rl=db.leads.find(x=>x.id===l.referralLeadId);facts.push(['Referrer in system',rl?rl.name:'—',false]);}facts.push(['Phase',l.walkinPhase||'—',false]);facts.push(['Location',l.location||'—',false]);facts.push(['Company',l.company||'—',false]);}
-  facts.push(['Budget',l.budget?'₹'+l.budget:'—',true]);facts.push(['Captured',fmtDate(l.createdAt),true]);if(l.viaGre)facts.push(['Entered by','Front desk (GRE)',false]);
+  facts.push(['Budget',l.budget?'₹'+l.budget:'—',true]);facts.push(['Captured',fmtDate(l.createdAt),true]);
+  {const cr=l.createdBy?userName(l.createdBy):'';const crLabel=cr?(cr+(l.viaGre?' · front desk (GRE)':'')):(l.viaGre?'Front desk (GRE)':'');if(crLabel)facts.push(['Created by',crLabel,false]);}
   let flow='';
   const terminal=['booked','lost','not_qualified'].includes(l.stage);
   if(editable&&!terminal){
@@ -1948,8 +1949,9 @@ function visitsBlock(l){
 }
 async function logRevisit(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const date=document.getElementById('rv_date').value||iso(today());const note=((document.getElementById('rv_note')||{}).value||'').trim();const visitNo=(l.source==='walkin'?1:0)+(l.revisits||[]).length+1;await addActivityRow(id,{kind:'revisit',body:note||('Revisited (visit #'+visitNo+')'),date});await refresh();}
 function timelineHTML(l){
-  if(!l.log.length)return '<div class="locked-note">No activity yet. Log a follow-up to start the history.</div>';
-  return `<div class="log">`+l.log.slice().reverse().map(e=>{
+  const log=l.log||[];
+  const hasCreation=log.some(e=>e.kind==='system'&&(/^walk-in at|^lead captured from/i.test(String(e.t||''))||/bulk import/i.test(String(e.t||''))));
+  const items=log.slice().reverse().map(e=>{
     const isNote=e.kind==='note';const isRev=e.kind==='revisit';
     const dot=isNote?'background:var(--teal)':isRev?'background:#7E57C2':'';
     let body;
@@ -1957,7 +1959,14 @@ function timelineHTML(l){
     else if(isRev)body=`<div class="lt" style="color:#5E35B1">↩ ${e.t}</div>`;
     else body=`<div class="lt">${e.t}</div>`;
     return `<div class="log-item"><div class="dot" style="${dot}"></div><div style="flex:1;min-width:0">${body}<div class="lb">${fmtDate(e.d)}${(e.by&&!isNote)?' · '+e.by:''}</div></div></div>`;
-  }).join('')+`</div>`;
+  });
+  if(!hasCreation){                       // GRE/front-desk walk-ins have no creation activity — show one
+    const cr=l.createdBy?userName(l.createdBy):'';
+    const txt=l.viaGre?('Walk-in entered at the front desk (GRE)'+(cr?' by '+cr:'')):((l.source==='walkin'?'Walk-in entered':'Lead captured')+(cr?' by '+cr:''));
+    items.push(`<div class="log-item"><div class="dot"></div><div style="flex:1;min-width:0"><div class="lt">${escapeHtml(txt)}</div><div class="lb">${fmtDate(l.createdAt)}</div></div></div>`);
+  }
+  if(!items.length)return '<div class="locked-note">No activity yet. Log a follow-up to start the history.</div>';
+  return `<div class="log">`+items.join('')+`</div>`;
 }
 function statsHTML(leads){
   const noteCount=l2=>l2.log.filter(e=>e.kind==='note').length;
@@ -2168,7 +2177,7 @@ async function saveLead(){
   const refLink=(modalSrc==='walkin'&&wsource==='Referral')?(document.getElementById('m_reflink').value||null):null;
   const wdate=modalSrc==='walkin'?(document.getElementById('m_walkindate').value||iso(today())):iso(today());
   const srcTxt=modalSrc==='digital'?('Lead captured from '+srcDetail):('Walk-in at '+srcDetail+' ('+(wsource==='CP'?('CP'+(cpName?' · '+cpName:'')):wsource==='Referral'?('Referral'+(refName?' · '+refName:'')):'Direct')+')');
-  const row={company_id:myCompanyId,project_id:projId(project),owner_id:ownerId,name,phone,email:document.getElementById('m_email').value.trim(),source:modalSrc,src_detail:srcDetail,walkin_source:wsource,cp_name:cpName,location:modalSrc==='walkin'?document.getElementById('m_location').value.trim():'',company_name:modalSrc==='walkin'?document.getElementById('m_company').value.trim():'',budget:document.getElementById('m_budget').value.trim(),notes:document.getElementById('m_notes').value.trim(),stage,qualified:null,temp:null,next_follow_up:null,walkin_phase:modalSrc==='walkin'?(document.getElementById('m_phase').value||null):null,referral_name:refName||null,referral_lead_id:refLink,assigned_at:(ownerId?wdate:null),created_at:wdate};
+  const row={company_id:myCompanyId,project_id:projId(project),owner_id:ownerId,name,phone,email:document.getElementById('m_email').value.trim(),source:modalSrc,src_detail:srcDetail,walkin_source:wsource,cp_name:cpName,location:modalSrc==='walkin'?document.getElementById('m_location').value.trim():'',company_name:modalSrc==='walkin'?document.getElementById('m_company').value.trim():'',budget:document.getElementById('m_budget').value.trim(),notes:document.getElementById('m_notes').value.trim(),stage,qualified:null,temp:null,next_follow_up:null,walkin_phase:modalSrc==='walkin'?(document.getElementById('m_phase').value||null):null,referral_name:refName||null,referral_lead_id:refLink,assigned_at:(ownerId?wdate:null),created_at:wdate,created_by:session};
   const {data,error}=await sb.from('leads').insert(row).select().single();
   if(error){alert('Could not save the lead: '+error.message);return;}
   await addActivityRow(data.id,{kind:'system',body:srcTxt+' by '+u.name,date:wdate});
