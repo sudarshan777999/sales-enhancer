@@ -364,6 +364,51 @@
   .td-m{font-size:11px;color:var(--soft);margin-top:3px;}
   .td-empty{color:var(--soft);font-size:12px;text-align:center;padding:14px 6px;}
   @media(max-width:820px){.tdock{display:none!important;}}
+  /* ---- leaderboard ---- */
+  .lb-wrap{max-width:920px;margin:0 auto;}
+  .lb-top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px;}
+  .lb-title{font-family:'Space Grotesk';font-size:22px;font-weight:700;margin:0;}
+  .lb-sub{color:var(--soft);font-size:12.5px;margin-top:3px;max-width:520px;}
+  .lb-seg{display:flex;gap:4px;background:var(--line2);border-radius:9px;padding:3px;}
+  .lb-seg button{border:none;background:none;padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:var(--soft);cursor:pointer;}
+  .lb-seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 4px rgba(21,34,56,.12);}
+  .lb-loading{padding:40px;text-align:center;color:var(--soft);}
+  .lb-mecard{display:flex;gap:16px;background:linear-gradient(120deg,#1B4965,#2C9C9A);color:#fff;border-radius:16px;padding:16px 18px;margin-bottom:16px;box-shadow:0 12px 30px rgba(21,34,56,.2);}
+  .lb-me-l{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:74px;border-right:1px solid rgba(255,255,255,.25);padding-right:14px;}
+  .lb-rank-big{font-family:'Space Grotesk';font-size:38px;font-weight:700;line-height:1;}
+  .lb-of{font-size:11px;opacity:.8;margin-top:2px;}
+  .lb-me-r{flex:1;min-width:0;}
+  .lb-me-top{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:15px;}
+  .lb-lvl{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;background:rgba(255,255,255,.2);}
+  .lb-pts{margin-left:auto;font-family:'Space Grotesk';font-weight:700;font-size:17px;}
+  .lb-prog{height:8px;background:rgba(255,255,255,.25);border-radius:20px;margin:9px 0 5px;overflow:hidden;}
+  .lb-prog-in{height:100%;background:#FFD166;border-radius:20px;transition:width .5s ease;}
+  .lb-next{font-size:11.5px;opacity:.9;}
+  .lb-badges{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;}
+  .lb-badge{background:rgba(255,255,255,.2);border-radius:20px;padding:2px 9px;font-size:11px;font-weight:600;}
+  .lb-mini{font-size:11.5px;margin-top:6px;opacity:.92;}
+  .lb-podium{display:flex;align-items:flex-end;justify-content:center;gap:12px;margin:6px 0 18px;}
+  .lb-pod{flex:1;max-width:180px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 10px;text-align:center;}
+  .lb-pod.p1{transform:translateY(-10px);border-color:#E7C24B;box-shadow:0 12px 30px rgba(217,152,43,.28);}
+  .lb-pod.meP{outline:2px solid var(--brand);}
+  .lb-pod-medal{font-size:26px;}
+  .lb-av{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-family:'Space Grotesk';margin:6px auto;}
+  .lb-av.sm{width:38px;height:38px;font-size:13px;margin:0;flex:none;}
+  .lb-pod-name{font-weight:600;font-size:13px;}
+  .lb-pod-pts{color:var(--soft);font-size:12px;margin-top:2px;}
+  .lb-list{display:flex;flex-direction:column;gap:8px;}
+  .lb-row{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px;}
+  .lb-row.me{border-color:var(--brand);background:#F3F8FB;box-shadow:0 3px 10px rgba(27,73,101,.1);}
+  .lb-rk{font-family:'Space Grotesk';font-weight:700;font-size:16px;width:34px;text-align:center;flex:none;color:var(--soft);}
+  .lb-who{flex:1;min-width:0;}
+  .lb-nm{font-weight:600;font-size:14px;}
+  .lb-role{color:var(--soft);font-size:11.5px;margin-top:1px;}
+  .lb-who .lb-mini{color:var(--ink);opacity:1;}
+  .lb-score{text-align:right;flex:none;}
+  .lb-scnum{font-family:'Space Grotesk';font-weight:700;font-size:19px;}
+  .lb-lvl2{font-size:11px;font-weight:600;}
+  .lb-legend{color:var(--soft);font-size:11.5px;text-align:center;margin-top:16px;}
+  @media(max-width:560px){.lb-mecard{flex-direction:column;gap:10px}.lb-me-l{flex-direction:row;gap:8px;border-right:none;border-bottom:1px solid rgba(255,255,255,.25);padding-right:0;padding-bottom:8px}.lb-podium{display:none}}
   @media(max-width:820px){.stat-grid{grid-template-columns:repeat(2,1fr);}.split{flex-direction:column;}}
 
   /* ---------- Modal ---------- */
@@ -786,6 +831,7 @@ async function loadAll(){
   db.tasks=tks||[];
   const {data:comp}=await sb.from('companies').select('id,name,report_data').eq('id',myCompanyId).maybeSingle();
   db.company=comp||null;db.reportData=(comp&&comp.report_data)||{};
+  scoreboard.rows=null;   // invalidate leaderboard cache so it reflects fresh activity
 }
 async function saveReportData(next){const {error}=await sb.from('companies').update({report_data:next}).eq('id',myCompanyId);if(error){alert('Could not save report data: '+error.message);return false;}db.reportData=next;return true;}
 async function savePrefs(next){const {error}=await sb.from('members').update({prefs:next}).eq('id',session);if(error){alert('Could not save your preference: '+error.message);return false;}myPrefs=next;return true;}
@@ -1433,6 +1479,7 @@ function render(){
   else if(activeTab==='report')m.innerHTML=reportHTML();
   else if(activeTab==='builder')m.innerHTML=reportBuilderHTML();
   else if(activeTab==='tasks')m.innerHTML=tasksHTML();
+  else if(activeTab==='leaderboard'){if(scoreboard.rows===null&&!scoreboard.loading)loadScoreboard();m.innerHTML=leaderboardHTML();}
   else m.innerHTML=tableHTML(leads);
   m.classList.toggle('wide',activeTab==='pipeline');
   if(['funnel','stats','ageing'].includes(activeTab))makeReorderable(m,activeTab);
@@ -1466,6 +1513,7 @@ function renderTabs(){
   const tabs=[['pipeline','Pipeline',s.length]];
   if(cu&&(cu.role==='sales_head'||cu.role==='project_head'))tabs.push(['funnel','Funnel','']);
   tabs.push(['ageing','Ageing',''],['followups','Follow-ups due',dueCount],['stats','Follow-up stats',''],['builder','Builder',''],['all','All leads',s.length]);
+  if(cu&&cu.role!=='reception')tabs.push(['leaderboard','🏆 Leaderboard','']);
   if(cu&&(cu.role==='sales_head'||cu.role==='project_head')){const ci=(db.crossInterest||[]).filter(c=>c.status==='open'&&(cu.role==='sales_head'||c.target_project_id===myProjId())).length;tabs.push(['crossproject','Cross-project',ci||'']);}
   if(cu&&cu.role==='sales_head')tabs.push(['report','Report','']);
   document.getElementById('tabs').innerHTML=tabs.map(([k,l,n])=>`<button class="tab ${activeTab===k?'on':''}" onclick="setTab('${k}')">${l}<span class="n">${n}</span></button>`).join('');
@@ -1555,6 +1603,85 @@ function tableHTML(leads){
   return `<div style="overflow-x:auto"><table class="list-table"><thead><tr><th>Lead</th><th>Source</th><th>Project</th><th>Owner</th><th>Stage</th><th>Captured</th><th>Next follow-up</th><th>Budget</th><th>Recent comments</th></tr></thead><tbody>${rows||'<tr><td colspan=9 style="text-align:center;color:var(--soft);padding:30px">No leads yet.</td></tr>'}</tbody></table></div>`;
 }
 
+/* ============ activity leaderboard (gamified usage) ============ */
+let scoreboard={period:'month',rows:null,loading:false,err:''};
+const LB_W={notes:2,followups:3,revisits:5,added:4,qualified:6,tasks_done:4};
+const LB_LEVELS=[[0,'Rookie','#8A97A8'],[60,'Riser','#2C9C9A'],[180,'Pro','#3B7DD8'],[400,'Star','#D9982B'],[800,'Legend','#8E44AD']];
+function monthStart(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-01';}
+function scoreOf(r){return r.notes*LB_W.notes+r.followups*LB_W.followups+r.revisits*LB_W.revisits+r.added*LB_W.added+r.qualified*LB_W.qualified+r.tasks_done*LB_W.tasks_done;}
+function levelOf(pts){let lv=LB_LEVELS[0];for(const l of LB_LEVELS)if(pts>=l[0])lv=l;return lv;}
+function nextLevel(pts){for(const l of LB_LEVELS)if(l[0]>pts)return l;return null;}
+async function loadScoreboard(){
+  scoreboard.loading=true;scoreboard.err='';
+  const from=scoreboard.period==='month'?monthStart():null;
+  const {data,error}=await sb.rpc('activity_scoreboard',{p_from:from});
+  scoreboard.loading=false;scoreboard.rows=error?[]:(data||[]);if(error)scoreboard.err=error.message;
+  if(activeTab==='leaderboard')render();
+}
+function setLbPeriod(p){if(scoreboard.period===p)return;scoreboard.period=p;scoreboard.rows=null;render();}
+function lbRoleTag(r){return r.role==='project_head'?'Project Head':'Salesperson';}
+function leaderboardHTML(){
+  const period=scoreboard.period;
+  const head=`<div class="lb-top"><div><h2 class="lb-title">🏆 Team Leaderboard</h2><div class="lb-sub">Points for activity — follow-ups, revisits, walk-ins added, qualifying &amp; tasks done. Everyone can see this.</div></div>
+    <div class="seg lb-seg"><button class="${period==='month'?'on':''}" onclick="setLbPeriod('month')">This month</button><button class="${period==='all'?'on':''}" onclick="setLbPeriod('all')">All time</button></div></div>`;
+  if(scoreboard.rows===null||scoreboard.loading)return `<div class="lb-wrap">${head}<div class="lb-loading">Loading the leaderboard…</div></div>`;
+  if(scoreboard.err)return `<div class="lb-wrap">${head}<div class="banner nq"><span>–</span><div>Couldn’t load the leaderboard: ${escapeHtml(scoreboard.err)}<br><span style="font-size:12px">If this mentions “function”, run migration-20 on this database.</span></div></div></div>`;
+  let rows=scoreboard.rows.map(r=>Object.assign({},r,{pts:scoreOf(r)}));
+  rows.sort((a,b)=>b.pts-a.pts||b.qualified-a.qualified||String(a.name).localeCompare(b.name));
+  rows.forEach((r,i)=>r.rank=i+1);
+  const totalPts=rows.reduce((s,r)=>s+r.pts,0);
+  // per-category leaders (badges) — only if they have a positive count
+  const leaderIn=key=>{let best=null;rows.forEach(r=>{if(r[key]>0&&(!best||r[key]>best[key]))best=r;});return best?best.member_id:null;};
+  const badges={followups:['🔥','Most follow-ups'],revisits:['↩️','Most revisits'],added:['🚪','Most walk-ins added'],qualified:['⭐','Most qualified'],tasks_done:['✅','Most tasks done'],notes:['📝','Most notes']};
+  const badgeOwner={};Object.keys(badges).forEach(k=>{const id=leaderIn(k);if(id)badgeOwner[id]=(badgeOwner[id]||[]).concat([badges[k]]);});
+  const medal=n=>n===1?'🥇':n===2?'🥈':n===3?'🥉':'';
+  const me=session;
+  const meRow=rows.find(r=>r.member_id===me);
+  // "your standing" card (esp. for salespeople)
+  let mine='';
+  if(meRow){
+    const lv=levelOf(meRow.pts),nx=nextLevel(meRow.pts);
+    const prog=nx?Math.round((meRow.pts-lv[0])/(nx[0]-lv[0])*100):100;
+    const myBadges=(badgeOwner[me]||[]).map(b=>`<span class="lb-badge">${b[0]} ${b[1]}</span>`).join('');
+    mine=`<div class="lb-mecard">
+      <div class="lb-me-l"><div class="lb-rank-big">#${meRow.rank}</div><div class="lb-of">of ${rows.length}</div></div>
+      <div class="lb-me-r">
+        <div class="lb-me-top"><b>Your standing</b> <span class="lb-lvl" style="background:${lv[2]}22;color:${lv[2]}">${lv[1]}</span> <span class="lb-pts">${meRow.pts} pts</span></div>
+        <div class="lb-prog"><div class="lb-prog-in" style="width:${prog}%"></div></div>
+        <div class="lb-next">${nx?(nx[0]-meRow.pts)+' pts to '+nx[1]+' →':'Top level reached 🎉'}</div>
+        ${myBadges?`<div class="lb-badges">${myBadges}</div>`:''}
+        <div class="lb-mini">${lbBreakdown(meRow)}</div>
+      </div></div>`;
+  }
+  // podium (top 3)
+  const top=rows.slice(0,3);
+  const podium=top.length?`<div class="lb-podium">${[1,0,2].filter(i=>top[i]).map(i=>{const r=top[i];const lv=levelOf(r.pts);return `<div class="lb-pod p${r.rank} ${r.member_id===me?'meP':''}" onclick="void 0">
+      <div class="lb-pod-medal">${medal(r.rank)}</div>
+      <div class="lb-av" style="background:${lv[2]}">${initials(r.name)}</div>
+      <div class="lb-pod-name">${escapeHtml(r.name)}</div>
+      <div class="lb-pod-pts">${r.pts} pts</div></div>`;}).join('')}</div>`:'';
+  // full table
+  const list=rows.map(r=>{const lv=levelOf(r.pts);const bs=(badgeOwner[r.member_id]||[]).map(b=>`<span class="lb-badge" title="${b[1]}">${b[0]}</span>`).join('');
+    return `<div class="lb-row ${r.member_id===me?'me':''}">
+      <div class="lb-rk">${medal(r.rank)||('#'+r.rank)}</div>
+      <div class="lb-av sm" style="background:${lv[2]}">${initials(r.name)}</div>
+      <div class="lb-who"><div class="lb-nm">${escapeHtml(r.name)} ${bs}</div><div class="lb-role">${lbRoleTag(r)}${r.project?' · '+escapeHtml(r.project):''}</div><div class="lb-mini">${lbBreakdown(r)}</div></div>
+      <div class="lb-score"><div class="lb-scnum">${r.pts}</div><div class="lb-lvl2" style="color:${lv[2]}">${lv[1]}</div></div>
+    </div>`;}).join('');
+  const empty=rows.length?'':'<div class="lb-loading">No activity yet — start logging follow-ups and walk-ins to climb the board!</div>';
+  return `<div class="lb-wrap">${head}${mine}${podium}<div class="lb-list">${list||empty}</div>
+    <div class="lb-legend">Scoring: note +${LB_W.notes} · follow-up +${LB_W.followups} · revisit +${LB_W.revisits} · walk-in added +${LB_W.added} · qualified +${LB_W.qualified} · task done +${LB_W.tasks_done}${period==='month'?' · this calendar month':''}</div></div>`;
+}
+function lbBreakdown(r){
+  const bits=[];
+  if(r.notes)bits.push(`📝 ${r.notes}`);
+  if(r.followups)bits.push(`🔔 ${r.followups}`);
+  if(r.revisits)bits.push(`↩️ ${r.revisits}`);
+  if(r.added)bits.push(`🚪 ${r.added}`);
+  if(r.qualified)bits.push(`⭐ ${r.qualified}`);
+  if(r.tasks_done)bits.push(`✅ ${r.tasks_done}`);
+  return bits.length?bits.join(' &nbsp; '):'<span style="color:var(--soft)">no activity yet</span>';
+}
 /* ============ drawer ============ */
 function openDrawer(id){listReturn=null;openId=id;renderDrawer();document.getElementById('scrim').classList.add('on');document.getElementById('drawer').classList.add('on');}
 function openFromList(id){const ret=curList;closeLeadList();openDrawer(id);listReturn=ret;}
