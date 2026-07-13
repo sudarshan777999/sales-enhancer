@@ -44,6 +44,11 @@
   .overlay p{margin:0 0 18px;color:#cfe0ee;}
   .count{font-family:'Space Grotesk';font-size:96px;font-weight:700;color:#fff;text-shadow:0 4px 24px rgba(0,0,0,.5);}
   .gstage{position:relative;}
+  #touch{display:none;position:absolute;inset:0;pointer-events:none;}
+  #touch .tc-left{position:absolute;left:12px;bottom:12px;display:flex;gap:10px;}
+  #touch .jump{position:absolute;right:12px;bottom:12px;}
+  .tc-btn{pointer-events:auto;width:60px;height:60px;border-radius:50%;border:none;background:rgba(27,73,101,.72);color:#fff;font-size:24px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.35);user-select:none;-webkit-user-select:none;touch-action:none;}
+  .tc-btn:active{background:rgba(44,156,154,.85);}
   a.back{position:fixed;top:12px;left:14px;color:#9fb6c9;font-size:13px;text-decoration:none;z-index:5;}
 </style>
 </head>
@@ -75,6 +80,10 @@
     <div class="gstage">
       <canvas id="cv" width="960" height="540"></canvas>
       <div class="overlay" id="overlay"><div class="count" id="countTxt"></div></div>
+      <div id="touch">
+        <div class="tc-left"><button class="tc-btn" id="tLeft">◀</button><button class="tc-btn" id="tRight">▶</button></div>
+        <button class="tc-btn jump" id="tJump">⤴</button>
+      </div>
     </div>
     <div id="help"><b>A/D</b> move · <b>W / Space</b> jump · <b>Mouse</b> aim · <b>Hold click</b> = power, release = shoot</div>
   </div>
@@ -140,23 +149,26 @@ async function connect(){
 }
 function presenceCount(){const s=ch?ch.presenceState():{};return Object.keys(s).length;}
 function opponentMeta(){const s=ch?ch.presenceState():{};for(const k in s){const m=s[k][0];if(m&&m.role!==myRole)return m;}return null;}
+let leaveTimer=null,hostKicked=false,joinReq=null;
+function hostKick(){let n=4;const k=()=>{send({t:'begin',host:myName});if(--n>0)setTimeout(k,450);};k();beginCountdown();}
 function onPresence(){
   const om=opponentMeta();
   if(om){oppName=om.name||(myRole==='L'?'Player 2':'Player 1');}
   if(presenceCount()>=2){
-    if(myRole==='L'&&!started){ // host kicks off
-      send({t:'begin',host:myName});
-      beginCountdown();
-    }
-    setStatus('Opponent joined! Starting…');
+    if(leaveTimer){clearTimeout(leaveTimer);leaveTimer=null;}
+    if(myRole==='L'&&!hostKicked){hostKicked=true;hostKick();}                 // host announces start (retried)
+    if(myRole==='R'&&!started&&!joinReq)joinReq=setTimeout(()=>{if(!started)send({t:'rq'});},1600); // joiner asks if it missed it
+    if(!started)setStatus('Opponent found! Starting…');
   } else {
-    if(started&&!over){/* opponent left mid-game */ endGame('Opponent left');}
-    else setStatus(myRole==='L'?`Code ${code} — waiting for opponent…`:'Waiting for host…');
+    if(started&&!over){ // debounce — a brief presence flicker shouldn't end the game
+      if(!leaveTimer)leaveTimer=setTimeout(()=>{leaveTimer=null;if(presenceCount()<2&&!over)endGame('Opponent left');},5000);
+    } else setStatus(myRole==='L'?`Code ${code} — waiting for opponent…`:'Waiting for host…');
   }
 }
 function send(payload){if(ch)ch.send({type:'broadcast',event:'g',payload});}
 function onMsg(p){
-  if(p.t==='begin'){oppName=p.host||oppName;if(!started)beginCountdown();}
+  if(p.t==='begin'){oppName=p.host||oppName;if(joinReq){clearTimeout(joinReq);joinReq=null;}if(!started)beginCountdown();}
+  else if(p.t==='rq'){if(myRole==='L')send({t:'begin',host:myName});}
   else if(p.t==='state'){oppTarget={x:p.x,y:p.y,aim:p.aim};}
   else if(p.t==='shoot'){spawnArrow(p);}
   else if(p.t==='hit'){players[p.by].score++;arrows=arrows.filter(a=>a.id!==p.id);players[p.by==='L'?'R':'L'].flash=0.5;refreshHud();}
@@ -189,10 +201,21 @@ function cvPos(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left
 cv.addEventListener('mousemove',e=>{mouse=cvPos(e);});
 cv.addEventListener('mousedown',e=>{if(e.button===0){charging=true;power=0;}});
 addEventListener('mouseup',e=>{if(charging){charging=false;fire();}});
-// touch: tap-hold to charge, aim toward touch
-cv.addEventListener('touchstart',e=>{e.preventDefault();mouse=cvPos(e.touches[0]);charging=true;power=0;},{passive:false});
-cv.addEventListener('touchmove',e=>{e.preventDefault();mouse=cvPos(e.touches[0]);},{passive:false});
-cv.addEventListener('touchend',e=>{e.preventDefault();if(charging){charging=false;fire();}},{passive:false});
+// touch aim/fire on the field (isolate the aiming finger so move buttons don't interfere)
+let aimTouch=null;
+cv.addEventListener('touchstart',e=>{e.preventDefault();const t=e.changedTouches[0];aimTouch=t.identifier;mouse=cvPos(t);charging=true;power=0;},{passive:false});
+cv.addEventListener('touchmove',e=>{e.preventDefault();for(const t of e.changedTouches)if(t.identifier===aimTouch)mouse=cvPos(t);},{passive:false});
+cv.addEventListener('touchend',e=>{e.preventDefault();for(const t of e.changedTouches)if(t.identifier===aimTouch){if(charging){charging=false;fire();}aimTouch=null;}},{passive:false});
+// on-screen controls for phones/tablets (reuse the same key flags)
+const isTouch=('ontouchstart' in window)||navigator.maxTouchPoints>0;
+if(isTouch){
+  el('touch').style.display='block';
+  el('help').innerHTML='Hold <b>◀ ▶</b> to move · <b>⤴</b> to jump · <b>drag on the field</b> to aim, release to shoot';
+  const hold=(id,k)=>{const b=el(id);const dn=e=>{e.preventDefault();keys[k]=true;};const up=e=>{e.preventDefault();keys[k]=false;};
+    b.addEventListener('touchstart',dn,{passive:false});b.addEventListener('touchend',up,{passive:false});b.addEventListener('touchcancel',up,{passive:false});
+    b.addEventListener('mousedown',dn);b.addEventListener('mouseup',up);b.addEventListener('mouseleave',up);};
+  hold('tLeft','a');hold('tRight','d');hold('tJump','w');
+}
 
 function me(){return players[myRole];}
 function bowPos(pl){return {x:pl.x,y:pl.y-46};}
@@ -208,14 +231,14 @@ function fire(){
 }
 function spawnArrow(p){arrows.push({id:p.id,side:p.side,x:p.x,y:p.y,vx:p.vx,vy:p.vy});}
 
-/* ---- loop ---- */
+/* ---- loop: simulation on a timer (never freezes), rendering on rAF ---- */
 let last=performance.now(),netAcc=0;
-function loop(now){
-  const dt=Math.min(0.033,(now-last)/1000);last=now;
+function step(){
+  const now=performance.now();let dt=(now-last)/1000;last=now;if(dt>0.1)dt=0.033; // clamp big gaps
   if(started&&!over&&endsAt>0)update(dt,now);
-  render(now);
-  requestAnimationFrame(loop);
 }
+setInterval(step,28);          // ~35Hz simulation, independent of tab paint/focus
+function loop(now){render(now);requestAnimationFrame(loop);}
 function update(dt,now){
   const p=me();
   // move
