@@ -1,8 +1,15 @@
 -- migration-20: activity scoreboard (gamified usage leaderboard)
--- A SECURITY DEFINER function that returns per-member AGGREGATE activity counts
--- for the caller's company. It exposes only counts (no lead names/details), so a
--- salesperson can see teammates' scores for the leaderboard without gaining access
--- to other people's leads. Ranking covers salespeople + project heads.
+--
+-- Part 1: adds leads.created_by — the "who created each walk-in" feature writes
+-- this on every new lead/walk-in, and the leaderboard counts it as "added". The
+-- leads table never had this column, so this also un-breaks new-walk-in saving.
+-- Idempotent (add column if not exists).
+alter table public.leads add column if not exists created_by uuid references public.members(id);
+
+-- Part 2: a SECURITY DEFINER function that returns per-member AGGREGATE activity
+-- counts for the caller's company. It exposes only counts (no lead names/details),
+-- so a salesperson can see teammates' scores for the leaderboard without gaining
+-- access to other people's leads. Ranking covers salespeople + project heads.
 --
 -- p_from: only count activity on/after this date. Pass the 1st of the month for a
 -- monthly board, or NULL for all-time.
