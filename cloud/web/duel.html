@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>Monkey Archery Duel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--ink:#152238;--soft:#5C6879;--brand:#1B4965;--accent:#2C9C9A;--line:#DCE2EA;}
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
+  body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);background:#0d1b2a;overflow:hidden;}
+  .wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  /* lobby */
+  #lobby{width:min(460px,92vw);background:#fff;border-radius:18px;padding:26px 26px 22px;box-shadow:0 24px 70px rgba(0,0,0,.5);text-align:center;}
+  #lobby h1{font-family:'Space Grotesk';font-size:26px;margin:0 0 2px;}
+  #lobby .sub{color:var(--soft);font-size:13px;margin-bottom:18px;}
+  .fld{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:10px;font-size:15px;font-family:inherit;margin-bottom:12px;}
+  .btn{width:100%;border:none;border-radius:11px;padding:13px;font-size:15px;font-weight:700;font-family:'Space Grotesk';cursor:pointer;background:var(--brand);color:#fff;margin-bottom:10px;}
+  .btn.alt{background:var(--accent);}
+  .btn.ghost{background:#EEF2F6;color:var(--ink);}
+  .btn:disabled{opacity:.5;cursor:default;}
+  .or{color:var(--soft);font-size:12px;margin:6px 0 12px;letter-spacing:.08em;}
+  .join-row{display:flex;gap:8px;}
+  .join-row .fld{margin-bottom:0;text-transform:uppercase;letter-spacing:.2em;font-weight:700;}
+  .status{margin-top:12px;font-size:13px;color:var(--soft);min-height:18px;}
+  .codebox{font-family:'Space Grotesk';font-weight:700;font-size:34px;letter-spacing:.3em;color:var(--brand);background:#EEF6F6;border-radius:12px;padding:12px;margin:6px 0 4px;}
+  .hint{font-size:12px;color:var(--soft);line-height:1.5;text-align:left;background:#F6F8FA;border-radius:10px;padding:10px 12px;margin-top:12px;}
+  .hint b{color:var(--ink);}
+  /* game */
+  #game{display:none;flex-direction:column;align-items:center;width:100%;height:100%;justify-content:center;gap:10px;padding:10px;}
+  #hud{width:min(960px,96vw);display:flex;align-items:center;justify-content:space-between;color:#fff;font-family:'Space Grotesk';}
+  .side{display:flex;align-items:center;gap:9px;font-weight:600;font-size:15px;}
+  .side .sc{font-size:26px;font-weight:700;}
+  .dotL{color:#7FC7FF;} .dotR{color:#FFC46B;}
+  #timer{font-size:30px;font-weight:700;background:rgba(0,0,0,.3);padding:2px 16px;border-radius:12px;}
+  #timer.low{color:#ff6b6b;}
+  canvas{background:linear-gradient(#8ec9ff,#dff1ff 55%,#bfe3a8 55%,#a9d98e);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.5);max-width:96vw;max-height:74vh;touch-action:none;}
+  #help{color:#cfe0ee;font-size:12px;text-align:center;}
+  #help b{color:#fff;}
+  .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;background:rgba(6,16,28,.72);color:#fff;text-align:center;border-radius:14px;}
+  .overlay h2{font-family:'Space Grotesk';font-size:40px;margin:0 0 6px;}
+  .overlay p{margin:0 0 18px;color:#cfe0ee;}
+  .count{font-family:'Space Grotesk';font-size:96px;font-weight:700;color:#fff;text-shadow:0 4px 24px rgba(0,0,0,.5);}
+  .gstage{position:relative;}
+  #touch{display:none;position:absolute;inset:0;pointer-events:none;}
+  #touch .tc-left{position:absolute;left:12px;bottom:12px;display:flex;gap:10px;}
+  #touch .jump{position:absolute;right:12px;bottom:12px;}
+  .tc-btn{pointer-events:auto;width:60px;height:60px;border-radius:50%;border:none;background:rgba(27,73,101,.72);color:#fff;font-size:24px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.35);user-select:none;-webkit-user-select:none;touch-action:none;}
+  .tc-btn:active{background:rgba(44,156,154,.85);}
+  a.back{position:fixed;top:12px;left:14px;color:#9fb6c9;font-size:13px;text-decoration:none;z-index:5;}
+</style>
+</head>
+<body>
+<a class="back" href="#" onclick="location.reload()">↺ Leave / new game</a>
+<div class="wrap">
+  <!-- LOBBY -->
+  <div id="lobby">
+    <h1>🐒 Monkey Archery Duel</h1>
+    <div class="sub">Two players · bows & arrows · 2 minutes · most hits wins</div>
+    <input class="fld" id="nameIn" placeholder="Your name" maxlength="16"/>
+    <button class="btn" id="createBtn" onclick="createGame()">Create a game</button>
+    <div class="or">— OR —</div>
+    <div class="join-row">
+      <input class="fld" id="codeIn" placeholder="CODE" maxlength="4"/>
+      <button class="btn alt" style="width:auto;white-space:nowrap;margin:0" onclick="joinGame()">Join</button>
+    </div>
+    <div class="status" id="status"></div>
+    <div class="hint"><b>How to play:</b> Move with <b>A / D</b> (or ← →), jump with <b>W / ↑ / Space</b> to dodge. <b>Aim with the mouse</b>, hold <b>left-click</b> to charge power, release to fire your arrow. Arrows arc with gravity — lead your shots!</div>
+  </div>
+
+  <!-- GAME -->
+  <div id="game">
+    <div id="hud">
+      <div class="side"><span class="dotL">●</span><span id="nameL">P1</span> <span class="sc" id="scL">0</span></div>
+      <div id="timer">2:00</div>
+      <div class="side"><span class="sc" id="scR">0</span> <span id="nameR">P2</span><span class="dotR">●</span></div>
+    </div>
+    <div class="gstage">
+      <canvas id="cv" width="960" height="540"></canvas>
+      <div class="overlay" id="overlay"><div class="count" id="countTxt"></div></div>
+      <div id="touch">
+        <div class="tc-left"><button class="tc-btn" id="tLeft">◀</button><button class="tc-btn" id="tRight">▶</button></div>
+        <button class="tc-btn jump" id="tJump">⤴</button>
+      </div>
+    </div>
+    <div id="help"><b>A/D</b> move · <b>W / Space</b> jump · <b>Mouse</b> aim · <b>Hold click</b> = power, release = shoot</div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ---- connection (same project/env as the main app) ---- */
+const ENV_PROD={url:'https://xhlgwzpbkovqxuxarcoe.supabase.co',anon:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhobGd3enBia292cXh1eGFyY29lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NzQ5MTgsImV4cCI6MjA5OTE1MDkxOH0._rCZPfPYG5fseQCDUFELeP1n5YbhIiNI3WqXga7Mubc'};
+const ENV_SANDBOX={url:'https://tadcupqosvvjndxyyerc.supabase.co',anon:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhZGN1cHFvc3Z2am5keHl5ZXJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1OTQ5MzAsImV4cCI6MjA5OTE3MDkzMH0.CCH5mBZLU0DcEjhX4DcyM0iDWz20JWtOmx9npmAGEsw'};
+const IS_SANDBOX=/sandbox|localhost|127\.0\.0\.1/.test(location.hostname);
+const ENV=IS_SANDBOX?ENV_SANDBOX:ENV_PROD;
+const sb=supabase.createClient(ENV.url,ENV.anon);
+
+/* ---- constants ---- */
+const W=960,H=540,GROUND=H-58,GRAV=1500,MOVE=280,JUMP=-620,R_HIT=30;
+const ZONE={L:[64,W*0.42],R:[W*0.58,W-64]};
+const rnd=(n)=>Math.floor(Math.random()*n);
+function makeCode(){const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<4;i++)s+=A[rnd(A.length)];return s;}
+function uid(){return 'p'+Math.random().toString(36).slice(2,9);}
+
+/* ---- state ---- */
+let ch=null, myRole=null, myId=uid(), myName='', oppName='', code='';
+let started=false, over=false, endsAt=0;
+const players={
+  L:{x:ZONE.L[0]+70,y:GROUND,vy:0,ground:true,aim:0,score:0,flash:0},
+  R:{x:ZONE.R[1]-70,y:GROUND,vy:0,ground:true,aim:Math.PI,score:0,flash:0}
+};
+let arrows=[]; // {id,side,x,y,vx,vy}
+let charging=false, power=0, mouse={x:W/2,y:H/2};
+const keys={};
+let oppTarget=null; // latest received opponent {x,y,aim}
+
+const el=id=>document.getElementById(id);
+const q=new URLSearchParams(location.search);
+el('nameIn').value=(q.get('name')||'').slice(0,16);
+
+/* ---- lobby / networking ---- */
+function setStatus(t){el('status').textContent=t;}
+async function createGame(){
+  myName=(el('nameIn').value||'Player 1').trim().slice(0,16)||'Player 1';
+  myRole='L'; code=makeCode();
+  el('createBtn').disabled=true;
+  el('status').innerHTML=`<div class="codebox">${code}</div>Share this code with your opponent…`;
+  await connect();
+}
+async function joinGame(){
+  myName=(el('nameIn').value||'Player 2').trim().slice(0,16)||'Player 2';
+  const c=(el('codeIn').value||'').trim().toUpperCase();
+  if(c.length<4){setStatus('Enter the 4-letter code.');return;}
+  myRole='R'; code=c;
+  setStatus('Connecting…');
+  await connect();
+}
+async function connect(){
+  ch=sb.channel('duel-'+code,{config:{broadcast:{self:false},presence:{key:myId}}});
+  ch.on('broadcast',{event:'g'},({payload})=>onMsg(payload));
+  ch.on('presence',{event:'sync'},onPresence);
+  ch.subscribe(async(st)=>{
+    if(st==='SUBSCRIBED'){await ch.track({name:myName,role:myRole});onPresence();}
+    else if(st==='CHANNEL_ERROR'||st==='TIMED_OUT'){setStatus('Connection problem — check internet and retry.');}
+  });
+}
+function presenceCount(){const s=ch?ch.presenceState():{};return Object.keys(s).length;}
+function opponentMeta(){const s=ch?ch.presenceState():{};for(const k in s){const m=s[k][0];if(m&&m.role!==myRole)return m;}return null;}
+let leaveTimer=null,hostKicked=false,joinReq=null;
+function hostKick(){let n=4;const k=()=>{send({t:'begin',host:myName});if(--n>0)setTimeout(k,450);};k();beginCountdown();}
+function onPresence(){
+  const om=opponentMeta();
+  if(om){oppName=om.name||(myRole==='L'?'Player 2':'Player 1');}
+  if(presenceCount()>=2){
+    if(leaveTimer){clearTimeout(leaveTimer);leaveTimer=null;}
+    if(myRole==='L'&&!hostKicked){hostKicked=true;hostKick();}                 // host announces start (retried)
+    if(myRole==='R'&&!started&&!joinReq)joinReq=setTimeout(()=>{if(!started)send({t:'rq'});},1600); // joiner asks if it missed it
+    if(!started)setStatus('Opponent found! Starting…');
+  } else {
+    if(started&&!over){ // debounce — a brief presence flicker shouldn't end the game
+      if(!leaveTimer)leaveTimer=setTimeout(()=>{leaveTimer=null;if(presenceCount()<2&&!over)endGame('Opponent left');},5000);
+    } else setStatus(myRole==='L'?`Code ${code} — waiting for opponent…`:'Waiting for host…');
+  }
+}
+function send(payload){if(ch)ch.send({type:'broadcast',event:'g',payload});}
+function onMsg(p){
+  if(p.t==='begin'){oppName=p.host||oppName;if(joinReq){clearTimeout(joinReq);joinReq=null;}if(!started)beginCountdown();}
+  else if(p.t==='rq'){if(myRole==='L')send({t:'begin',host:myName});}
+  else if(p.t==='state'){oppTarget={x:p.x,y:p.y,aim:p.aim};}
+  else if(p.t==='shoot'){spawnArrow(p);}
+  else if(p.t==='hit'){players[p.by].score++;arrows=arrows.filter(a=>a.id!==p.id);players[p.by==='L'?'R':'L'].flash=0.5;refreshHud();}
+  else if(p.t==='rematch'){resetRound();beginCountdown();}
+}
+
+/* ---- game start ---- */
+function beginCountdown(){
+  if(started)return;
+  el('lobby').style.display='none';el('game').style.display='flex';
+  el('nameL').textContent=(myRole==='L'?myName:oppName)||'P1';
+  el('nameR').textContent=(myRole==='R'?myName:oppName)||'P2';
+  started=true;over=false;
+  let n=3;el('overlay').style.display='flex';el('countTxt').textContent=n;
+  const iv=setInterval(()=>{n--;if(n>0){el('countTxt').textContent=n;}else if(n===0){el('countTxt').textContent='GO!';}else{clearInterval(iv);el('overlay').style.display='none';endsAt=performance.now()+120000;}},800);
+}
+function resetRound(){
+  over=false;arrows=[];players.L.score=0;players.R.score=0;
+  players.L.x=ZONE.L[0]+70;players.L.y=GROUND;players.L.vy=0;
+  players.R.x=ZONE.R[1]-70;players.R.y=GROUND;players.R.vy=0;
+  refreshHud();
+}
+function refreshHud(){el('scL').textContent=players.L.score;el('scR').textContent=players.R.score;}
+
+/* ---- input ---- */
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if([' ','arrowup','arrowleft','arrowright','arrowdown'].includes(e.key.toLowerCase()))e.preventDefault();});
+addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
+const cv=el('cv');
+function cvPos(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)*(W/r.width),y:(e.clientY-r.top)*(H/r.height)};}
+cv.addEventListener('mousemove',e=>{mouse=cvPos(e);});
+cv.addEventListener('mousedown',e=>{if(e.button===0){charging=true;power=0;}});
+addEventListener('mouseup',e=>{if(charging){charging=false;fire();}});
+// touch aim/fire on the field (isolate the aiming finger so move buttons don't interfere)
+let aimTouch=null;
+cv.addEventListener('touchstart',e=>{e.preventDefault();const t=e.changedTouches[0];aimTouch=t.identifier;mouse=cvPos(t);charging=true;power=0;},{passive:false});
+cv.addEventListener('touchmove',e=>{e.preventDefault();for(const t of e.changedTouches)if(t.identifier===aimTouch)mouse=cvPos(t);},{passive:false});
+cv.addEventListener('touchend',e=>{e.preventDefault();for(const t of e.changedTouches)if(t.identifier===aimTouch){if(charging){charging=false;fire();}aimTouch=null;}},{passive:false});
+// on-screen controls for phones/tablets (reuse the same key flags)
+const isTouch=('ontouchstart' in window)||navigator.maxTouchPoints>0;
+if(isTouch){
+  el('touch').style.display='block';
+  el('help').innerHTML='Hold <b>◀ ▶</b> to move · <b>⤴</b> to jump · <b>drag on the field</b> to aim, release to shoot';
+  const hold=(id,k)=>{const b=el(id);const dn=e=>{e.preventDefault();keys[k]=true;};const up=e=>{e.preventDefault();keys[k]=false;};
+    b.addEventListener('touchstart',dn,{passive:false});b.addEventListener('touchend',up,{passive:false});b.addEventListener('touchcancel',up,{passive:false});
+    b.addEventListener('mousedown',dn);b.addEventListener('mouseup',up);b.addEventListener('mouseleave',up);};
+  hold('tLeft','a');hold('tRight','d');hold('tJump','w');
+}
+
+function me(){return players[myRole];}
+function bowPos(pl){return {x:pl.x,y:pl.y-46};}
+function fire(){
+  if(!started||over||endsAt===0)return;
+  const b=bowPos(me());
+  let dx=mouse.x-b.x,dy=mouse.y-b.y;const d=Math.hypot(dx,dy)||1;dx/=d;dy/=d;
+  const speed=420+power*620;
+  const a={id:myId+'-'+performance.now().toFixed(0),side:myRole,x:b.x,y:b.y,vx:dx*speed,vy:dy*speed};
+  arrows.push(a);
+  send({t:'shoot',id:a.id,side:a.side,x:a.x,y:a.y,vx:a.vx,vy:a.vy});
+  power=0;
+}
+function spawnArrow(p){arrows.push({id:p.id,side:p.side,x:p.x,y:p.y,vx:p.vx,vy:p.vy});}
+
+/* ---- loop: simulation on a timer (never freezes), rendering on rAF ---- */
+let last=performance.now(),netAcc=0;
+function step(){
+  const now=performance.now();let dt=(now-last)/1000;last=now;if(dt>0.1)dt=0.033; // clamp big gaps
+  if(started&&!over&&endsAt>0)update(dt,now);
+}
+setInterval(step,28);          // ~35Hz simulation, independent of tab paint/focus
+function loop(now){render(now);requestAnimationFrame(loop);}
+function update(dt,now){
+  const p=me();
+  // move
+  const left=keys['a']||keys['arrowleft'],right=keys['d']||keys['arrowright'];
+  if(left)p.x-=MOVE*dt; if(right)p.x+=MOVE*dt;
+  const z=ZONE[myRole];p.x=Math.max(z[0],Math.min(z[1],p.x));
+  // jump / gravity
+  if((keys['w']||keys[' ']||keys['arrowup'])&&p.ground){p.vy=JUMP;p.ground=false;}
+  p.vy+=GRAV*dt;p.y+=p.vy*dt;
+  if(p.y>=GROUND){p.y=GROUND;p.vy=0;p.ground=true;}
+  // aim (for drawing/opponent)
+  const b=bowPos(p);p.aim=Math.atan2(mouse.y-b.y,mouse.x-b.x);
+  // charge
+  if(charging)power=Math.min(1,power+dt/1.15);
+  // opponent interpolation
+  const opp=players[myRole==='L'?'R':'L'];
+  if(oppTarget){opp.x+=(oppTarget.x-opp.x)*Math.min(1,dt*12);opp.y+=(oppTarget.y-opp.y)*Math.min(1,dt*12);opp.aim=oppTarget.aim;}
+  // arrows physics
+  for(const a of arrows){a.vy+=GRAV*dt;a.x+=a.vx*dt;a.y+=a.vy*dt;}
+  // victim-authoritative hit: opponent's arrows vs MY monkey
+  const mine=me();
+  for(const a of arrows){
+    if(a.side===myRole)continue;
+    if(Math.hypot(a.x-mine.x,a.y-(mine.y-30))<R_HIT){
+      a.dead=true;players[a.side].score++;mine.flash=0.5;
+      send({t:'hit',by:a.side,id:a.id});refreshHud();
+    }
+  }
+  arrows=arrows.filter(a=>!a.dead&&a.x>-40&&a.x<W+40&&a.y<H+60);
+  if(mine.flash>0)mine.flash-=dt; if(opp.flash>0)opp.flash-=dt;
+  // network send (20Hz)
+  netAcc+=dt;if(netAcc>=0.05){netAcc=0;send({t:'state',x:mine.x,y:mine.y,aim:mine.aim});}
+  // timer
+  const rem=Math.max(0,endsAt-now);el('timer').textContent=fmt(rem);el('timer').classList.toggle('low',rem<15000);
+  if(rem<=0)endGame();
+}
+function fmt(ms){const s=Math.ceil(ms/1000);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
+function endGame(msg){
+  if(over)return;over=true;
+  const L=players.L.score,Rr=players.R.score;
+  let title,sub;
+  if(msg){title='Game over';sub=msg;}
+  else{const iWon=(myRole==='L'?L>Rr:Rr>L),tie=L===Rr;
+    title=tie?'🤝 Draw!':(iWon?'🏆 You win!':'😿 You lost');
+    sub=`${el('nameL').textContent} ${L} — ${Rr} ${el('nameR').textContent}`;}
+  el('overlay').innerHTML=`<h2>${title}</h2><p>${sub}</p>`+
+    (myRole==='L'?`<button class="btn" style="width:auto;padding:12px 26px" onclick="doRematch()">↻ Rematch</button>`:`<p style="font-size:13px">Waiting for host to start a rematch…</p>`)+
+    `<a class="back" style="position:static;margin-top:14px;color:#9fb6c9" href="#" onclick="location.reload();return false;">Leave</a>`;
+  el('overlay').style.display='flex';
+}
+function doRematch(){send({t:'rematch'});el('overlay').innerHTML='<div class="count" id="countTxt"></div>';resetRound();beginCountdown();}
+
+/* ---- render ---- */
+const ctx=cv.getContext('2d');
+function drawMonkey(pl,side){
+  ctx.save();ctx.translate(pl.x,pl.y);
+  // shadow
+  ctx.globalAlpha=.18;ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(0,4,26,7,0,0,7);ctx.fill();ctx.globalAlpha=1;
+  if(pl.flash>0){ctx.globalAlpha=.5+.5*Math.sin(performance.now()/40);}
+  // body (emoji monkey)
+  ctx.font='52px system-ui';ctx.textAlign='center';ctx.textBaseline='alphabetic';
+  ctx.fillText('🐒',0,-8);
+  ctx.globalAlpha=1;
+  // name tag
+  ctx.font='600 12px Inter';ctx.fillStyle=side==='L'?'#1c6fb0':'#c07a12';ctx.textBaseline='bottom';
+  ctx.fillText(side==='L'?el('nameL').textContent:el('nameR').textContent,0,-58);
+  // bow (aim indicator)
+  const b={x:0,y:-38};ctx.strokeStyle=side==='L'?'#1c6fb0':'#c07a12';ctx.lineWidth=3;
+  ctx.beginPath();ctx.arc(b.x,b.y,16,pl.aim-1,pl.aim+1);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(b.x,b.y);ctx.lineTo(b.x+Math.cos(pl.aim)*22,b.y+Math.sin(pl.aim)*22);ctx.stroke();
+  ctx.restore();
+}
+function render(now){
+  ctx.clearRect(0,0,W,H);
+  // sky + ground already via CSS bg; draw clouds + ground line
+  ctx.fillStyle='rgba(255,255,255,.7)';
+  for(let i=0;i<4;i++){const cx=(i*260+ (now/60)%260)%(W+120)-60;ctx.beginPath();ctx.ellipse(cx,80+i*18,38,16,0,0,7);ctx.fill();}
+  ctx.fillStyle='#6fbf5e';ctx.fillRect(0,GROUND+18,W,4);
+  // players
+  drawMonkey(players.L,'L');drawMonkey(players.R,'R');
+  // arrows
+  ctx.lineWidth=3;
+  for(const a of arrows){const ang=Math.atan2(a.vy,a.vx);ctx.strokeStyle='#3a2a1a';
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(a.x-Math.cos(ang)*16,a.y-Math.sin(ang)*16);ctx.stroke();
+    ctx.fillStyle='#c0392b';ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(a.x-Math.cos(ang+.4)*7,a.y-Math.sin(ang+.4)*7);ctx.lineTo(a.x-Math.cos(ang-.4)*7,a.y-Math.sin(ang-.4)*7);ctx.fill();}
+  // aim trajectory + power meter (mine)
+  if(started&&!over&&endsAt>0){
+    const p=me(),b=bowPos(p);
+    if(charging){
+      let dx=mouse.x-b.x,dy=mouse.y-b.y;const d=Math.hypot(dx,dy)||1;dx/=d;dy/=d;
+      const speed=420+power*620;let sx=b.x,sy=b.y,vx=dx*speed,vy=dy*speed;
+      ctx.fillStyle='rgba(0,0,0,.25)';
+      for(let t=0;t<26;t++){vy+=GRAV*0.03;sx+=vx*0.03;sy+=vy*0.03;if(t%2===0){ctx.beginPath();ctx.arc(sx,sy,2.2,0,7);ctx.fill();}}
+      // power bar
+      ctx.fillStyle='rgba(0,0,0,.35)';ctx.fillRect(b.x-26,b.y-30,52,7);
+      ctx.fillStyle=power>0.8?'#e74c3c':'#f1c40f';ctx.fillRect(b.x-26,b.y-30,52*power,7);
+    }
+  }
+}
+requestAnimationFrame(loop);
+if(IS_SANDBOX){document.title='[SANDBOX] '+document.title;}
+</script>
+</body>
+</html>
