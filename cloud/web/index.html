@@ -1543,13 +1543,16 @@ function followupsHTML(leads){
 }
 function tableHTML(leads){
   const rows=leads.slice().sort((a,b)=>parseD(b.createdAt)-parseD(a.createdAt)).map(l=>{const st=STAGES[l.stage];
+    const cmts=(l.log||[]).filter(e=>(e.kind==='note'||e.kind==='revisit')&&e.t&&String(e.t).trim());
+    const cmtCell=cmts.length?cmts.slice(-3).reverse().map(e=>`<div class="cmt" title="${escapeHtml(e.t)}"><span class="cmt-d">${fmtDate(e.d)}</span> ${escapeHtml(e.t)}</div>`).join(''):'<span style="color:var(--soft)">—</span>';
     return `<tr onclick="openDrawer('${l.id}')"><td><b class="mono">${l.name}</b><br><span style="color:var(--soft);font-size:12px">${l.phone}</span></td>
     <td><span class="src ${l.source}">${l.source==='digital'?'Digital':'Walk-in'}</span><br><span style="color:var(--soft);font-size:12px">${l.srcDetail}</span></td>
     <td>${l.project||'—'}</td><td>${l.ownerId?userName(l.ownerId):'<span style="color:var(--soft)">Unassigned</span>'}</td>
     <td><span class="stg" style="background:${st.color}22;color:${st.color}">${st.label}</span></td>
     <td class="mono" style="white-space:nowrap">${fmtDate(l.createdAt)}</td>
-    <td class="mono">${l.stage==='qualified'&&l.nextFollowUp?fmtDate(l.nextFollowUp):'—'}</td><td class="mono">${l.budget?'₹'+l.budget:'—'}</td></tr>`;}).join('');
-  return `<table><thead><tr><th>Lead</th><th>Source</th><th>Project</th><th>Owner</th><th>Stage</th><th>Captured</th><th>Next follow-up</th><th>Budget</th></tr></thead><tbody>${rows||'<tr><td colspan=8 style="text-align:center;color:var(--soft);padding:30px">No leads yet.</td></tr>'}</tbody></table>`;
+    <td class="mono">${l.stage==='qualified'&&l.nextFollowUp?fmtDate(l.nextFollowUp):'—'}</td><td class="mono">${l.budget?'₹'+l.budget:'—'}</td>
+    <td class="cmt-cell">${cmtCell}</td></tr>`;}).join('');
+  return `<div style="overflow-x:auto"><table class="list-table"><thead><tr><th>Lead</th><th>Source</th><th>Project</th><th>Owner</th><th>Stage</th><th>Captured</th><th>Next follow-up</th><th>Budget</th><th>Recent comments</th></tr></thead><tbody>${rows||'<tr><td colspan=9 style="text-align:center;color:var(--soft);padding:30px">No leads yet.</td></tr>'}</tbody></table></div>`;
 }
 
 /* ============ drawer ============ */
