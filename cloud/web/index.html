@@ -1378,12 +1378,15 @@ async function saveCurrentFilter(){
 function applySaved(i){const sf=savedFilters()[i];if(!sf)return;_returnTab=null;filters=JSON.parse(JSON.stringify(sf.filters));filterMode=sf.mode||'AND';closeFilters();render();}
 async function deleteSaved(i){const list=savedFilters().slice();list.splice(i,1);if(await savePrefs(Object.assign({},myPrefs,{savedFilters:list}))){renderFilterBuilder();render();}}
 function applyQuickView(days){filters=[{field:'source',value:'walkin'},{field:'captured',value:addDays(-days)+'|'+addDays(0)}];filterMode='AND';_returnTab=null;render();}
+function monthRange(offset){const d=today();const start=new Date(d.getFullYear(),d.getMonth()+offset,1);const end=new Date(d.getFullYear(),d.getMonth()+offset+1,0);return iso(start)+'|'+iso(end);}
+function applyMonth(offset){filters=[{field:'captured',value:monthRange(offset)}];filterMode='AND';_returnTab=null;render();}
 function renderSavedBar(){
   const el=document.getElementById('savedBar');if(!el)return;
   const list=savedFilters();const active=activeFilters().length;
   const cur=JSON.stringify({m:filterMode,f:activeFilters()});
   const qv=(days,label)=>{const val=addDays(-days)+'|'+addDays(0);const on=filters.length===2&&filters.some(f=>f.field==='captured'&&f.value===val)&&filters.some(f=>f.field==='source'&&f.value==='walkin');return `<button class="sfchip ${on?'on':''}" onclick="applyQuickView(${days})">${label}</button>`;};
-  const quick=qv(15,'Last 15 days')+qv(30,'Last 30 days');
+  const mv=(offset,label)=>{const val=monthRange(offset);const on=filters.length===1&&filters[0].field==='captured'&&filters[0].value===val;return `<button class="sfchip ${on?'on':''}" onclick="applyMonth(${offset})">${label}</button>`;};
+  const quick=mv(0,'This month')+mv(-1,'Last month')+qv(15,'Last 15 days')+qv(30,'Last 30 days');
   const chips=list.map((sf,i)=>{const on=JSON.stringify({m:sf.mode||'AND',f:sf.filters})===cur;return `<button class="sfchip ${on?'on':''}" onclick="applySaved(${i})">${sf.name}</button>`;}).join('');
   const ask=`<div class="ask-bar"><span class="ask-ic">✦</span><input class="field" id="askBox" autocomplete="off" placeholder="Ask in plain words… e.g. revisited and project head didn't meet and lost" value="${(lastAsk||'').replace(/"/g,'&quot;')}" onkeydown="if(event.key==='Enter')runAsk()"/><button class="btn" onclick="runAsk()">Show walk-ins</button><button class="btn ghost" onclick="saveAsk()" title="Save this question">★ Save</button></div>`;
   const askChips=savedAsks().map((s,i)=>`<button class="sfchip askc" onclick="applySavedAsk(${i})" title="${escapeHtml(s.q)}">✦ ${escapeHtml(s.name)}<span class="xx" onclick="event.stopPropagation();deleteSavedAsk(${i})">✕</span></button>`).join('');
@@ -2752,6 +2755,8 @@ async function rbSave(){const name=(rbNameVal||'').trim();if(!name){alert('Name 
 function rbLoad(i){const r=rbReports()[i];if(!r)return;rbFilters=r.filters?JSON.parse(JSON.stringify(r.filters)):[];rbMatch=r.match||'AND';reportCols=(r.cols&&r.cols.length)?r.cols.slice():RB_DEF_COLS.slice();reportGroupBy=r.groupBy||'';rbNameVal=r.name;rbRerender();}
 async function rbDelReport(i){const list=rbReports().slice();list.splice(i,1);if(await savePrefs(Object.assign({},myPrefs,{reports:list})))rbRerender();}
 function rbReset(){rbFilters=[];rbMatch='AND';rbNameVal='';reportCols=RB_DEF_COLS.slice();reportGroupBy='';rbRerender();}
+function rbMonthOn(offset){const f=rbFilters.find(x=>x.field==='captured');return !!f&&f.value===monthRange(offset);}
+function rbSetMonth(offset){let f=rbFilters.find(x=>x.field==='captured');if(f&&f.value===monthRange(offset)){/* toggle off */rbFilters=rbFilters.filter(x=>x!==f);}else{if(!f){f={field:'captured',values:[],value:''};rbFilters.push(f);const ck=RB_F2C['captured'];if(ck&&!reportCols.includes(ck))reportCols.push(ck);}f.value=monthRange(offset);}rbRerender();}
 function reportBuilderHTML(){
   const fields=FILTER_FIELDS.filter(f=>f.k!=='owner'||currentUser().role!=='sales');
   const fieldChips=fields.map(f=>`<button class="sfchip ${rbFilters.some(x=>x.field===f.k)?'on':''}" onclick="rbToggleField('${f.k}')">${f.label}</button>`).join('');
@@ -2760,6 +2765,7 @@ function reportBuilderHTML(){
     <div class="ai-tag" style="margin-bottom:12px">Tap a field to filter by it, then pick its values (one or many). Combine everything with <b>ALL · and</b> / <b>ANY · or</b>. Whatever you filter by is added as a column in the results — tweak columns below. Leave it empty to include everyone.</div>
     <div class="rb-builder">
       <div class="rb-cfg-row"><span class="rb-cfg-l">Match</span><div class="seg"><button class="${rbMatch==='AND'?'on':''}" onclick="rbSetMatch('AND')">ALL · and</button><button class="${rbMatch==='OR'?'on':''}" onclick="rbSetMatch('OR')">ANY · or</button></div></div>
+      <div class="rb-cfg-row" style="margin-top:11px"><span class="rb-cfg-l">Quick period</span><div class="rb-colchips"><button class="sfchip ${rbMonthOn(0)?'on':''}" onclick="rbSetMonth(0)">This month</button><button class="sfchip ${rbMonthOn(-1)?'on':''}" onclick="rbSetMonth(-1)">Last month</button></div></div>
       <div class="rb-cfg-row" style="margin-top:11px"><span class="rb-cfg-l">Filter by</span><div class="rb-colchips">${fieldChips}</div></div>
       <div class="rb-active">${active||'<div class="rb-empty">Tap a field above to start.</div>'}</div>
     </div>
