@@ -513,6 +513,14 @@
   .filter-banner .fb-chip{background:#fff;border:1px solid #E6CB8E;border-radius:20px;padding:2px 10px;font-weight:600;}
   .filter-banner button{margin-left:auto;border:1px solid #E0A32E;background:#fff;color:#8a6412;border-radius:8px;padding:4px 12px;font-weight:600;cursor:pointer;}
   .filter-banner button:hover{background:#E0A32E;color:#fff;}
+  .filter-banner .fb-bulk{margin-left:auto;background:var(--brand);color:#fff;border-color:var(--brand);}
+  .filter-banner .fb-bulk:hover{background:var(--brand-ink);color:#fff;}
+  .filter-banner .fb-bulk+button{margin-left:0;}
+  .ba-seg{display:flex;gap:8px;margin-top:6px;}
+  .ba-opt{flex:1;border:1.5px solid var(--line);border-radius:10px;padding:11px 12px;cursor:pointer;font-size:13px;}
+  .ba-opt.on{border-color:var(--brand);background:#F3F8FB;}
+  .ba-opt b{display:block;font-size:13.5px;margin-bottom:2px;}
+  .ba-opt span{color:var(--soft);font-size:11.5px;}
   .pipe-toolbar{display:flex;justify-content:flex-end;margin-bottom:14px;}
   .pipe-seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;}
   .pipe-seg button{border:none;background:var(--surface);color:var(--soft);font-family:'Space Grotesk';font-weight:600;font-size:13px;padding:7px 15px;cursor:pointer;}
@@ -734,6 +742,15 @@
     <div class="modal-h"><h2>Payment schemes</h2></div>
     <div class="modal-b" id="schemeBody" style="display:block"></div>
     <div class="modal-f"><button class="btn ghost" onclick="closeSchemes()">Close</button><button class="btn" onclick="addScheme()">＋ Add scheme</button></div>
+  </div>
+</div>
+
+<!-- Bulk assign modal (heads only) -->
+<div class="modal-scrim" id="baScrim">
+  <div class="modal">
+    <div class="modal-h"><h2>⇄ Bulk assign leads</h2></div>
+    <div class="modal-b" id="baBody" style="display:block"></div>
+    <div class="modal-f"><button class="btn ghost" onclick="closeBulkAssign()">Cancel</button><button class="btn" id="baGo" onclick="doBulkAssign()">Apply</button></div>
   </div>
 </div>
 
@@ -1592,8 +1609,11 @@ function pipelineListHTML(leads){
 function filterBanner(){
   const af=activeFilters();if(!af.length)return '';
   const chips=af.map(f=>{let v=String(f.value);if(fieldMeta(f.field).type==='daterange'){const p=v.split('|');v=(p[0]?fmtDate(p[0]):'any')+' → '+(p[1]?fmtDate(p[1]):'any');}return `<span class="fb-chip">${fieldMeta(f.field).label}: “${v}”</span>`;}).join(' ');
-  return `<div class="filter-banner">Filtered — showing ${chips}<button onclick="bannerClear()">✕ Clear filter</button></div>`;
+  const n=visible().length;
+  const bulk=canBulkAssign()&&n?`<button class="fb-bulk" onclick="openBulkAssign()">⇄ Bulk assign (${n})</button>`:'';
+  return `<div class="filter-banner">Filtered — showing ${chips}${bulk}<button onclick="bannerClear()">✕ Clear filter</button></div>`;
 }
+function canBulkAssign(){const u=currentUser();return !!u&&(u.role==='sales_head'||u.role==='project_head');}
 function boardHTML(leads){
   return filterBanner()+`<div class="board">`+BOARD_ORDER.map(s=>{const items=leads.filter(l=>l.stage===s);
     return `<div class="col"><div class="col-head"><i style="background:${STAGES[s].color}"></i><h3>${STAGES[s].label}</h3><span class="ct">${items.length}</span></div>
@@ -2364,6 +2384,61 @@ function setRange(m){range.mode=m;render();}
 function setRangeCustom(){range.mode='custom';range.from=document.getElementById('rg_from').value;range.to=document.getElementById('rg_to').value;render();}
 function slaState(l){if(l.stage!=='assigned'||l.qualified!==null)return null;const base=l.assignedAt||l.createdAt;const elapsed=Math.round((today()-parseD(base))/86400000);const left=7-elapsed;return{left,over:left<0};}
 async function reassignPool(id,repId){if(!repId||!can('assign'))return;if(!await updateLead(id,{owner_id:repId,stage:'assigned',qualified:null,nq_reason:'',assigned_at:iso(today())}))return;await addActivityRow(id,{kind:'system',body:'Reassigned to '+userName(repId)+' for follow-up'});await refresh();}
+/* ---- bulk assign (heads): act on the currently filtered leads ---- */
+let baLeads=[],baMode='migrate';
+function openBulkAssign(){
+  if(!canBulkAssign())return;
+  const u=currentUser();
+  baLeads=visible().filter(l=>can('assign')&&can('edit',l));   // only leads this head may reassign
+  baMode='migrate';
+  const proj=u.role==='project_head'?u.project:null;
+  const people=assignees(proj);
+  if(!people.length){alert('No one to assign to.');return;}
+  document.getElementById('baScrim').classList.add('on');
+  renderBulkAssign(people);
+}
+function baSetMode(m){baMode=m;renderBulkAssign();}
+function renderBulkAssign(people){
+  if(!people){const u=currentUser();people=assignees(u.role==='project_head'?u.project:null);}
+  const opts=`<option value="">— choose person —</option>`+people.map(r=>`<option value="${r.id}">${assigneeLabel(r)}</option>`).join('');
+  document.getElementById('baBody').innerHTML=`
+    <div class="ai-tag" style="margin-bottom:12px">Applies to the <b>${baLeads.length}</b> lead(s) matching your current filter${baLeads.length!==visible().length?` (${visible().length-baLeads.length} outside your access were skipped)`:''}.</div>
+    <label>Assign to</label>
+    <select class="field" id="ba_owner">${opts}</select>
+    <label style="margin-top:16px">How should this work?</label>
+    <div class="ba-seg">
+      <div class="ba-opt ${baMode==='migrate'?'on':''}" onclick="baSetMode('migrate')"><b>↦ Migrate (transfer)</b><span>New owner replaces the current owner. The old owner no longer has it.</span></div>
+      <div class="ba-opt ${baMode==='share'?'on':''}" onclick="baSetMode('share')"><b>＋ Share (co-owner)</b><span>Adds the new person alongside the current owner. Both can access it.</span></div>
+    </div>`;
+}
+async function doBulkAssign(){
+  if(!canBulkAssign())return;
+  const ownerId=(document.getElementById('ba_owner')||{}).value||'';
+  if(!ownerId){alert('Choose who to assign to.');return;}
+  const list=baLeads.slice();if(!list.length){closeBulkAssign();return;}
+  const go=document.getElementById('baGo');if(go){go.disabled=true;go.textContent='Working…';}
+  const acts=[];
+  if(baMode==='migrate'){
+    const ids=list.map(l=>l.id);
+    for(let i=0;i<ids.length;i+=200){const chunk=ids.slice(i,i+200);await sb.from('leads').update({owner_id:ownerId,assigned_at:iso(today())}).in('id',chunk);}
+    const newIds=list.filter(l=>l.stage==='new').map(l=>l.id);
+    for(let i=0;i<newIds.length;i+=200){const chunk=newIds.slice(i,i+200);if(chunk.length)await sb.from('leads').update({stage:'assigned'}).in('id',chunk);}
+    list.forEach(l=>{if(l.ownerId!==ownerId)acts.push({company_id:myCompanyId,lead_id:l.id,kind:'system',body:'Reassigned to '+userName(ownerId)+' (bulk)',author_id:session});});
+  } else { // share
+    for(const l of list){
+      const co=Array.isArray(l.coOwners)?l.coOwners.slice():[];
+      if(l.ownerId===ownerId||co.includes(ownerId))continue;
+      co.push(ownerId);
+      const {error}=await sb.from('leads').update({co_owners:co}).eq('id',l.id);
+      if(!error)acts.push({company_id:myCompanyId,lead_id:l.id,kind:'system',body:'Shared with '+userName(ownerId)+' (bulk)',author_id:session});
+    }
+  }
+  for(let i=0;i<acts.length;i+=200){await sb.from('lead_activity').insert(acts.slice(i,i+200));}
+  if(go){go.disabled=false;go.textContent='Apply';}
+  closeBulkAssign();await refresh();
+  showToast({icon:'⇄',title:'Bulk assign done',msg:(baMode==='migrate'?'Moved ':'Shared ')+acts.length+' lead(s) '+(baMode==='migrate'?'to ':'with ')+userName(ownerId),autoHide:6000});
+}
+function closeBulkAssign(){document.getElementById('baScrim').classList.remove('on');}
 function editWalkinBlock(l){return `<div class="block"><div class="edit-block"><div class="eh">🔒 Sales Head only · walk-in date & source</div><div class="r"><input type="date" class="field" id="ew_date" value="${l.createdAt}" onchange="setWalkinDate('${l.id}',this.value)"/><select class="field" id="ew_src" onchange="setWalkinSource('${l.id}',this.value)"><option value="Direct" ${l.walkinSource!=='CP'?'selected':''}>Direct</option><option value="CP" ${l.walkinSource==='CP'?'selected':''}>Channel Partner</option></select></div><input class="field ${l.walkinSource==='CP'?'':'hidden'}" id="ew_cp" placeholder="CP name" value="${l.cpName||''}" onchange="setCpName('${l.id}',this.value)"/><div class="ai-tag" style="margin-top:8px">Salespeople can't change these once entered.</div></div></div>`;}
 async function setWalkinDate(id,v){if(currentUser().role!=='sales_head'||!v)return;if(!await updateLead(id,{created_at:v}))return;await addActivityRow(id,{kind:'system',body:'Walk-in date changed to '+fmtDate(v)});await refresh();}
 async function setWalkinSource(id,v){if(currentUser().role!=='sales_head')return;const patch={walkin_source:v};if(v!=='CP')patch.cp_name='';if(!await updateLead(id,patch))return;await addActivityRow(id,{kind:'system',body:'Walk-in source changed to '+(v==='CP'?'CP':'Direct')});await refresh();}
