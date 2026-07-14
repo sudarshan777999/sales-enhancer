@@ -1020,6 +1020,25 @@ async function signOut(){closeChat();await sb.auth.signOut();session=null;myComp
 function inviteLink(token){return location.origin+location.pathname+'?invite='+token;}
 function copyText(t){try{navigator.clipboard.writeText(t);alert('Invite link copied — paste it to your teammate (WhatsApp, SMS or email).');}catch(e){prompt('Copy this invite link:',t);}}
 async function openTeam(){document.getElementById('teamScrim').classList.add('on');await renderTeam();}
+async function downloadBackup(btn){
+  if(!currentUser()||currentUser().role!=='sales_head')return;
+  const label=btn?btn.textContent:'';if(btn){btn.disabled=true;btn.textContent='Backing up…';}
+  const tables=['companies','projects','members','invitations','leads','lead_activity','tasks','transfer_requests','cross_interest','pricing_requests','targets','promotions','messages','assessments'];
+  const dump={_meta:{app:'Sales Enhancer',instance:(db.company&&db.company.name)||'',exportedAt:new Date().toISOString(),exportedBy:currentUser().name,env:IS_SANDBOX?'sandbox':'production',schemaVersion:20},tables:{},counts:{}};
+  for(const t of tables){
+    try{const {data,error}=await sb.from(t).select('*');
+      if(error){dump.tables[t]={_error:error.message};dump.counts[t]='error';}
+      else{dump.tables[t]=data||[];dump.counts[t]=(data||[]).length;}
+    }catch(e){dump.tables[t]={_error:String(e)};dump.counts[t]='error';}
+  }
+  const blob=new Blob([JSON.stringify(dump,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');
+  a.href=url;a.download='bnm-backup-'+iso(today())+'.json';document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),3000);
+  if(btn){btn.disabled=false;btn.textContent=label;}
+  const n=Object.values(dump.counts).reduce((s,v)=>s+(typeof v==='number'?v:0),0);
+  showToast({icon:'⬇︎',title:'Backup downloaded',msg:n+' records across '+tables.length+' tables → check your Downloads',autoHide:6000});
+}
 function closeTeam(){document.getElementById('teamScrim').classList.remove('on');}
 async function renderTeam(){
   const body=document.getElementById('teamBody');body.innerHTML='<div class="locked-note">Loading…</div>';
@@ -1459,6 +1478,7 @@ function render(){
     <button class="bell" onclick="openChat()" title="Team chat">💬</button>
     ${u.role==='sales_head'?`<button class="signout" onclick="openSchemes()" title="Payment schemes">Schemes</button>`:''}
     ${u.role==='sales_head'?`<button class="signout" onclick="openTeam()" title="Manage team">Team</button>`:''}
+    ${u.role==='sales_head'?`<button class="signout" onclick="downloadBackup(this)" title="Download a full backup of all your data">⬇︎ Backup</button>`:''}
     <button class="signout" onclick="signOut()">Sign out</button>`;
   const bb=document.getElementById('bulkBtn');if(bb)bb.style.display=(u.role==='sales_head')?'':'none';
   const fb=document.getElementById('filterBtn');if(fb){const n=activeFilters().length;fb.classList.toggle('ghost',n===0);fb.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg> Filters${n?' ('+n+')':''}`;}
