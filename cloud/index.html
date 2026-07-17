@@ -594,7 +594,7 @@
       </div>
       <div class="search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-        <input id="search" placeholder="Search name or phone…" oninput="render()" />
+        <input id="search" placeholder="Search name or merge code…" oninput="render()" />
       </div>
       <button class="btn ghost" id="filterBtn" onclick="openFilters()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
@@ -641,7 +641,6 @@
         </div>
       </div>
       <div class="fld"><label>Full name <span class="req">*</span></label><input class="field" id="m_name" placeholder="e.g. Ananya Rao"/></div>
-      <div class="fld"><label>Phone <span class="req" id="phoneReq">*</span></label><input class="field" id="m_phone" placeholder="+91 …"/></div>
       <div class="fld"><label>Email</label><input class="field" id="m_email" placeholder="optional"/></div>
       <div class="fld"><label id="srcLabel">Channel</label><select class="field" id="m_srcdetail"></select></div>
       <div class="fld"><label>Project</label><select class="field" id="m_project"></select></div>
@@ -809,7 +808,7 @@ function projName(id){return projById[id]||null;}
 function projId(name){return projByName[name]||null;}
 function memberName(id){const u=user(id);return u?u.name:'';}
 function titleFor(m){const p=projName(m.project_id);if(m.role==='sales_head')return 'Sales Head';if(m.role==='project_head')return 'Project Head'+(p?' · '+p:'');if(m.role==='reception')return 'Receptionist';return 'Salesperson'+(p?' · '+p:'');}
-function leadFromRow(r){return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',source:r.source,srcDetail:r.src_detail||'',walkinSource:r.walkin_source||'',cpName:r.cp_name||'',location:r.location||'',company:r.company_name||'',project:projName(r.project_id),budget:r.budget||'',notes:r.notes||'',stage:r.stage,ownerId:r.owner_id||null,qualified:r.qualified,nqReason:r.nq_reason||'',disqualifiedBy:r.disqualified_by||'',lostReason:r.lost_reason||'',temp:r.temp||null,nextFollowUp:r.next_follow_up||null,assignedAt:r.assigned_at||null,createdAt:r.created_at,assessment:null,booking:r.booking||null,walkinPhase:r.walkin_phase||'',dealStatus:r.deal_status||'',metProjectHead:!!r.met_project_head,phMeetingDate:r.ph_meeting_date||'',labels:Array.isArray(r.labels)?r.labels:[],coOwners:Array.isArray(r.co_owners)?r.co_owners:[],priceOffered:r.price_offered||'',blocks:Array.isArray(r.blocks)?r.blocks:[],competitors:r.competitors||'',referralName:r.referral_name||'',referralLeadId:r.referral_lead_id||null,wwSuggested:!!r.wonderwall_suggested,wwVisited:!!r.wonderwall_visited,lostTo:r.lost_to||'',lastQuote:r.last_quote||null,pendingRevisit:!!r.pending_revisit,mergedInto:r.merged_into||null,viaGre:!!r.via_gre,createdBy:r.created_by||null,revisits:[],log:[]};}
+function leadFromRow(r){return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',source:r.source,srcDetail:r.src_detail||'',walkinSource:r.walkin_source||'',cpName:r.cp_name||'',location:r.location||'',company:r.company_name||'',project:projName(r.project_id),budget:r.budget||'',notes:r.notes||'',stage:r.stage,ownerId:r.owner_id||null,qualified:r.qualified,nqReason:r.nq_reason||'',disqualifiedBy:r.disqualified_by||'',lostReason:r.lost_reason||'',temp:r.temp||null,nextFollowUp:r.next_follow_up||null,assignedAt:r.assigned_at||null,createdAt:r.created_at,assessment:null,booking:r.booking||null,walkinPhase:r.walkin_phase||'',dealStatus:r.deal_status||'',metProjectHead:!!r.met_project_head,phMeetingDate:r.ph_meeting_date||'',labels:Array.isArray(r.labels)?r.labels:[],coOwners:Array.isArray(r.co_owners)?r.co_owners:[],priceOffered:r.price_offered||'',blocks:Array.isArray(r.blocks)?r.blocks:[],competitors:r.competitors||'',referralName:r.referral_name||'',referralLeadId:r.referral_lead_id||null,wwSuggested:!!r.wonderwall_suggested,wwVisited:!!r.wonderwall_visited,lostTo:r.lost_to||'',lastQuote:r.last_quote||null,pendingRevisit:!!r.pending_revisit,mergedInto:r.merged_into||null,viaGre:!!r.via_gre,createdBy:r.created_by||null,matchCode:r.match_code||'',revisits:[],log:[]};}
 
 async function loadAll(){
   const {data:projs}=await sb.from('projects').select('*');
@@ -1196,7 +1195,7 @@ async function doBulkImport(){
   const rows=bulkParsed.map(v=>{
     let notes=v.notes||'';
     if(!v.owner_id&&v._assignRaw)notes=('Agent: '+v._assignRaw.trim())+(notes?' · '+notes:'');
-    return {company_id:myCompanyId,project_id:projId(v.project),owner_id:v.owner_id,name:v.name,phone:v.phone||'',email:v.email,source:'walkin',src_detail:v.project,walkin_source:v.walkin_source,cp_name:v.cp_name,location:v.location,company_name:v.company_name,budget:v.budget,notes,stage:q?'qualified':(v.owner_id?'assigned':'new'),qualified:q?true:null,temp:null,next_follow_up:null,assigned_at:v.owner_id?v.created_at:null,created_at:v.created_at,created_by:session};
+    return {company_id:myCompanyId,project_id:projId(v.project),owner_id:v.owner_id,name:v.name,phone:'',email:v.email,source:'walkin',src_detail:v.project,walkin_source:v.walkin_source,cp_name:v.cp_name,location:v.location,company_name:v.company_name,budget:v.budget,notes,stage:q?'qualified':(v.owner_id?'assigned':'new'),qualified:q?true:null,temp:null,next_follow_up:null,assigned_at:v.owner_id?v.created_at:null,created_at:v.created_at,created_by:session};
   });
   const {data,error}=await sb.from('leads').insert(rows).select();
   if(error){alert('Import failed: '+error.message);btn.disabled=false;btn.textContent='Import';return;}
@@ -1272,7 +1271,7 @@ function interestBlock(l){
 
 /* ============ scope + filter ============ */
 function scoped(){return db.leads.filter(l=>!l.mergedInto&&can('view',l));}
-function visible(){const q=document.getElementById('search').value.trim().toLowerCase();let s=scoped();if(q)s=s.filter(l=>l.name.toLowerCase().includes(q)||l.phone.toLowerCase().includes(q));return s.filter(passesFilters);}
+function visible(){const q=document.getElementById('search').value.trim().toLowerCase();let s=scoped();if(q)s=s.filter(l=>l.name.toLowerCase().includes(q)||(l.matchCode||'').includes(q));return s.filter(passesFilters);}
 /* ---- multi-filter builder ---- */
 const FILTER_FIELDS=[
   {k:'stage',label:'Stage',type:'select',opts:()=>Object.keys(STAGES).map(s=>[s,STAGES[s].label])},
@@ -1287,7 +1286,6 @@ const FILTER_FIELDS=[
   {k:'followup',label:'Follow-up',type:'select',opts:()=>[['due','Due / overdue'],['upcoming','Upcoming'],['none','No date set']]},
   {k:'revisits',label:'Has revisits',type:'select',opts:()=>[['yes','Yes'],['no','No']]},
   {k:'name',label:'Name contains',type:'text'},
-  {k:'phone',label:'Phone contains',type:'text'},
   {k:'company',label:'Company contains',type:'text'},
   {k:'cp',label:'CP name contains',type:'text'},
   {k:'budget',label:'Budget contains',type:'text'},
@@ -1436,7 +1434,6 @@ function receptionFormHTML(){
       ${noReps}
       <div class="rc-field"><label>Customer name *</label><input class="field" id="rc_name" autocomplete="off" placeholder="Full name"/></div>
       <div class="rc-row">
-        <div class="rc-field"><label>Phone (optional)</label><input class="field" id="rc_phone" autocomplete="off" placeholder="+91 …"/></div>
         <div class="rc-field"><label>Walk-in date</label><input type="date" class="field" id="rc_date" value="${iso(today())}"/></div>
       </div>
       <div class="rc-row">
@@ -1465,7 +1462,7 @@ async function rcSubmit(){
   const walkin_source=src==='CP'?'CP':'Direct';
   const src_detail=src==='CP'?'Channel Partner':(sub||'Direct');
   const revisit=!!(document.getElementById('rc_revisit')||{}).checked;
-  const row={company_id:myCompanyId,project_id:projId(owner?owner.project:null),owner_id:ownerId,name,phone:v('rc_phone'),email:'',source:'walkin',src_detail,walkin_source,cp_name:src==='CP'?cp:'',location:v('rc_location'),company_name:'',budget:'',notes:'',stage:'assigned',qualified:null,temp:null,next_follow_up:null,pending_revisit:revisit,via_gre:true,assigned_at:date,created_at:date,created_by:session};
+  const row={company_id:myCompanyId,project_id:projId(owner?owner.project:null),owner_id:ownerId,name,phone:'',email:'',source:'walkin',src_detail,walkin_source,cp_name:src==='CP'?cp:'',location:v('rc_location'),company_name:'',budget:'',notes:'',stage:'assigned',qualified:null,temp:null,next_follow_up:null,pending_revisit:revisit,via_gre:true,assigned_at:date,created_at:date,created_by:session};
   const btn=document.querySelector('.rc-submit');if(btn){btn.disabled=true;btn.textContent='Saving…';}
   const {error}=await sb.from('leads').insert(row);
   if(btn){btn.disabled=false;btn.textContent='＋ Add walk-in';}
@@ -1584,7 +1581,7 @@ function pipelineListHTML(leads){
     const cmtCell=cmts.length?cmts.slice(-3).reverse().map(e=>`<div class="cmt" title="${escapeHtml(e.t)}"><span class="cmt-d">${fmtDate(e.d)}</span> ${escapeHtml(e.t)}</div>`).join(''):'<span style="color:var(--soft)">—</span>';
     return `<tr onclick="openDrawer('${l.id}')">
       <td><b class="mono">${l.name}</b>${l.viaGre?' <span class="tchip" style="background:#E8F5E9;color:#2E7D32;font-size:10px">GRE</span>':''}${labels?'<br>'+labels:''}${extra}</td>
-      <td style="font-size:12px">${l.phone||'—'}${l.email?'<br><span style="color:var(--soft)">'+l.email+'</span>':''}</td>
+      <td style="font-size:12px">${l.email||'—'}</td>
       <td><span class="src ${l.source}">${l.source==='digital'?'Digital':'Walk-in'}</span>${l.srcDetail?'<br><span style="color:var(--soft);font-size:11px">'+l.srcDetail+'</span>':''}</td>
       <td>${l.project||'—'}</td>
       <td style="font-size:12px">${via}${l.walkinPhase?'<br><span style="color:var(--soft);font-size:11px">'+l.walkinPhase+'</span>':''}</td>
@@ -1626,7 +1623,7 @@ function tableHTML(leads){
   const rows=leads.slice().sort((a,b)=>parseD(b.createdAt)-parseD(a.createdAt)).map(l=>{const st=STAGES[l.stage];
     const cmts=(l.log||[]).filter(e=>(e.kind==='note'||e.kind==='revisit')&&e.t&&String(e.t).trim());
     const cmtCell=cmts.length?cmts.slice(-3).reverse().map(e=>`<div class="cmt" title="${escapeHtml(e.t)}"><span class="cmt-d">${fmtDate(e.d)}</span> ${escapeHtml(e.t)}</div>`).join(''):'<span style="color:var(--soft)">—</span>';
-    return `<tr onclick="openDrawer('${l.id}')"><td><b class="mono">${l.name}</b><br><span style="color:var(--soft);font-size:12px">${l.phone}</span></td>
+    return `<tr onclick="openDrawer('${l.id}')"><td><b class="mono">${l.name}</b>${l.email?'<br><span style="color:var(--soft);font-size:12px">'+l.email+'</span>':''}</td>
     <td><span class="src ${l.source}">${l.source==='digital'?'Digital':'Walk-in'}</span><br><span style="color:var(--soft);font-size:12px">${l.srcDetail}</span></td>
     <td>${l.project||'—'}</td><td>${l.ownerId?userName(l.ownerId):'<span style="color:var(--soft)">Unassigned</span>'}</td>
     <td><span class="stg" style="background:${st.color}22;color:${st.color}">${st.label}</span></td>
@@ -1727,9 +1724,9 @@ function renderDrawer(){
   const u=currentUser();const st=STAGES[l.stage];
   const editable=can('edit',l);const canAssign=can('assign');const canDelete=can('delete');
   const isHead=u.role==='sales_head'||u.role==='project_head';
-  const facts=[['Phone',l.phone,true],['Email',l.email||'—',false],['Source',(l.source==='digital'?'Digital · ':'Walk-in · ')+l.srcDetail,false],['Project',l.project||'—',false]];
+  const facts=[['Email',l.email||'—',false],['Source',(l.source==='digital'?'Digital · ':'Walk-in · ')+l.srcDetail,false],['Project',l.project||'—',false]];
   if(l.source==='walkin'){facts.push(['Walk-in via',l.walkinSource==='CP'?('CP · '+(l.cpName||'—')):l.walkinSource==='Referral'?('Referral'+(l.referralName?' · '+l.referralName:'')):'Direct',false]);if(l.referralLeadId){const rl=db.leads.find(x=>x.id===l.referralLeadId);facts.push(['Referrer in system',rl?rl.name:'—',false]);}facts.push(['Phase',l.walkinPhase||'—',false]);facts.push(['Location',l.location||'—',false]);facts.push(['Company',l.company||'—',false]);}
-  facts.push(['Budget',l.budget?'₹'+l.budget:'—',true]);facts.push(['Captured',fmtDate(l.createdAt),true]);
+  facts.push(['Budget',l.budget?'₹'+l.budget:'—',true]);facts.push(['Captured',fmtDate(l.createdAt),true]);if(l.matchCode)facts.push(['Merge code',l.matchCode,true]);
   {const cr=l.createdBy?userName(l.createdBy):'';const crLabel=cr?(cr+(l.viaGre?' · front desk (GRE)':'')):(l.viaGre?'Front desk (GRE)':'');if(crLabel)facts.push(['Created by',crLabel,false]);}
   let flow='';
   const terminal=['booked','lost','not_qualified'].includes(l.stage);
@@ -1774,7 +1771,7 @@ function renderDrawer(){
 
   const _drSc=(document.querySelector('#drawer .dr-body')||{}).scrollTop||0;
   document.getElementById('drawer').innerHTML=`
-    <div class="dr-head"><div class="row1"><div><h2>${l.name}</h2><div class="sub">${l.phone||'—'}</div></div>${can('edit',l)?`<button class="x" onclick="openEdit('${l.id}')" title="Edit details" style="margin-left:auto">✎</button><button class="x" onclick="closeDrawer()" title="Close (Esc)">✕</button>`:`<button class="x" onclick="closeDrawer()" title="Close (Esc)">✕</button>`}</div>
+    <div class="dr-head"><div class="row1"><div><h2>${l.name}</h2><div class="sub">${l.email||(l.project||'—')}</div></div>${can('edit',l)?`<button class="x" onclick="openEdit('${l.id}')" title="Edit details" style="margin-left:auto">✎</button><button class="x" onclick="closeDrawer()" title="Close (Esc)">✕</button>`:`<button class="x" onclick="closeDrawer()" title="Close (Esc)">✕</button>`}</div>
       <div style="margin-top:12px"><span class="stage-now" style="background:${st.color}1c;color:${st.color}"><i style="background:${st.color}"></i>${st.label}</span></div></div>
     <div class="dr-body">
       <div class="det"><label onclick="this.closest('.det').classList.toggle('open')"><span class="det-caret">▸</span> Personal details</label>
@@ -1885,27 +1882,26 @@ async function completeTaskFrom(tid){const t=(db.tasks||[]).find(x=>x.id===tid);
 function digits(s){return String(s||'').replace(/\D/g,'');}
 function revisitMergeBlock(l){
   if(!l.pendingRevisit||!can('edit',l))return '';
-  const ph=digits(l.phone);
-  const cands=ph?db.leads.filter(x=>x.id!==l.id&&!x.mergedInto&&!x.pendingRevisit&&digits(x.phone)===ph):[];
-  let inner;
-  if(!ph){
-    inner=`<div class="ai-tag">Add the customer's phone number to <b>this</b> walk-in and to their <b>earlier</b> walk-in (tap ✎ to edit), then come back here to merge.</div>`;
-  } else if(!cands.length){
-    inner=`<div class="ai-tag">No earlier walk-in found with phone <b>${escapeHtml(l.phone)}</b>. Open their earlier walk-in, set the same phone number, then merge from here.</div>`;
-  } else {
-    inner=cands.map(t=>`<div class="task-row open"><div class="task-b">${escapeHtml(t.name)}</div><div class="task-meta">${t.project||'—'} · captured ${fmtDate(t.createdAt)} · ${(t.revisits||[]).length} revisit(s)</div><div style="margin-top:8px"><button class="btn" onclick="mergeRevisit('${l.id}','${t.id}')">Merge into this walk-in</button></div></div>`).join('');
-  }
-  return `<div class="block"><label>↩ Revisit — merge with earlier walk-in</label><div class="ai-tag" style="margin-bottom:8px">The front desk marked this as a revisit. Merge it into the customer's earlier walk-in (matched by phone number).</div>${inner}</div>`;
+  const cands=db.leads.filter(x=>x.id!==l.id&&!x.mergedInto&&!x.pendingRevisit&&x.source==='walkin'&&can('view',x)).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+  const opts=`<option value="">— choose the customer's earlier walk-in —</option>`+cands.map(t=>`<option value="${t.id}">${escapeHtml(t.name)} · ${fmtDate(t.createdAt)}${t.ownerId?' · '+escapeHtml(userName(t.ownerId)):''}${(t.revisits||[]).length?' · ↩'+t.revisits.length:''}</option>`).join('');
+  return `<div class="block"><label>↩ Revisit — merge with earlier walk-in</label>
+    <div class="ai-tag" style="margin-bottom:8px">The front desk marked <b>${escapeHtml(l.name)}</b> as a revisit. Pick the customer's earlier walk-in — the app links both records with a shared merge code and files this as a revisit on the earlier one.</div>
+    <div class="r" style="gap:8px;align-items:center"><select class="field" id="mergeSel_${l.id}">${opts}</select><button class="btn" onclick="mergeRevisit('${l.id}')">Merge</button></div></div>`;
 }
-async function mergeRevisit(rId,tId){
-  const r=db.leads.find(x=>x.id===rId),t=db.leads.find(x=>x.id===tId);
-  if(!r||!t)return;
-  if(!can('edit',r)||!can('edit',t)){alert('You can only merge walk-ins you own. If the earlier walk-in belongs to someone else, ask a Project Head or Sales Head to merge.');return;}
-  if(!confirm('Merge this revisit into "'+t.name+'"? It will be logged as a revisit on that walk-in and this duplicate entry will be tucked away.'))return;
-  const note='Revisit (via front desk)'+(r.location?' · '+r.location:'')+(r.walkinSource==='CP'&&r.cpName?' · CP '+r.cpName:'');
+async function mergeRevisit(rId){
+  const r=db.leads.find(x=>x.id===rId);if(!r||!can('edit',r))return;
+  const tId=((document.getElementById('mergeSel_'+rId)||{}).value)||'';
+  if(!tId){alert('Pick the customer’s earlier walk-in first.');return;}
+  const t=db.leads.find(x=>x.id===tId);if(!t)return;
+  if(!can('edit',t)){alert('That earlier walk-in belongs to someone else — ask a Project Head or Sales Head to merge.');return;}
+  if(!confirm('Merge this revisit into "'+t.name+'"? A shared merge code will be stamped on both, it will be logged as a revisit on the earlier walk-in, and this duplicate will be tucked away.'))return;
+  const code=(t.matchCode&&/^\d{5}$/.test(t.matchCode))?t.matchCode:String(Math.floor(10000+Math.random()*90000));
+  const note='Revisit (via front desk)'+(r.location?' · '+r.location:'')+(r.walkinSource==='CP'&&r.cpName?' · CP '+r.cpName:'')+' · merge code '+code;
   await addActivityRow(tId,{kind:'revisit',body:note,date:r.createdAt});
-  if(!await updateLead(rId,{merged_into:tId,pending_revisit:false}))return;
+  if(!t.matchCode)await updateLead(tId,{match_code:code});
+  if(!await updateLead(rId,{merged_into:tId,pending_revisit:false,match_code:code}))return;
   await refresh();openDrawer(tId);
+  showToast({icon:'↩',title:'Revisit merged',msg:r.name+' → '+t.name+' · code '+code,autoHide:6000});
 }
 function updateBlock(l){
   if(!can('edit',l))return '';
@@ -2264,7 +2260,7 @@ async function markBooked(id){const l=db.leads.find(x=>x.id===id);if(!can('edit'
 let bookingLeadId=null, bookingStatus='Booked', editLeadId=null;
 function openEdit(id){const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;editLeadId=id;const u=currentUser();
   const f=(lab,fid,val,ph)=>`<div class="fld"><label>${lab}</label><input class="field" id="${fid}" value="${(val||'').replace(/"/g,'&quot;')}" placeholder="${ph||''}"/></div>`;
-  let html=f('Full name','e_name',l.name)+f('Phone','e_phone',l.phone,'+91 …')+f('Email','e_email',l.email)+f('Budget (₹)','e_budget',l.budget,'e.g. 1.2 Cr');
+  let html=f('Full name','e_name',l.name)+f('Email','e_email',l.email)+f('Budget (₹)','e_budget',l.budget,'e.g. 1.2 Cr');
   if(l.source==='walkin')html+=f('Location','e_location',l.location)+f('Company','e_company',l.company);
   if(u.role!=='sales')html+=`<div class="fld"><label>Project</label><select class="field" id="e_project">${PROJECTS.map(p=>`<option ${l.project===p?'selected':''}>${p}</option>`).join('')}</select></div>`;
   html+=`<div class="fld full"><label>Notes</label><textarea class="field" id="e_notes">${(l.notes||'').replace(/</g,'&lt;')}</textarea></div>`;
@@ -2275,7 +2271,7 @@ function closeEdit(){document.getElementById('editScrim').classList.remove('on')
 async function saveEdit(){const id=editLeadId;const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;
   const g=fid=>((document.getElementById(fid)||{}).value||'').trim();
   const name=g('e_name');if(!name){alert('Name is required.');return;}
-  const patch={name,phone:g('e_phone'),email:g('e_email'),budget:g('e_budget'),notes:g('e_notes')};
+  const patch={name,email:g('e_email'),budget:g('e_budget'),notes:g('e_notes')};
   if(l.source==='walkin'){patch.location=g('e_location');patch.company_name=g('e_company');}
   const pe=document.getElementById('e_project');if(pe&&projId(pe.value))patch.project_id=projId(pe.value);
   if(!await updateLead(id,patch))return;
@@ -2325,7 +2321,7 @@ async function deleteLead(id){if(!can('delete'))return;const l=db.leads.find(x=>
 /* ============ modal ============ */
 function openModal(){
   const u=currentUser();modalSrc='digital';setSrc('digital');
-  ['m_name','m_phone','m_email','m_budget','m_notes','m_location','m_company','m_cp','m_phase','m_refname'].forEach(i=>document.getElementById(i).value='');
+  ['m_name','m_email','m_budget','m_notes','m_location','m_company','m_cp','m_phase','m_refname'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});
   document.getElementById('m_wsource').value='Direct';document.getElementById('m_walkindate').value=iso(today());
   const projSel=document.getElementById('m_project');
   if(u.role==='sales'){projSel.innerHTML=`<option>${u.project}</option>`;projSel.disabled=true;}
@@ -2345,9 +2341,8 @@ function setSrc(s){modalSrc=s;document.querySelectorAll('#srcSeg button').forEac
   const walkin=s==='walkin';['wf_wsource','wf_phase','wf_location','wf_company','wf_date'].forEach(id=>document.getElementById(id).classList.toggle('hidden',!walkin));if(walkin){const dt=document.getElementById('m_walkindate');if(!dt.value)dt.value=iso(today());onWsourceChange();}else{['wf_cp','wf_ref','wf_reflink'].forEach(id=>document.getElementById(id).classList.add('hidden'));}}
 async function saveLead(){
   const u=currentUser();
-  const name=document.getElementById('m_name').value.trim();const phone=document.getElementById('m_phone').value.trim();
+  const name=document.getElementById('m_name').value.trim();
   if(!name){alert('Name is required.');return;}
-  if(modalSrc==='digital'&&!phone){alert('Phone is required for digital leads.');return;}
   const srcDetail=document.getElementById('m_srcdetail').value;
   let project,ownerId,stage;
   if(u.role==='sales'){project=u.project;ownerId=u.id;stage='assigned';}
@@ -2358,7 +2353,7 @@ async function saveLead(){
   const refLink=(modalSrc==='walkin'&&wsource==='Referral')?(document.getElementById('m_reflink').value||null):null;
   const wdate=modalSrc==='walkin'?(document.getElementById('m_walkindate').value||iso(today())):iso(today());
   const srcTxt=modalSrc==='digital'?('Lead captured from '+srcDetail):('Walk-in at '+srcDetail+' ('+(wsource==='CP'?('CP'+(cpName?' · '+cpName:'')):wsource==='Referral'?('Referral'+(refName?' · '+refName:'')):'Direct')+')');
-  const row={company_id:myCompanyId,project_id:projId(project),owner_id:ownerId,name,phone,email:document.getElementById('m_email').value.trim(),source:modalSrc,src_detail:srcDetail,walkin_source:wsource,cp_name:cpName,location:modalSrc==='walkin'?document.getElementById('m_location').value.trim():'',company_name:modalSrc==='walkin'?document.getElementById('m_company').value.trim():'',budget:document.getElementById('m_budget').value.trim(),notes:document.getElementById('m_notes').value.trim(),stage,qualified:null,temp:null,next_follow_up:null,walkin_phase:modalSrc==='walkin'?(document.getElementById('m_phase').value||null):null,referral_name:refName||null,referral_lead_id:refLink,assigned_at:(ownerId?wdate:null),created_at:wdate,created_by:session};
+  const row={company_id:myCompanyId,project_id:projId(project),owner_id:ownerId,name,phone:'',email:document.getElementById('m_email').value.trim(),source:modalSrc,src_detail:srcDetail,walkin_source:wsource,cp_name:cpName,location:modalSrc==='walkin'?document.getElementById('m_location').value.trim():'',company_name:modalSrc==='walkin'?document.getElementById('m_company').value.trim():'',budget:document.getElementById('m_budget').value.trim(),notes:document.getElementById('m_notes').value.trim(),stage,qualified:null,temp:null,next_follow_up:null,walkin_phase:modalSrc==='walkin'?(document.getElementById('m_phase').value||null):null,referral_name:refName||null,referral_lead_id:refLink,assigned_at:(ownerId?wdate:null),created_at:wdate,created_by:session};
   const {data,error}=await sb.from('leads').insert(row).select().single();
   if(error){alert('Could not save the lead: '+error.message);return;}
   await addActivityRow(data.id,{kind:'system',body:srcTxt+' by '+u.name,date:wdate});
@@ -2643,13 +2638,13 @@ function ageingTreeHTML(){
 }
 /* ============ report builder (visual AND/OR query) ============ */
 let rbFilters=[], rbMatch='AND';
-const RB_F2C={stage:'stage',source:'source',captured:'captured',dstatus:'dealStatus',metph:'metph',phase:'phase',project:'project',owner:'owner',walkin:'walkinVia',comment:'lastcomment',label:'labels',competitor:'competitors',budget:'budget',company:'company',cp:'walkinVia',name:'name',phone:'phone',wwsug:'wwsug',wwvis:'wwvis',revisits:'revisits',followup:'nextfu'};
+const RB_F2C={stage:'stage',source:'source',captured:'captured',dstatus:'dealStatus',metph:'metph',phase:'phase',project:'project',owner:'owner',walkin:'walkinVia',comment:'lastcomment',label:'labels',competitor:'competitors',budget:'budget',company:'company',cp:'walkinVia',name:'name',wwsug:'wwsug',wwvis:'wwvis',revisits:'revisits',followup:'nextfu'};
 let rbNameVal='';
 const RB_DEF_COLS=['name','project','owner','stage','dealStatus','captured'];
 let reportCols=RB_DEF_COLS.slice(), reportGroupBy='';
 const REPORT_COLS=[
   {k:'name',label:'Customer',get:l=>l.name},
-  {k:'phone',label:'Phone',get:l=>l.phone||''},
+  {k:'matchcode',label:'Merge code',get:l=>l.matchCode||''},
   {k:'email',label:'Email',get:l=>l.email||''},
   {k:'project',label:'Project',get:l=>l.project||''},
   {k:'owner',label:'Owner',get:l=>l.ownerId?userName(l.ownerId):'Unassigned'},
