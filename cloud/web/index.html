@@ -1510,6 +1510,7 @@ function render(){
   renderTabs();renderKPIs(leads);
   const m=document.getElementById('main');
   if(activeTab==='pipeline')m.innerHTML=pipeToggle()+(pipeView==='list'?pipelineListHTML(leads):boardHTML(leads));
+  else if(activeTab==='plays')m.innerHTML=playsHTML();
   else if(activeTab==='followups')m.innerHTML=followupsHTML(leads);
   else if(activeTab==='stats')m.innerHTML=statsHTML(scoped());
   else if(activeTab==='funnel')m.innerHTML=funnelHTML();
@@ -1549,7 +1550,8 @@ function renderTabs(){
   const s=scoped();
   const dueCount=s.filter(l=>l.stage==='qualified'&&l.nextFollowUp&&dueState(l.nextFollowUp).n<=0).length;
   const cu=currentUser();
-  const tabs=[['pipeline','Pipeline',s.length]];
+  const playCount=s.filter(isOpenLead).map(dealCoach).filter(Boolean).length;
+  const tabs=[['pipeline','Pipeline',s.length],['plays',"🧭 Today's plays",playCount||'']];
   if(cu&&(cu.role==='sales_head'||cu.role==='project_head'))tabs.push(['funnel','Funnel','']);
   tabs.push(['ageing','Ageing',''],['followups','Follow-ups due',dueCount],['stats','Follow-up stats',''],['builder','Builder',''],['all','All leads',s.length]);
   if(cu&&cu.role!=='reception')tabs.push(['leaderboard','🏆 Leaderboard','']);
@@ -1790,6 +1792,7 @@ function renderDrawer(){
         <div class="det-body">${facts.map(([k,v,m])=>`<div class="fact"><div class="k">${k}</div><div class="v ${m?'mono':''}">${v}</div></div>`).join('')}</div></div>
       <div class="dr-cols">
         <div class="dr-left">
+          ${dealCoachBlock(l)}
           ${revisitMergeBlock(l)}
           ${taskBlock(l)}
           ${updateBlock(l)}
@@ -2868,6 +2871,71 @@ function daysUntouched(l){if(['booked','lost','not_qualified'].includes(l.stage)
 function qualifiedAt(l){let d=null;(l.log||[]).forEach(e=>{if(!d&&e.kind==='system'&&/qualified/i.test(e.t||''))d=e.d;});return d||l.assignedAt||l.createdAt;}
 function qualAgeDays(l){return Math.round((today()-parseD(qualifiedAt(l)))/86400000);}
 function myProjId(){const u=currentUser();return u&&u.project?projByName[u.project]:null;}
+/* ===================== Deal Coach · Today's Plays · Escalation ===================== */
+const NEGLECT_TRIGGER=3;
+function isOpenLead(l){return !['booked','lost','not_qualified'].includes(l.stage);}
+// Next-best action for one lead — returns the single highest-priority tip, or null.
+function dealCoach(l){
+  if(!isOpenLead(l))return null;
+  const tips=[];const idle=daysUntouched(l);
+  if(l.stage==='qualified'&&l.nextFollowUp){const d=dueState(l.nextFollowUp);
+    if(d.cls==='over')tips.push({pri:96,label:'Follow up now',why:`The call-back was due ${-d.n} day${-d.n===1?'':'s'} ago.`,act:'follow'});
+    else if(d.cls==='today')tips.push({pri:86,label:'Follow up today',why:'The call-back is scheduled for today.',act:'follow'});}
+  {const s=slaState(l);if(s){
+    if(s.over)tips.push({pri:92,label:'Qualify or disqualify',why:`Decision overdue by ${-s.left} day${-s.left===1?'':'s'}.`,act:'qualify'});
+    else if(s.left<=2)tips.push({pri:74,label:'Qualify or disqualify',why:`Decide within ${s.left} day${s.left===1?'':'s'}.`,act:'qualify'});}}
+  if(!l.ownerId)tips.push({pri:90,label:'Assign an owner',why:"No one owns this lead yet — it won't get worked.",act:'assign'});
+  if(l.stage==='qualified'&&!l.nextFollowUp)tips.push({pri:84,label:'Set a follow-up',why:'Qualified with no next-contact date — it will slip.',act:'follow'});
+  if(l.stage==='qualified'&&idle>=7)tips.push({pri:82,label:'Re-engage — going cold',why:`No contact in ${idle} days. Book it or close it.`,act:'follow'});
+  if((l.temp||'')==='Hot')tips.push({pri:80,label:'Push for the booking',why:"Marked Hot — press for a decision while it's warm.",act:''});
+  if(l.pendingRevisit)tips.push({pri:70,label:'Merge the revisit',why:'The front desk logged a revisit that needs merging.',act:''});
+  if(idle>=10)tips.push({pri:72,label:'Going cold',why:`${idle} days untouched — re-engage.`,act:'follow'});
+  if(l.stage==='new')tips.push({pri:66,label:'Work the new lead',why:'Freshly captured — make first contact.',act:''});
+  if(!tips.length)return null;
+  tips.sort((a,b)=>b.pri-a.pri);const t=tips[0];t.cls=t.pri>=85?'hot':t.pri>=70?'warm':'cool';return t;
+}
+async function coachFollow(id,days){const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;const date=addDays(days);if(!await updateLead(id,{next_follow_up:date}))return;await addActivityRow(id,{kind:'note',body:'Follow-up set via Deal Coach',next:date});await refresh();}
+function dealCoachBlock(l){
+  const t=dealCoach(l);if(!t)return '';
+  const dot=t.cls==='hot'?'#C0524A':t.cls==='warm'?'#E0A32E':'#4A6FA5';
+  const editable=can('edit',l);let btn='';
+  if(editable){
+    if(t.act==='qualify'&&l.qualified!==true)btn=`<button class="btn" onclick="event.stopPropagation();qualify('${l.id}')">Mark qualified</button>`;
+    else if(t.act==='follow')btn=`<button class="btn" onclick="event.stopPropagation();coachFollow('${l.id}',2)">Set follow-up (+2 days)</button>`;
+  }
+  return `<div class="block"><label>🧭 Deal Coach — next best action</label>
+    <div style="border:1px solid var(--line);border-left:3px solid ${dot};border-radius:10px;padding:12px 14px;background:#FAFBFC">
+      <div style="font-family:'Space Grotesk';font-weight:600;font-size:14px">${t.label}</div>
+      <div style="color:var(--soft);font-size:12.5px;margin-top:3px">${t.why}</div>
+      ${btn?`<div style="margin-top:10px">${btn}</div>`:''}
+    </div></div>`;
+}
+function neglectedLeads(memberId){return db.leads.filter(l=>!l.mergedInto&&l.ownerId===memberId&&isOpenLead(l)&&(
+  (l.stage==='qualified'&&l.nextFollowUp&&dueState(l.nextFollowUp).cls==='over')||
+  (function(){const s=slaState(l);return !!(s&&s.over);})()||
+  daysUntouched(l)>=10));}
+function escalationList(){
+  const u=currentUser();if(!u||(u.role!=='sales_head'&&u.role!=='project_head'))return [];
+  const reps=salespeople(u.role==='project_head'?u.project:null);
+  return reps.map(r=>({memberId:r.id,leads:neglectedLeads(r.id)})).filter(x=>x.leads.length>=NEGLECT_TRIGGER)
+    .map(x=>({memberId:x.memberId,count:x.leads.length})).sort((a,b)=>b.count-a.count);
+}
+function openNeglected(memberId){openLeadList(userName(memberId)+' — leads slipping',neglectedLeads(memberId));}
+function playsHTML(){
+  const u=currentUser();const isHead=u&&(u.role==='sales_head'||u.role==='project_head');
+  const rows=scoped().filter(isOpenLead).map(l=>({l,t:dealCoach(l)})).filter(x=>x.t).sort((a,b)=>b.t.pri-a.t.pri);
+  const dotFor=c=>c==='hot'?'#C0524A':c==='warm'?'#E0A32E':'#4A6FA5';
+  let esc='';
+  if(isHead){const flags=escalationList();
+    if(flags.length)esc=`<div class="filter-banner" style="background:#FBE9E7;color:#A03027;border:0;margin-bottom:12px">⚠ Coach these salespeople — leads slipping: `+flags.map(f=>`<button class="fb-bulk" style="background:#fff;color:#A03027" onclick="openNeglected('${f.memberId}')">${escapeHtml(userName(f.memberId))} · ${f.count}</button>`).join(' ')+`</div>`;}
+  const list=rows.length?rows.map(({l,t})=>`<div class="play-row" onclick="openDrawer('${l.id}')" style="display:flex;gap:12px;align-items:flex-start;padding:12px 4px;border-top:1px solid var(--line);cursor:pointer">
+     <div style="width:9px;height:9px;border-radius:50%;background:${dotFor(t.cls)};margin-top:5px;flex:none"></div>
+     <div style="flex:1;min-width:0"><div style="font-family:'Space Grotesk';font-weight:600">${escapeHtml(l.name)} <span class="stg" style="background:${STAGES[l.stage].color}22;color:${STAGES[l.stage].color};font-size:11px">${STAGES[l.stage].label}</span></div>
+       <div style="font-size:13px;margin-top:2px"><b>${t.label}</b> <span style="color:var(--soft)">— ${t.why}</span></div></div>
+     ${isHead?`<div style="color:var(--soft);font-size:12px;white-space:nowrap;text-align:right">${l.ownerId?escapeHtml(userName(l.ownerId)):'Unassigned'}<br>${l.project||'—'}</div>`:''}
+   </div>`).join(''):'<div style="padding:26px;text-align:center;color:var(--soft)">Nothing needs attention right now. 🎉</div>';
+  return `<div class="panel">${esc}<h3>🧭 Today's plays — ${rows.length} ranked by urgency</h3>${list}</div>`;
+}
 function notifyItems(){
   const u=currentUser();const base=scoped();
   const stale=base.filter(l=>staleQualified(l));
@@ -2884,8 +2952,9 @@ function notifyItems(){
   const pricedForMe=(db.pricingRequests||[]).filter(r=>r.status==='priced'&&r.requested_by===session);
   const myTasks=(db.tasks||[]).filter(t=>t.status==='open'&&t.assigned_to===session);
   const doneTasks=(db.tasks||[]).filter(t=>t.status==='done'&&t.assigned_by===session&&t.done_at&&(today()-parseD((t.done_at||'').slice(0,10)))/86400000<=7);
-  const total=stale.length+overdue.length+incoming.length+pendingT.length+declinedT.length+interests.length+pendingPricing.length+pricedForMe.length+myTasks.length+doneTasks.length;
-  return {stale,overdue,incoming,pendingT,declinedT,interests,pendingPricing,pricedForMe,myTasks,doneTasks,total};
+  const escalations=(u&&(u.role==='sales_head'||u.role==='project_head'))?escalationList():[];
+  const total=stale.length+overdue.length+incoming.length+pendingT.length+declinedT.length+interests.length+pendingPricing.length+pricedForMe.length+myTasks.length+doneTasks.length+escalations.length;
+  return {stale,overdue,incoming,pendingT,declinedT,interests,pendingPricing,pricedForMe,myTasks,doneTasks,escalations,total};
 }
 let dismissedNotif=null;
 function dismKey(){return 'bm_dismissed_notif_'+(session||'x');}
@@ -2897,6 +2966,7 @@ function notifyKeyList(){const it=notifyItems();const ks=[];
   it.doneTasks.forEach(t=>ks.push('tkd_'+t.id));it.pendingT.forEach(t=>ks.push('pt_'+t.id));
   it.declinedT.forEach(t=>ks.push('dt_'+t.id));it.interests.forEach(c=>ks.push('ci_'+c.id));
   it.stale.forEach(l=>ks.push('st_'+l.id));it.overdue.forEach(l=>ks.push('ov_'+l.id));
+  (it.escalations||[]).forEach(e=>ks.push('esc_'+e.memberId));
   return ks;}
 function refreshNotifyBadge(){const b=document.getElementById('notifyBadge');if(!b)return;
   const dm=ensureDismissed();const ks=notifyKeyList();const cur=new Set(ks);
@@ -2911,9 +2981,10 @@ function renderNotify(){const p=document.getElementById('notifyPanel');const it=
   const nx=k=>`<button class="nx" title="Dismiss" onclick="event.stopPropagation();dismissNotif('${k}')">×</button>`;
   const canOpen=id=>db.leads.some(l=>l.id===id);
   const row=(l,txt,col,key)=>`<div class="nrow" onclick="closeNotify();openDrawer('${l.id}')"><div class="ndot" style="background:${col}"></div><div class="nmeta"><b>${l.name}</b><span>${l.project||''} · ${l.ownerId?userName(l.ownerId):'unassigned'} — ${txt}</span></div>${nx(key)}</div>`;
-  const myTasks=it.myTasks.filter(t=>keep('tk_'+t.id)),incoming=it.incoming.filter(t=>keep('in_'+t.id)),pendingPricing=it.pendingPricing.filter(r=>keep('pp_'+r.id)),pricedForMe=it.pricedForMe.filter(r=>keep('pf_'+r.id)),doneTasks=it.doneTasks.filter(t=>keep('tkd_'+t.id)),pendingT=it.pendingT.filter(t=>keep('pt_'+t.id)),declinedT=it.declinedT.filter(t=>keep('dt_'+t.id)),interests=it.interests.filter(c=>keep('ci_'+c.id)),stale=it.stale.filter(l=>keep('st_'+l.id)),overdue=it.overdue.filter(l=>keep('ov_'+l.id));
-  const total=myTasks.length+incoming.length+pendingPricing.length+pricedForMe.length+doneTasks.length+pendingT.length+declinedT.length+interests.length+stale.length+overdue.length;
+  const myTasks=it.myTasks.filter(t=>keep('tk_'+t.id)),incoming=it.incoming.filter(t=>keep('in_'+t.id)),pendingPricing=it.pendingPricing.filter(r=>keep('pp_'+r.id)),pricedForMe=it.pricedForMe.filter(r=>keep('pf_'+r.id)),doneTasks=it.doneTasks.filter(t=>keep('tkd_'+t.id)),pendingT=it.pendingT.filter(t=>keep('pt_'+t.id)),declinedT=it.declinedT.filter(t=>keep('dt_'+t.id)),interests=it.interests.filter(c=>keep('ci_'+c.id)),stale=it.stale.filter(l=>keep('st_'+l.id)),overdue=it.overdue.filter(l=>keep('ov_'+l.id)),escalations=(it.escalations||[]).filter(e=>keep('esc_'+e.memberId));
+  const total=myTasks.length+incoming.length+pendingPricing.length+pricedForMe.length+doneTasks.length+pendingT.length+declinedT.length+interests.length+stale.length+overdue.length+escalations.length;
   let html=`<div class="nhead">Alerts${total?`<button class="nclear" onclick="clearAllNotif()">Clear all</button>`:''}</div>`;
+  if(escalations.length)html+=`<div class="nsec">🧭 Deal Coach · salespeople needing attention</div>`+escalations.map(e=>`<div class="nrow" onclick="closeNotify();openNeglected('${e.memberId}')"><div class="ndot" style="background:#C0433A"></div><div class="nmeta"><b>${userName(e.memberId)}</b><span>${e.count} leads slipping (overdue, undecided or gone cold) — coach them</span></div>${nx('esc_'+e.memberId)}</div>`).join('');
   if(incoming.length)html+=`<div class="nsec">Handoffs waiting for you</div>`+incoming.map(t=>`<div class="nrow"><div class="ndot" style="background:#4A6FA5"></div><div class="nmeta" style="flex:1"><b>${t.lead_name||'A lead'}</b><span>${userName(t.from_member)} wants to hand this to you${t.note?' — '+t.note:''}</span><div style="margin-top:7px;display:flex;gap:8px"><button class="btn" style="padding:5px 11px" onclick="acceptTransfer('${t.id}')">Accept</button><button class="btn ghost" style="padding:5px 11px" onclick="declineTransfer('${t.id}')">Decline</button></div></div>${nx('in_'+t.id)}</div>`).join('');
   if(myTasks.length)html+=`<div class="nsec">Tasks assigned to you</div>`+myTasks.map(t=>`<div class="nrow" onclick="closeNotify();openDrawer('${t.lead_id}')"><div class="ndot" style="background:#C0524A"></div><div class="nmeta"><b>${t.lead_name||''}</b><span>${userName(t.assigned_by)}: ${escapeHtml(t.body)}</span></div>${nx('tk_'+t.id)}</div>`).join('');
   if(pendingPricing.length)html+=`<div class="nsec">Pricing approvals to set</div>`+pendingPricing.map(r=>`<div class="nrow" onclick="closeNotify();openPricing('respond','${r.id}')"><div class="ndot" style="background:#2C9C9A"></div><div class="nmeta"><b>${r.lead_name||''}</b><span>${userName(r.requested_by)} needs prices for ${(r.units||[]).map(x=>x.unit).join(', ')}</span></div>${nx('pp_'+r.id)}</div>`).join('');
