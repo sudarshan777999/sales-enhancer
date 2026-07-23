@@ -826,6 +826,8 @@ async function loadAll(){
   db.users=(mem||[]).map(m=>({id:m.id,name:m.name,role:m.role,project:projName(m.project_id),title:titleFor(m),email:m.email}));
   myCompanyId=(mem||[]).find(m=>m.id===session)?.company_id||null;
   myPrefs=(mem||[]).find(m=>m.id===session)?.prefs||{};
+  // shared label pool — union of every member's labels (first colour wins)
+  {const map={};(mem||[]).forEach(m=>{(((m.prefs||{}).labels)||[]).forEach(x=>{if(x&&x.name&&!(x.name in map))map[x.name]=x.color||'#6C7A93';});});db.allLabels=Object.keys(map).map(name=>({name,color:map[name]}));}
   await ensureProjects();
   const {data:leads}=await sb.from('leads').select('*');
   const rows=leads||[];const ids=rows.map(l=>l.id);
@@ -1299,7 +1301,7 @@ const FILTER_FIELDS=[
   {k:'cp',label:'CP name contains',type:'text'},
   {k:'budget',label:'Budget contains',type:'text'},
   {k:'comment',label:'Comment contains',type:'text'},
-  {k:'label',label:'Label',type:'select',opts:()=>myLabels().map(x=>[x.name,x.name])},
+  {k:'label',label:'Label',type:'select',opts:()=>allLabels().map(x=>[x.name,x.name])},
   {k:'block',label:'Block interest',type:'select',opts:()=>['A','B','C','D','E','F'].map(b=>[b,b])},
   {k:'competitor',label:'Competitor contains',type:'text'},
   {k:'wwsug',label:'Wonderwall suggested',type:'select',opts:()=>[['yes','Yes'],['no','No']]},
@@ -1393,14 +1395,19 @@ function renderSavedBar(){
 /* ---- custom labels ---- */
 const LABEL_COLORS=['#2C5D80','#2E9E5B','#D9982B','#C0524A','#7E57C2','#2C9C9A','#4A6FA5','#98A2B0'];
 function myLabels(){return myPrefs.labels||[];}
-function labelColor(name){const l=myLabels().find(x=>x.name===name);return l?l.color:'#6C7A93';}
+function allLabels(){return db.allLabels||[];}
+function labelColor(name){const l=allLabels().find(x=>x.name===name)||myLabels().find(x=>x.name===name);return l?l.color:'#6C7A93';}
 function labelsBlock(l){
   const cur=l.labels||[];const editable=can('edit',l);
   const chip=(n,rm)=>`<span class="lchip" style="background:${labelColor(n)}">${escapeHtml(n)}${rm?`<span class="rm" onclick="removeLabel('${l.id}','${n.replace(/'/g,"&#39;")}')">×</span>`:''}</span>`;
   const chips=cur.map(n=>chip(n,editable)).join(' ');
   if(!editable)return cur.length?`<div class="block"><label>Labels</label><div style="display:flex;flex-wrap:wrap;gap:6px">${chips}</div></div>`:'';
-  const avail=myLabels().filter(x=>!cur.includes(x.name));
-  const availChips=avail.map(x=>`<button class="lchip" style="background:${x.color};border:none;cursor:pointer;padding:3px 10px" onclick="attachLabel('${l.id}','${x.name.replace(/'/g,"&#39;")}')">+ ${escapeHtml(x.name)}</button>`).join(' ');
+  const avail=allLabels().filter(x=>!cur.includes(x.name));
+  const owns=n=>myLabels().some(m=>m.name===n);
+  const availChips=avail.map(x=>{const nm=x.name.replace(/'/g,"&#39;");return `<span style="display:inline-flex;align-items:center;gap:3px">`+
+    `<button class="lchip" style="background:${x.color};border:none;cursor:pointer;padding:3px 10px" onclick="attachLabel('${l.id}','${nm}')">+ ${escapeHtml(x.name)}</button>`+
+    (owns(x.name)?`<button title="Delete this label from the list" onclick="deleteLabel('${nm}')" style="border:none;background:none;color:var(--soft);cursor:pointer;font-size:15px;line-height:1;padding:0 1px">×</button>`:'')+
+    `</span>`;}).join(' ');
   return `<div class="block"><label>Labels</label>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:${avail.length?'10px':'8px'}">${chips||'<span style="color:var(--soft);font-size:12.5px">None attached</span>'}</div>
     ${avail.length?`<div style="font-size:11px;color:var(--soft);margin-bottom:5px">Tap a label to add it:</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${availChips}</div>`:''}
@@ -1408,7 +1415,12 @@ function labelsBlock(l){
       <input class="field" id="lbl_new_${l.id}" placeholder="Make a new label…"/>
       <input type="color" id="lbl_col_${l.id}" value="#2C5D80" title="Pick a colour" style="width:46px;height:38px;padding:3px;border:1px solid var(--line);border-radius:9px;background:#fff;cursor:pointer;flex:none"/>
       <button class="btn" style="white-space:nowrap" onclick="createLabelFor('${l.id}')">Create &amp; add</button></div>
-    <div class="ai-tag" style="margin-top:8px">Your labels are personal — create as many as you like (e.g. <b>NRI</b>, <b>Hot lead</b>, <b>Loan case</b>) and tap to tag any lead.</div></div></div>`;
+    <div class="ai-tag" style="margin-top:8px">Labels are shared with your whole team — anyone can tag with them. You can delete the ones you created (×). e.g. <b>NRI</b>, <b>Hot lead</b>, <b>Loan case</b>.</div></div></div>`;
+}
+async function deleteLabel(name){
+  if(!confirm('Delete the label “'+name+'”? Leads already tagged keep the tag; it just leaves the label list.'))return;
+  const list=myLabels().filter(x=>x.name!==name);
+  if(await savePrefs(Object.assign({},myPrefs,{labels:list})))await refresh();
 }
 async function attachLabel(id,name){const l=db.leads.find(x=>x.id===id);if(!can('edit',l)||!name)return;const set=Array.from(new Set([...(l.labels||[]),name]));if(!await updateLead(id,{labels:set}))return;await refresh();}
 function attachLabelPick(id){const v=(document.getElementById('lbl_pick_'+id)||{}).value;if(v)attachLabel(id,v);}
@@ -1846,8 +1858,9 @@ function taskBlock(l){
   let form='';
   if(canAssign){
     const people=assigneePeople(l);
-    const opts=`<option value="">— choose person —</option>`+people.map(u=>`<option value="${u.id}" ${l.ownerId===u.id?'selected':''}>${escapeHtml(u.name)}${roleTag(u)}${l.ownerId===u.id?' · owner':''}</option>`).join('');
-    form=`<div style="margin-top:10px"><div class="r" style="gap:8px;margin-bottom:8px;align-items:center"><span style="font-size:12px;color:var(--soft);white-space:nowrap">Assign to</span><select class="field" id="task_to" style="max-width:230px">${opts}</select></div>
+    const cbs=people.map(u=>`<label style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;background:#F7F9FB;border:1px solid var(--line);border-radius:8px;padding:4px 9px"><input type="checkbox" class="task_to_cb" value="${u.id}" ${l.ownerId===u.id?'checked':''}/> ${escapeHtml(u.name)}${roleTag(u)}${l.ownerId===u.id?' · owner':''}</label>`).join(' ');
+    form=`<div style="margin-top:10px"><div style="font-size:12px;color:var(--soft);margin-bottom:6px">Assign to <b>one or more</b> people</div>
+      <div id="task_to" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">${cbs||'<span style="color:var(--soft);font-size:12.5px">No teammates to assign.</span>'}</div>
       <textarea class="field" id="task_new" placeholder="e.g. Which competitor did we lose to? Add any details."></textarea>
       <div style="margin-top:8px"><button class="btn" onclick="assignTask('${l.id}')">Assign task</button></div></div>`;
   }
@@ -1855,13 +1868,14 @@ function taskBlock(l){
 }
 async function assignTask(id){
   const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;
-  const to=((document.getElementById('task_to')||{}).value)||'';
-  if(!to){alert('Choose who to assign the task to.');return;}
+  const ids=Array.from(document.querySelectorAll('.task_to_cb')).filter(c=>c.checked).map(c=>c.value);
+  if(!ids.length){alert('Pick at least one person to assign the task to.');return;}
   const el=document.getElementById('task_new');const body=(el&&el.value||'').trim();
   if(!body){alert('Type the task first.');if(el)el.focus();return;}
-  const {error}=await sb.from('tasks').insert({company_id:myCompanyId,lead_id:l.id,lead_name:l.name,assigned_to:to,assigned_by:session,body,status:'open'});
+  const rows=ids.map(to=>({company_id:myCompanyId,lead_id:l.id,lead_name:l.name,assigned_to:to,assigned_by:session,body,status:'open'}));
+  const {error}=await sb.from('tasks').insert(rows);
   if(error){alert('Could not assign: '+error.message);return;}
-  await addActivityRow(id,{kind:'system',body:'Assigned a task to '+userName(to)+': '+body});
+  await addActivityRow(id,{kind:'system',body:'Assigned a task to '+ids.map(userName).join(', ')+': '+body});
   await refresh();
 }
 async function completeTask(tid){
