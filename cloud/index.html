@@ -2485,7 +2485,10 @@ function fnlBuildDS(leads,keyFn){const m={};leads.forEach(l=>{const k=keyFn(l);i
 function fnlDsTable(m,label){const cols=[...DEAL_STATUSES,'Revisits'];const keys=Object.keys(m).sort();if(!keys.length)return '<div class="locked-note">Nothing in this window.</div>';
   return `<table style="box-shadow:none"><thead><tr><th>${label}</th>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${keys.map(k=>`<tr><td><b class="mono">${k}</b></td>${cols.map(c=>{const arr=m[k][c]||[];return `<td class="mono">${arr.length?drillN(arr,label+' · '+k+' · '+c):'0'}</td>`;}).join('')}</tr>`).join('')}</tbody></table>`;}
 /* ---- drag-to-reorder panels (funnel / stats / ageing) ---- */
-function panelKey(el,i){const h=el.querySelector('h3')||el.querySelector(':scope > label');let b=h?h.textContent.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''):(el.classList.contains('split')?'split':'blk');return b||('blk'+i);}
+function panelKey(el,i){const h=el.querySelector('h3')||el.querySelector(':scope > label');
+  // use only the heading's DIRECT text (ignore dynamic badges/counts in child <span>s) so the key is stable across leads & states
+  let txt='';if(h){txt=Array.from(h.childNodes).filter(n=>n.nodeType===3).map(n=>n.textContent).join('').trim();if(!txt)txt=h.textContent.trim();}
+  let b=txt?txt.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''):(el.classList.contains('split')?'split':'blk');return b||('blk'+i);}
 function reorderables(container,pred){return [...container.children].filter(pred||(el=>el.classList.contains('panel')||el.classList.contains('split')));}
 function savePanelOrder(container,sectionKey,pred){const order=reorderables(container,pred).map(el=>el.dataset.pk);const po=Object.assign({},myPrefs.panelOrder||{});po[sectionKey]=order;const next=Object.assign({},myPrefs,{panelOrder:po});myPrefs=next;/* apply in-memory now so any re-render keeps the new order */savePrefs(next);/* persist in background */}
 function makeReorderable(container,sectionKey,pred){
