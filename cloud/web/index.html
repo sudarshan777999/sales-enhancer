@@ -1471,7 +1471,7 @@ async function rcSubmit(){
   const walkin_source=src==='CP'?'CP':'Direct';
   const src_detail=src==='CP'?'Channel Partner':(sub||'Direct');
   const revisit=!!(document.getElementById('rc_revisit')||{}).checked;
-  const row={company_id:myCompanyId,project_id:projId(owner?owner.project:null),owner_id:ownerId,name,phone:'',email:'',source:'walkin',src_detail,walkin_source,cp_name:src==='CP'?cp:'',location:v('rc_location'),company_name:'',budget:'',notes:'',stage:'assigned',qualified:null,temp:null,next_follow_up:null,pending_revisit:revisit,via_gre:true,assigned_at:date,created_at:date,created_by:session};
+  const row={company_id:myCompanyId,project_id:projId(owner?owner.project:null),owner_id:ownerId,name,phone:'',email:'',source:'walkin',src_detail,walkin_source,cp_name:src==='CP'?cp:'',location:v('rc_location'),company_name:'',budget:'',notes:'',stage:'assigned',qualified:null,temp:null,next_follow_up:addDays(2),pending_revisit:revisit,via_gre:true,assigned_at:date,created_at:date,created_by:session};
   const btn=document.querySelector('.rc-submit');if(btn){btn.disabled=true;btn.textContent='Saving…';}
   const {error}=await sb.from('leads').insert(row);
   if(btn){btn.disabled=false;btn.textContent='＋ Add walk-in';}
@@ -1790,9 +1790,9 @@ function renderDrawer(){
     <div class="dr-body">
       <div class="det"><label onclick="this.closest('.det').classList.toggle('open')"><span class="det-caret">▸</span> Personal details</label>
         <div class="det-body">${facts.map(([k,v,m])=>`<div class="fact"><div class="k">${k}</div><div class="v ${m?'mono':''}">${v}</div></div>`).join('')}</div></div>
+      ${dealCoachBlock(l)}
       <div class="dr-cols">
         <div class="dr-left">
-          ${dealCoachBlock(l)}
           ${revisitMergeBlock(l)}
           ${taskBlock(l)}
           ${updateBlock(l)}
@@ -2388,7 +2388,7 @@ async function saveLead(){
   const refLink=(modalSrc==='walkin'&&wsource==='Referral')?(document.getElementById('m_reflink').value||null):null;
   const wdate=modalSrc==='walkin'?(document.getElementById('m_walkindate').value||iso(today())):iso(today());
   const srcTxt=modalSrc==='digital'?('Lead captured from '+srcDetail):('Walk-in at '+srcDetail+' ('+(wsource==='CP'?('CP'+(cpName?' · '+cpName:'')):wsource==='Referral'?('Referral'+(refName?' · '+refName:'')):'Direct')+')');
-  const row={company_id:myCompanyId,project_id:projId(project),owner_id:ownerId,name,phone:'',email:document.getElementById('m_email').value.trim(),source:modalSrc,src_detail:srcDetail,walkin_source:wsource,cp_name:cpName,location:modalSrc==='walkin'?document.getElementById('m_location').value.trim():'',company_name:modalSrc==='walkin'?document.getElementById('m_company').value.trim():'',budget:document.getElementById('m_budget').value.trim(),notes:document.getElementById('m_notes').value.trim(),stage,qualified:null,temp:null,next_follow_up:null,walkin_phase:modalSrc==='walkin'?(document.getElementById('m_phase').value||null):null,referral_name:refName||null,referral_lead_id:refLink,assigned_at:(ownerId?wdate:null),created_at:wdate,created_by:session};
+  const row={company_id:myCompanyId,project_id:projId(project),owner_id:ownerId,name,phone:'',email:document.getElementById('m_email').value.trim(),source:modalSrc,src_detail:srcDetail,walkin_source:wsource,cp_name:cpName,location:modalSrc==='walkin'?document.getElementById('m_location').value.trim():'',company_name:modalSrc==='walkin'?document.getElementById('m_company').value.trim():'',budget:document.getElementById('m_budget').value.trim(),notes:document.getElementById('m_notes').value.trim(),stage,qualified:null,temp:null,next_follow_up:(modalSrc==='walkin'?addDays(2):null),walkin_phase:modalSrc==='walkin'?(document.getElementById('m_phase').value||null):null,referral_name:refName||null,referral_lead_id:refLink,assigned_at:(ownerId?wdate:null),created_at:wdate,created_by:session};
   const {data,error}=await sb.from('leads').insert(row).select().single();
   if(error){alert('Could not save the lead: '+error.message);return;}
   await addActivityRow(data.id,{kind:'system',body:srcTxt+' by '+u.name,date:wdate});
@@ -2920,7 +2920,15 @@ function dealCoach(l){
 }
 async function coachFollow(id,days){const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;const date=addDays(days);if(!await updateLead(id,{next_follow_up:date}))return;await addActivityRow(id,{kind:'note',body:'Follow-up set via Deal Coach',next:date});await refresh();}
 function dealCoachBlock(l){
-  const t=dealCoach(l);if(!t)return '';
+  const t=dealCoach(l);
+  if(!t){
+    const lbl=l.stage==='booked'?'Booked — deal won 🎉':l.stage==='lost'?'Closed lost':l.stage==='not_qualified'?'Not qualified':'No action needed';
+    return `<div class="block coach"><label>🧭 Deal Coach — next best action</label>
+      <div style="border:1px solid var(--line);border-left:3px solid #98A2B0;border-radius:10px;padding:12px 14px;background:#FAFBFC">
+        <div style="font-family:'Space Grotesk';font-weight:600;font-size:14px;color:var(--soft)">${lbl}</div>
+        <div style="color:var(--soft);font-size:12.5px;margin-top:3px">Nothing to do here — this lead is closed.</div>
+      </div></div>`;
+  }
   const dot=t.cls==='hot'?'#C0524A':t.cls==='warm'?'#E0A32E':'#4A6FA5';
   const editable=can('edit',l);let btn='';
   if(editable){
