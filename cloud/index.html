@@ -1920,26 +1920,46 @@ async function mergeRevisit(rId){
 }
 function updateBlock(l){
   if(!can('edit',l))return '';
+  const u=currentUser();
+  const mustFollow=!!(u&&u.role==='sales'&&l.source==='walkin'&&isOpenLead(l));
   const d=l.nextFollowUp?dueState(l.nextFollowUp):null;
   const badge=d?`<span class="pill ${d.cls}" style="margin-left:8px">${clock}${d.cls==='over'?'Overdue':d.cls==='today'?'Today':fmtDate(l.nextFollowUp)}</span>`:'';
   const cbLab='display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink);cursor:pointer;text-transform:none;letter-spacing:normal;font-weight:500';
+  const rvCtrl=`<label style="${cbLab}"><input type="checkbox" id="upd_rv_${l.id}" onchange="document.getElementById('upd_rvd_${l.id}').style.display=this.checked?'':'none'"/> Log as a revisit</label>
+        <input type="date" class="field" id="upd_rvd_${l.id}" style="display:none;max-width:170px" value="${iso(today())}"/>`;
+  const fuControls=mustFollow
+    ? `<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:11px;align-items:center">
+        <span style="font-size:13px;font-weight:600;color:var(--ink)">Next follow-up <span class="req">*</span></span>
+        <input type="date" class="field" id="upd_fud_${l.id}" style="max-width:170px" value="${addDays(2)}"/>
+        <span style="font-size:12px;color:var(--soft)">Required for walk-ins — defaults to 2 days out.</span>
+        ${rvCtrl}
+      </div>`
+    : `<div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:11px;align-items:center">
+        <label style="${cbLab}"><input type="checkbox" id="upd_fu_${l.id}" onchange="document.getElementById('upd_fud_${l.id}').style.display=this.checked?'':'none'"/> Set a follow-up</label>
+        <input type="date" class="field" id="upd_fud_${l.id}" style="display:none;max-width:170px" value="${l.nextFollowUp||addDays(3)}"/>
+        ${rvCtrl}
+      </div>`;
   return `<div class="block upd"><label>Add an update ${badge}</label>
     <div class="fu-form">
       <textarea class="field" id="upd_note_${l.id}" placeholder="What happened? A note, a call, a visit…" style="min-height:64px"></textarea>
-      <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:11px;align-items:center">
-        <label style="${cbLab}"><input type="checkbox" id="upd_fu_${l.id}" onchange="document.getElementById('upd_fud_${l.id}').style.display=this.checked?'':'none'"/> Set a follow-up</label>
-        <input type="date" class="field" id="upd_fud_${l.id}" style="display:none;max-width:170px" value="${l.nextFollowUp||addDays(3)}"/>
-        <label style="${cbLab}"><input type="checkbox" id="upd_rv_${l.id}" onchange="document.getElementById('upd_rvd_${l.id}').style.display=this.checked?'':'none'"/> Log as a revisit</label>
-        <input type="date" class="field" id="upd_rvd_${l.id}" style="display:none;max-width:170px" value="${iso(today())}"/>
-      </div>
+      ${fuControls}
       <div style="margin-top:11px"><button class="btn" onclick="saveUpdate('${l.id}')">Save update</button></div>
     </div></div>`;
 }
 async function saveUpdate(id){
   const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;
+  const u=currentUser();
+  const mustFollow=!!(u&&u.role==='sales'&&l.source==='walkin'&&isOpenLead(l));
   const note=((document.getElementById('upd_note_'+id)||{}).value||'').trim();
-  const fuOn=!!(document.getElementById('upd_fu_'+id)||{}).checked;
-  const fuDate=fuOn?((document.getElementById('upd_fud_'+id)||{}).value||''):'';
+  let fuOn,fuDate;
+  if(mustFollow){
+    fuDate=((document.getElementById('upd_fud_'+id)||{}).value||'');
+    if(!fuDate){alert('Please set the next follow-up date — it’s required for walk-ins.');return;}
+    fuOn=true;
+  } else {
+    fuOn=!!(document.getElementById('upd_fu_'+id)||{}).checked;
+    fuDate=fuOn?((document.getElementById('upd_fud_'+id)||{}).value||''):'';
+  }
   const rvOn=!!(document.getElementById('upd_rv_'+id)||{}).checked;
   const rvDate=rvOn?((document.getElementById('upd_rvd_'+id)||{}).value||iso(today())):'';
   if(!note&&!fuOn&&!rvOn){alert('Type an update, or tick follow-up / revisit.');return;}
@@ -2891,7 +2911,11 @@ function dealCoach(l){
   if(l.pendingRevisit)tips.push({pri:70,label:'Merge the revisit',why:'The front desk logged a revisit that needs merging.',act:''});
   if(idle>=10)tips.push({pri:72,label:'Going cold',why:`${idle} days untouched — re-engage.`,act:'follow'});
   if(l.stage==='new')tips.push({pri:66,label:'Work the new lead',why:'Freshly captured — make first contact.',act:''});
-  if(!tips.length)return null;
+  if(!tips.length){
+    if(l.stage==='assigned')tips.push({pri:60,label:'Qualify or disqualify',why:'Decide whether to pursue this lead, then set the next step.',act:'qualify'});
+    else if(l.stage==='qualified')tips.push({pri:50,label:'Keep it moving',why:l.nextFollowUp?('On track — next follow-up '+fmtDate(l.nextFollowUp)+'. Keep nudging toward a booking.'):'Keep nudging toward a booking.',act:l.nextFollowUp?'':'follow'});
+    else tips.push({pri:45,label:'Keep it moving',why:'Make the next contact and log an update.',act:''});
+  }
   tips.sort((a,b)=>b.pri-a.pri);const t=tips[0];t.cls=t.pri>=85?'hot':t.pri>=70?'warm':'cool';return t;
 }
 async function coachFollow(id,days){const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;const date=addDays(days);if(!await updateLead(id,{next_follow_up:date}))return;await addActivityRow(id,{kind:'note',body:'Follow-up set via Deal Coach',next:date});await refresh();}
