@@ -1808,6 +1808,7 @@ function renderDrawer(){
           ${revisitMergeBlock(l)}
           ${taskBlock(l)}
           ${updateBlock(l)}
+          ${waNudgeBlock(l)}
           ${visitsBlock(l)}
           ${labelsBlock(l)}
           ${phaseBlock(l)}
@@ -2958,6 +2959,100 @@ function dealCoachBlock(l){
       <div style="color:var(--soft);font-size:12.5px;margin-top:3px">${t.why}</div>
       ${btn?`<div style="margin-top:10px">${btn}</div>`:''}
     </div></div>`;
+}
+/* ===================== WhatsApp nudge · AI 3-tone follow-ups ===================== */
+const waCache={};                 // leadId -> {analysis, recommendedTone, messages}
+const waActiveTone={};            // leadId -> currently shown tone
+function waStale(l){
+  const idle=daysUntouched(l);
+  const overdue=!!(l.stage==='qualified'&&l.nextFollowUp&&(dueState(l.nextFollowUp)||{}).cls==='over');
+  let level,tone;
+  if(overdue||(idle!=null&&idle>=7)){level='gone quiet';tone='urgent';}
+  else if(idle!=null&&idle>=3){level='slowing down';tone='firm';}
+  else {level='still warm';tone='nudge';}
+  return {level,tone,days:idle,overdue};
+}
+function waPhone(l){let p=String(l.phone||'').replace(/\D/g,'');if(!p)return'';if(p.length===10)p='91'+p;else if(p.length===11&&p[0]==='0')p='91'+p.slice(1);return p;}
+function waComments(l){
+  const out=(l.log||[]).filter(e=>(e.kind==='note'||e.kind==='revisit')&&e.t&&String(e.t).trim())
+    .map(e=>({date:e.d||'',text:String(e.t)}));
+  if(l.notes&&String(l.notes).trim())out.unshift({date:'',text:String(l.notes).trim()});
+  return out;
+}
+async function waSuggest(id){
+  const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;
+  const st=waStale(l);
+  const rep=(l.ownerId?userName(l.ownerId):'')||((currentUser()||{}).name||'');
+  const b=document.getElementById('wa_go_'+id);if(b){b.disabled=true;b.textContent='Reading the comments…';}
+  try{
+    const {data,error}=await sb.functions.invoke('suggest-whatsapp',{body:{lead:{
+      name:l.name, project:l.project||'', rep,
+      stale:{level:st.level,days:st.days,overdue:st.overdue},
+      comments:waComments(l)
+    }}});
+    if(error)throw new Error(error.message||'request failed');
+    if(!data||!data.messages)throw new Error((data&&data.error)||'no suggestion returned');
+    const rec=['nudge','firm','urgent'].includes(data.recommendedTone)?data.recommendedTone:st.tone;
+    waCache[id]={analysis:data.analysis||'',recommendedTone:rec,messages:data.messages};
+    waActiveTone[id]=rec;
+    if(openId===id)renderDrawer();
+  }catch(e){
+    if(b){b.disabled=false;b.textContent='✨ Suggest WhatsApp messages';}
+    alert('Could not generate messages: '+(e.message||e)+'\n\nIf this keeps happening, the AI helper may not be set up on this environment yet.');
+  }
+}
+function waNudgeBlock(l){
+  if(l.source!=='walkin')return '';
+  if(!isOpenLead(l))return '';
+  if(!can('edit',l))return '';
+  const st=waStale(l);
+  const levelTxt={'still warm':'looks still warm','slowing down':'is slowing down','gone quiet':'has gone quiet'}[st.level];
+  const c=waCache[l.id];
+  const head=`<label>💬 WhatsApp nudge</label>`;
+  if(!c){
+    return `<div class="block">${head}
+      <div style="font-size:12.5px;color:var(--soft);margin-bottom:10px">This lead <b style="color:var(--ink)">${levelTxt}</b>${st.days!=null?` · ${st.days} day${st.days===1?'':'s'} since the last update`:''}. Get three ready-to-send follow-ups — written from this lead's own comments — each crafted to actually pull a reply.</div>
+      <button class="btn" id="wa_go_${l.id}" onclick="waSuggest('${l.id}')">✨ Suggest WhatsApp messages</button></div>`;
+  }
+  const active=waActiveTone[l.id]||c.recommendedTone;
+  const ph=waPhone(l);
+  const meta={nudge:['Nudge','2C9C9A'],firm:['Firm','E0A32E'],urgent:['Urgent','C0524A']};
+  const seg=['nudge','firm','urgent'].map(t=>{
+    const[lab,col]=meta[t];const on=t===active;const rc=t===c.recommendedTone;
+    return `<button type="button" class="wa-tone" data-t="${t}" onclick="waSetTone('${l.id}','${t}')" style="border:1px solid #${col};color:${on?'#fff':'#'+col};background:${on?'#'+col:'transparent'};border-radius:20px;padding:5px 13px;font-size:12.5px;font-weight:600;cursor:pointer">${lab}${rc?' · suggested':''}</button>`;
+  }).join(' ');
+  const msg=(c.messages&&c.messages[active])||'';
+  return `<div class="block">${head}
+    ${c.analysis?`<div style="font-size:12.5px;color:var(--soft);margin-bottom:10px;line-height:1.5">🧠 <b style="color:var(--ink)">Read on this lead:</b> ${escapeHtml(c.analysis)}</div>`:''}
+    <div id="wa_seg_${l.id}" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px">${seg}</div>
+    <textarea class="field" id="wa_msg_${l.id}" style="min-height:118px;line-height:1.5">${escapeHtml(msg)}</textarea>
+    <div class="r" style="gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap">
+      ${ph?`<button class="btn" onclick="waOpen('${l.id}')">Open in WhatsApp</button>`:`<span style="font-size:12px;color:var(--soft)">Add a phone number to send on WhatsApp</span>`}
+      <button class="act" onclick="waCopy('${l.id}')">Copy</button>
+      <button class="act" onclick="waSuggest('${l.id}')">↻ Regenerate</button>
+    </div>
+    <div class="ai-tag" style="margin-top:9px">Written by AI from this lead's comments &amp; activity. Pick a tone, edit freely, then send — always review before sending.</div>
+  </div>`;
+}
+function waSetTone(id,tone){
+  const c=waCache[id];if(!c)return;
+  waActiveTone[id]=tone;
+  const ta=document.getElementById('wa_msg_'+id);if(ta)ta.value=(c.messages&&c.messages[tone])||'';
+  const seg=document.getElementById('wa_seg_'+id);
+  if(seg){const meta={nudge:'2C9C9A',firm:'E0A32E',urgent:'C0524A'};const lab={nudge:'Nudge',firm:'Firm',urgent:'Urgent'};
+    seg.querySelectorAll('.wa-tone').forEach(b=>{const t=b.dataset.t;const on=t===tone;const rc=t===c.recommendedTone;
+      b.style.background=on?'#'+meta[t]:'transparent';b.style.color=on?'#fff':'#'+meta[t];b.textContent=lab[t]+(rc?' · suggested':'');});}
+}
+function waOpen(id){
+  const l=db.leads.find(x=>x.id===id);if(!l)return;const ph=waPhone(l);
+  if(!ph){alert('No phone number on this lead.');return;}
+  const msg=((document.getElementById('wa_msg_'+id)||{}).value)||'';
+  window.open('https://wa.me/'+ph+'?text='+encodeURIComponent(msg),'_blank');
+}
+function waCopy(id){
+  const ta=document.getElementById('wa_msg_'+id);if(!ta)return;ta.focus();ta.select();
+  try{navigator.clipboard.writeText(ta.value);}catch(e){try{document.execCommand('copy');}catch(_){}}
+  if(typeof showToast==='function')showToast({icon:'📋',title:'Copied',msg:'Message copied to clipboard',autoHide:2200});
 }
 function neglectedLeads(memberId){return db.leads.filter(l=>!l.mergedInto&&l.ownerId===memberId&&isOpenLead(l)&&(
   (l.stage==='qualified'&&l.nextFollowUp&&dueState(l.nextFollowUp).cls==='over')||
