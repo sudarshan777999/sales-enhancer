@@ -1076,11 +1076,12 @@ async function renderTeam(){
         <div class="r" style="gap:8px;margin-top:8px"><select class="field" id="inv_project">${projOpts}</select><button class="btn" style="white-space:nowrap" onclick="inviteTeammate()">Create invite link</button></div>
         <div class="ai-tag" style="margin-top:8px">You'll get a link to send them (WhatsApp etc.). They open it, set a password, and they're in — with the role &amp; project you picked.</div>
       </div></div>
-    <div class="block"><label>Create a front-desk login (username + password)</label>
+    <div class="block"><label>Create a login (username + password — no email needed)</label>
       <div class="fu-form">
-        <div class="r" style="gap:8px"><input class="field" id="fd_user" placeholder="Username (e.g. gre_earthscape)" autocomplete="off"/><input class="field" id="fd_pass" type="text" placeholder="Password (min 6 chars)" autocomplete="off"/></div>
-        <div style="margin-top:8px"><button class="btn" id="fd_btn" onclick="createFrontDeskLogin()">Create login</button></div>
-        <div class="ai-tag" style="margin-top:8px">Instantly makes a <b>Receptionist</b> account — no email needed. They sign in with this username &amp; password and land on the walk-in entry screen; every walk-in they add goes to the salesperson they pick.</div>
+        <div class="r" style="gap:8px"><input class="field" id="fd_name" placeholder="Full name (e.g. Amartya)" autocomplete="off"/></div>
+        <div class="r" style="gap:8px;margin-top:8px"><input class="field" id="fd_user" placeholder="Username (e.g. amartya_earthscape)" autocomplete="off"/><input class="field" id="fd_pass" type="text" placeholder="Password (min 6 chars)" autocomplete="off"/></div>
+        <div class="r" style="gap:8px;margin-top:8px"><select class="field" id="fd_role" onchange="fdRoleToggle()"><option value="sales">Salesperson</option><option value="reception">Receptionist (front desk)</option></select><select class="field" id="fd_project">${projOpts}</select><button class="btn" id="fd_btn" style="white-space:nowrap" onclick="createLoginNow()">Create login</button></div>
+        <div class="ai-tag" style="margin-top:8px"><b>Salesperson</b> logins can own leads and appear instantly in the front-desk "assign to" list. <b>Receptionist</b> logins land on the walk-in entry screen. Give them the username &amp; password to sign in.</div>
       </div></div>
     ${invs&&invs.length?`<div class="block"><label>Pending invites</label>${invRows}</div>`:''}`;
 }
@@ -1093,26 +1094,33 @@ async function inviteTeammate(){
   if(error){alert('Could not create invite: '+error.message);return;}
   await renderTeam();copyText(inviteLink(data.token));
 }
-async function createFrontDeskLogin(){
+function fdRoleToggle(){const isSales=(document.getElementById('fd_role')||{}).value==='sales';const pr=document.getElementById('fd_project');if(pr)pr.style.display=isSales?'':'none';}
+async function createLoginNow(){
   if(currentUser().role!=='sales_head')return;
   const uname=((document.getElementById('fd_user')||{}).value||'').trim();
   const pw=((document.getElementById('fd_pass')||{}).value||'');
-  if(!uname){alert('Enter a username, e.g. gre_earthscape');return;}
+  const role=((document.getElementById('fd_role')||{}).value||'sales');
+  const fullName=((document.getElementById('fd_name')||{}).value||'').trim()||uname;
+  const project=(document.getElementById('fd_project')||{}).value||'';
+  if(!uname){alert('Enter a username, e.g. amartya_earthscape');return;}
   if(pw.length<6){alert('Password must be at least 6 characters.');return;}
   const email=toEmail(uname);
+  const project_id=role==='sales'?(projId(project)||null):null;
   const btn=document.getElementById('fd_btn');if(btn){btn.disabled=true;btn.textContent='Creating…';}
   try{
-    const {data:inv,error:e1}=await sb.from('invitations').insert({company_id:myCompanyId,email,role:'reception',project_id:null,status:'pending'}).select().single();
+    const {data:inv,error:e1}=await sb.from('invitations').insert({company_id:myCompanyId,email,role,project_id,status:'pending'}).select().single();
     if(e1)throw new Error(/role|check/i.test(e1.message)?'Please run the receptionist database update first, then try again.':e1.message);
     const sb2=supabase.createClient(ENV.url,ENV.anon,{auth:{storageKey:'bm_tmp_'+Date.now(),persistSession:false,autoRefreshToken:false}});
     const {data:su,error:e2}=await sb2.auth.signUp({email,password:pw});
     if(e2)throw new Error(/registered|already/i.test(e2.message)?'That username is already taken.':e2.message);
     if(!su.session)throw new Error('Email confirmation is ON in Supabase — turn it OFF (Auth → Providers → Email) to create logins this way.');
-    const {error:e3}=await sb2.rpc('accept_invite',{p_token:inv.token,full_name:uname});
+    const {error:e3}=await sb2.rpc('accept_invite',{p_token:inv.token,full_name:fullName});
     if(e3)throw new Error(/role|check/i.test(e3.message)?'Please run the receptionist database update first, then try again.':e3.message);
     await sb2.auth.signOut();
     await loadAll();await renderTeam();
-    alert('✓ Front-desk login created.\n\nUsername:  '+uname+'\nPassword:  '+pw+'\n\nThey can sign in with these now — they land straight on the walk-in entry screen.');
+    const where=role==='sales'?(project?(' for '+project):''):'';
+    const lands=role==='sales'?'They can sign in now and will see their own leads. They now appear in the front-desk "assign to" list'+where+'.':'They can sign in now — they land straight on the walk-in entry screen.';
+    alert('✓ Login created — '+(role==='sales'?'Salesperson':'Receptionist')+where+'.\n\nName:      '+fullName+'\nUsername:  '+uname+'\nPassword:  '+pw+'\n\n'+lands);
   }catch(err){alert('Could not create login: '+(err.message||err));}
   finally{const b=document.getElementById('fd_btn');if(b){b.disabled=false;b.textContent='Create login';}}
 }
