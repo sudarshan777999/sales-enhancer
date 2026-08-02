@@ -1276,8 +1276,8 @@ function openInterestEmail(l,proj,note){
   const body=`Hi,\n\n${l.name}${l.phone?' ('+l.phone+')':''}, currently a ${l.project||'—'} lead, has expressed interest in ${proj}.\n`
     +(note?`\nWhat they said: ${note}\n`:'')
     +`\nPlease follow up with them for ${proj}.\n\nShared by ${me?me.name:''} via Sales Enhancer.`;
-  const url='mailto:'+to+'?'+(cc?'cc='+encodeURIComponent(cc)+'&':'')+'subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
-  window.location.href=url;
+  const url='https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(to)+(cc?'&cc='+encodeURIComponent(cc):'')+'&su='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+  window.open(url,'_blank');   // opens a Gmail compose draft in a new tab
   return true;
 }
 async function flagInterest(leadId){
@@ -1310,7 +1310,7 @@ function interestBlock(l){
   return `<div class="block"><label>Interested in another B&amp;M project?</label>
     <div class="fu-form"><div class="r" style="gap:8px"><select class="field" id="ci_proj"><option value="">Choose a project…</option>${others.map(p=>`<option>${p}</option>`).join('')}</select><button class="btn" style="white-space:nowrap" onclick="flagInterest('${l.id}')">Flag interest</button></div>
     <textarea class="field" id="ci_note" placeholder="What did they say? (optional)" style="margin-top:8px"></textarea>
-    <div class="ai-tag" style="margin-top:8px">Notifies that project's head in-app, shows in the Sales Head's cross-project bucket, and opens an email to the project head (cc you) ready to send.</div></div>${flagHTML}</div>`;
+    <div class="ai-tag" style="margin-top:8px">Notifies that project's head in-app, shows in the Sales Head's cross-project bucket, and opens a Gmail draft to the project head (cc you) ready to send.</div></div>${flagHTML}</div>`;
 }
 
 /* ============ scope + filter ============ */
@@ -1831,11 +1831,9 @@ function renderDrawer(){
     <div class="dr-body">
       <div class="det"><label onclick="this.closest('.det').classList.toggle('open')"><span class="det-caret">▸</span> Personal details</label>
         <div class="det-body">${facts.map(([k,v,m])=>`<div class="fact"><div class="k">${k}</div><div class="v ${m?'mono':''}">${v}</div></div>`).join('')}</div></div>
-      ${dealCoachBlock(l)}
-      ${pinnedDealBlocks(l)}
-      ${updateBlock(l)}
       <div class="dr-cols">
         <div class="dr-left">
+          <div class="dr-fixed">${dealCoachBlock(l)}${pinnedDealBlocks(l)}${updateBlock(l)}</div>
           ${revisitMergeBlock(l)}
           ${taskBlock(l)}
           ${waNudgeBlock(l)}
@@ -1890,19 +1888,31 @@ function taskBlock(l){
   if(canAssign){
     const people=assigneePeople(l);
     const opts=people.map(u=>`<option value="${u.id}">${escapeHtml(u.name)}${roleTag(u)}${l.ownerId===u.id?' · owner':''}</option>`).join('');
-    form=people.length?`<div style="margin-top:10px"><div style="font-size:12px;color:var(--soft);margin-bottom:6px">Assign to</div>
-      <select class="field" id="task_to">${people.length>1?`<option value="__all__">Everyone (${people.length})</option>`:''}${opts}</select>
+    form=people.length?`<div style="margin-top:10px"><div style="font-size:12px;color:var(--soft);margin-bottom:6px">Assign to (pick one or more)</div>
+      <div id="task_chips" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+      <select class="field" id="task_pick" style="margin-top:6px" onchange="taskPick('${l.id}')"><option value="">＋ Add a person…</option>${opts}</select>
       <textarea class="field" id="task_new" placeholder="e.g. Which competitor did we lose to? Add any details." style="margin-top:8px"></textarea>
       <div style="margin-top:8px"><button class="btn" onclick="assignTask('${l.id}')">Assign task</button></div></div>`
       :`<div class="ai-tag" style="margin-top:8px">No teammates to assign.</div>`;
   }
   return `<div class="block"><label>Tasks${mine.length?` <span class="tchip" style="background:#FBE9E7;color:#A03027">${mine.length} for you</span>`:''}</label>${rows||'<div class="ai-tag">No tasks yet.</div>'}${form}</div>`;
 }
+function taskPick(id){
+  const sel=document.getElementById('task_pick');if(!sel||!sel.value)return;
+  const pid=sel.value,nm=sel.options[sel.selectedIndex].text;
+  const box=document.getElementById('task_chips');
+  if(box&&!box.querySelector('[data-id="'+pid+'"]')){
+    const chip=document.createElement('span');chip.dataset.id=pid;
+    chip.style.cssText='display:inline-flex;align-items:center;gap:5px;background:#EEF2F7;border:1px solid var(--line);border-radius:14px;padding:3px 5px 3px 11px;font-size:12.5px';
+    chip.innerHTML=escapeHtml(nm)+' <button type="button" title="Remove" onclick="this.parentNode.remove()" style="border:none;background:none;cursor:pointer;font-size:15px;line-height:1;color:var(--soft);padding:0 2px">×</button>';
+    box.appendChild(chip);
+  }
+  sel.value='';
+}
 async function assignTask(id){
   const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;
-  const sel=(document.getElementById('task_to')||{}).value||'';
-  const ids= sel==='__all__' ? assigneePeople(l).map(p=>p.id) : (sel?[sel]:[]);
-  if(!ids.length){alert('Pick someone to assign the task to.');return;}
+  const ids=Array.from(document.querySelectorAll('#task_chips [data-id]')).map(c=>c.getAttribute('data-id'));
+  if(!ids.length){alert('Add at least one person to assign the task to.');return;}
   const el=document.getElementById('task_new');const body=(el&&el.value||'').trim();
   if(!body){alert('Type the task first.');if(el)el.focus();return;}
   const rows=ids.map(to=>({company_id:myCompanyId,lead_id:l.id,lead_name:l.name,assigned_to:to,assigned_by:session,body,status:'open'}));
