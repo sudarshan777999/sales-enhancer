@@ -1767,6 +1767,7 @@ function renderDrawer(){
   facts.push(['Budget',l.budget?'₹'+l.budget:'—',true]);facts.push(['Captured',fmtDate(l.createdAt),true]);if(l.matchCode)facts.push(['Merge code',l.matchCode,true]);
   {const cr=l.createdBy?userName(l.createdBy):'';const crLabel=cr?(cr+(l.viaGre?' · front desk (GRE)':'')):(l.viaGre?'Front desk (GRE)':'');if(crLabel)facts.push(['Created by',crLabel,false]);}
   let flow='';
+  const pinDeal=(u.role==='sales');   // salespeople: qualification + deal status are pinned under Deal Coach, not in the reorderable list
   const terminal=['booked','lost','not_qualified'].includes(l.stage);
   if(editable&&!terminal){
     // owner
@@ -1776,14 +1777,9 @@ function renderDrawer(){
       flow+=`<div class="block"><label>Owner</label><div class="locked-note">Owned by you (${userName(l.ownerId)}). Salespeople can't reassign leads.</div></div>`;
     }
     flow+=shareBlock(l);
-    if(l.qualified!==true){
-      flow+=`<div class="block"><label>Qualify this lead</label><div class="actions">
-        <button class="act q" onclick="qualify('${l.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Mark qualified</button>
-        <select class="field" style="width:auto;flex:1" onchange="disqualify('${l.id}',this.value)"><option value="">Not qualified — reason…</option>${NQ_REASONS.map(r=>`<option>${r}</option>`).join('')}</select></div></div>`;
-    }
-    if(l.qualified===true){
-      flow+=dealStatusBlock(l);
-      flow+=`<div class="block"><label>Move to Not qualified</label><select class="field" onchange="if(this.value)disqualify('${l.id}',this.value)"><option value="">Change to Not qualified — reason…</option>${NQ_REASONS.map(r=>`<option>${r}</option>`).join('')}</select><div class="ai-tag">Marks this qualified lead as Not qualified. The owner is kept.</div></div>`;
+    if(!pinDeal){
+      if(l.qualified!==true)flow+=qualifyBlock(l);
+      else flow+=qualifiedDealBlock(l);
     }
     flow+=metPHBlock(l);
     flow+=wonderwallBlock(l);
@@ -1815,6 +1811,7 @@ function renderDrawer(){
       <div class="det"><label onclick="this.closest('.det').classList.toggle('open')"><span class="det-caret">▸</span> Personal details</label>
         <div class="det-body">${facts.map(([k,v,m])=>`<div class="fact"><div class="k">${k}</div><div class="v ${m?'mono':''}">${v}</div></div>`).join('')}</div></div>
       ${dealCoachBlock(l)}
+      ${pinDeal?pinnedDealBlocks(l):''}
       <div class="dr-cols">
         <div class="dr-left">
           ${revisitMergeBlock(l)}
@@ -2022,6 +2019,22 @@ function dealStatusBlock(l){
 }
 function closedLostBtn(id){const reason=(document.getElementById('lr_'+id)||{}).value;const comp=((document.getElementById('lc_'+id)||{}).value||'').trim();if(!reason){alert('Pick a reason for the loss.');return;}closedLost(id,reason,comp);}
 async function setDealStatus(id,s){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const patch={deal_status:s,stage:'qualified'};if(s==='Prospect'||s==='Negotiation')patch.lost_reason='';if(!await updateLead(id,patch))return;await addActivityRow(id,{kind:'system',body:'Deal status → '+s});await refresh();}
+// The qualify-or-disqualify panel (before a lead is qualified).
+function qualifyBlock(l){
+  return `<div class="block"><label>Qualify this lead</label><div class="actions">
+    <button class="act q" onclick="qualify('${l.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Mark qualified</button>
+    <select class="field" style="width:auto;flex:1" onchange="disqualify('${l.id}',this.value)"><option value="">Not qualified — reason…</option>${NQ_REASONS.map(r=>`<option>${r}</option>`).join('')}</select></div></div>`;
+}
+// Deal status + move-to-not-qualified (after a lead is qualified).
+function qualifiedDealBlock(l){
+  return dealStatusBlock(l)+`<div class="block"><label>Move to Not qualified</label><select class="field" onchange="if(this.value)disqualify('${l.id}',this.value)"><option value="">Change to Not qualified — reason…</option>${NQ_REASONS.map(r=>`<option>${r}</option>`).join('')}</select><div class="ai-tag">Marks this qualified lead as Not qualified. The owner is kept.</div></div>`;
+}
+// For salespeople: qualification + deal status, pinned under Deal Coach (not reorderable).
+function pinnedDealBlocks(l){
+  if(!can('edit',l))return '';
+  if(['booked','lost','not_qualified'].includes(l.stage))return '';
+  return l.qualified===true?qualifiedDealBlock(l):qualifyBlock(l);
+}
 async function closedLost(id,reason,comp){if(!reason)return;const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;comp=(comp||'').trim();const rtxt=reason+(comp?' — '+comp:'');if(!await updateLead(id,{stage:'lost',deal_status:'Closed Lost',lost_reason:rtxt,lost_to:comp||null,next_follow_up:null}))return;await addActivityRow(id,{kind:'system',body:'Closed Lost — '+rtxt});await refresh();}
 function metPHBlock(l){
   const u=currentUser();const canSet=(u.role==='sales'||u.role==='sales_head');const done=l.metProjectHead;
