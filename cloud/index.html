@@ -1566,6 +1566,7 @@ function render(){
   else if(activeTab==='followups')m.innerHTML=followupsHTML(leads);
   else if(activeTab==='stats')m.innerHTML=statsHTML(scoped());
   else if(activeTab==='funnel')m.innerHTML=funnelHTML();
+  else if(activeTab==='cp')m.innerHTML=cpAnalyticsHTML();
   else if(activeTab==='ageing')m.innerHTML=ageingTreeHTML();
   else if(activeTab==='crossproject')m.innerHTML=crossProjectHTML();
   else if(activeTab==='report')m.innerHTML=reportHTML();
@@ -1604,7 +1605,7 @@ function renderTabs(){
   const cu=currentUser();
   const playCount=s.filter(isOpenLead).map(dealCoach).filter(Boolean).length;
   const tabs=[['pipeline','Pipeline',s.length],['plays',"🧭 Today's plays",playCount||'']];
-  if(cu&&(cu.role==='sales_head'||cu.role==='project_head'))tabs.push(['funnel','Funnel','']);
+  if(cu&&(cu.role==='sales_head'||cu.role==='project_head'))tabs.push(['funnel','Funnel',''],['cp','🤝 CP analytics','']);
   tabs.push(['ageing','Ageing',''],['followups','Follow-ups due',dueCount],['stats','Follow-up stats',''],['builder','Builder',''],['all','All leads',s.length]);
   if(cu&&cu.role!=='reception')tabs.push(['leaderboard','🏆 Leaderboard','']);
   if(cu&&(cu.role==='sales_head'||cu.role==='project_head')){const ci=(db.crossInterest||[]).filter(c=>c.status==='open'&&(cu.role==='sales_head'||c.target_project_id===myProjId())).length;tabs.push(['crossproject','Cross-project',ci||'']);}
@@ -3164,6 +3165,77 @@ function playsHTML(){
      ${isHead?`<div style="color:var(--soft);font-size:12px;white-space:nowrap;text-align:right">${l.ownerId?escapeHtml(userName(l.ownerId)):'Unassigned'}<br>${l.project||'—'}</div>`:''}
    </div>`).join(''):'<div style="padding:26px;text-align:center;color:var(--soft)">Nothing needs attention right now. 🎉</div>';
   return `<div class="panel">${esc}<h3>🧭 Today's plays — ${rows.length} ranked by urgency</h3>${list}</div>`;
+}
+/* ===================== Channel Partner analytics ===================== */
+function cpStats(){
+  const leads=scoped().filter(l=>!l.mergedInto&&l.source==='walkin'&&l.walkinSource==='CP'&&(l.cpName||'').trim());
+  const map={};
+  leads.forEach(l=>{const key=l.cpName.trim().toLowerCase();(map[key]=map[key]||{name:l.cpName.trim(),ls:[]}).ls.push(l);});
+  const now=today(),MS=86400000;
+  return Object.values(map).map(cp=>{
+    const ls=cp.ls;
+    const walkins=ls.length;
+    const booked=ls.filter(l=>l.stage==='booked').length;
+    const qualified=ls.filter(l=>l.qualified===true||l.stage==='booked').length;
+    const nq=ls.filter(l=>l.stage==='not_qualified').length;
+    const lost=ls.filter(l=>l.stage==='lost').length;
+    const dates=ls.map(l=>parseD(l.createdAt)).sort((a,b)=>a-b);
+    const first=dates[0],last=dates[dates.length-1];
+    const daysSinceLast=Math.round((now-last)/MS),daysSinceFirst=Math.round((now-first)/MS);
+    const months=new Set(ls.map(l=>String(l.createdAt).slice(0,7)));
+    const convRate=walkins?booked/walkins:0,qualRate=walkins?qualified/walkins:0,nqRate=walkins?nq/walkins:0;
+    let segment;
+    if(daysSinceFirst<=60)segment='new';
+    else if(daysSinceLast>60)segment='dormant';
+    else if(months.size>=3&&daysSinceLast<=45)segment='consistent';
+    else segment='active';
+    return {name:cp.name,ls,walkins,booked,qualified,nq,lost,first,last,daysSinceLast,daysSinceFirst,monthsActive:months.size,convRate,qualRate,nqRate,segment};
+  }).sort((a,b)=>b.walkins-a.walkins);
+}
+function cpDrill(arr,label){const k='d'+(drillSeq++);drillReg[k]={leads:arr,label};return k;}
+function cpAnalyticsHTML(){
+  drillReg={};drillSeq=0;
+  const cps=cpStats();
+  if(!cps.length)return `<div class="panel"><h3>Channel Partner analytics</h3><div class="locked-note">No channel-partner walk-ins yet. Walk-ins logged with source “Channel Partner” and a CP name show up here.</div></div>`;
+  const sum=f=>cps.reduce((a,c)=>a+f(c),0);
+  const totWalk=sum(c=>c.walkins),totBook=sum(c=>c.booked),totQual=sum(c=>c.qualified),totNq=sum(c=>c.nq);
+  const conv=totWalk?Math.round(totBook/totWalk*100):0,qrate=totWalk?Math.round(totQual/totWalk*100):0;
+  const stat=(v,l,col)=>`<div style="flex:1;min-width:118px"><div style="font-family:'Space Grotesk';font-size:26px;font-weight:700;color:${col||'var(--ink)'}">${v}</div><div style="font-size:12px;color:var(--soft)">${l}</div></div>`;
+  const head=`<div class="panel"><h3>Channel Partner analytics</h3>
+    <div style="display:flex;flex-wrap:wrap;gap:20px;padding:6px 2px">
+      ${stat(cps.length,'Partners')}${stat(totWalk,'CP walk-ins')}${stat(totBook,'Bookings','#2E7D32')}${stat(conv+'%','Conversion','#2C5D80')}${stat(qrate+'%','Qualified rate')}${stat(totNq,'Non-qualified','#C0524A')}
+    </div></div>`;
+  const segTag=c=>c.segment==='new'?' <span class="tchip" style="background:#E7F0FF;color:#2C5D80">new</span>':c.segment==='dormant'?' <span class="tchip" style="background:#FBE9E7;color:#A03027">quiet</span>':c.segment==='consistent'?' <span class="tchip" style="background:#E8F5E9;color:#2E7D32">consistent</span>':'';
+  const rowFor=c=>{const k=cpDrill(c.ls,'CP · '+c.name);return `<tr onclick="openDrill('${k}')" style="cursor:pointer">
+    <td><b>${escapeHtml(c.name)}</b>${segTag(c)}</td><td class="mono">${c.walkins}</td><td class="mono">${c.qualified}</td>
+    <td class="mono" style="color:${c.nq?'#C0524A':'inherit'}">${c.nq}</td><td class="mono"><b>${c.booked}</b></td>
+    <td class="mono">${Math.round(c.convRate*100)}%</td><td class="mono" style="color:var(--soft)">${fmtDate(iso(c.last))}${c.daysSinceLast>60?` · ${c.daysSinceLast}d`:''}</td></tr>`;};
+  const table=`<div class="panel"><h3>Partner leaderboard — ${cps.length} CPs</h3>
+    <div style="overflow-x:auto"><table class="list-table"><thead><tr><th>Channel Partner</th><th>Walk-ins</th><th>Qualified</th><th>Non-qual</th><th>Booked</th><th>Conv%</th><th>Last walk-in</th></tr></thead>
+    <tbody>${cps.map(rowFor).join('')}</tbody></table></div>
+    <div class="ai-tag" style="margin-top:8px">Click a partner to see their walk-ins. Qualified = reached qualified/booked; Conv% = bookings ÷ walk-ins.</div></div>`;
+  const chip=c=>{const k=cpDrill(c.ls,'CP · '+c.name);return `<span class="drill thchip" onclick="openDrill('${k}')" title="${c.walkins} walk-in(s) · ${c.booked} booked">${escapeHtml(c.name)}<b>${c.walkins}</b></span>`;};
+  const seg=n=>cps.filter(c=>c.segment===n).sort((a,b)=>b.walkins-a.walkins);
+  const segPanel=(title,arr,empty)=>`<div class="panel"><h3>${title} — ${arr.length}</h3>${arr.length?`<div class="wcloud">${arr.map(chip).join('')}</div>`:`<div class="locked-note">${empty}</div>`}</div>`;
+  const segs=`<div class="split">${segPanel('🟢 Consistent partners',seg('consistent'),'None active across 3+ months yet.')}${segPanel('🆕 Newly started (last 60 days)',seg('new'),'No new CPs in the last 60 days.')}</div>`
+    +segPanel('🔴 Gone quiet — were working, now silent (60+ days)',seg('dormant'),'No dormant CPs — all active recently. 🎉');
+  const minW=3,eligible=cps.filter(c=>c.walkins>=minW);
+  const bestConv=eligible.slice().sort((a,b)=>b.convRate-a.convRate).slice(0,8);
+  const worstNq=eligible.filter(c=>c.nq>0).sort((a,b)=>b.nqRate-a.nqRate).slice(0,8);
+  const barRow=(c,metric,col)=>{const k=cpDrill(c.ls,'CP · '+c.name),pct=Math.round(metric*100);return `<div class="ins-row" onclick="openDrill('${k}')"><span class="ins-l">${escapeHtml(c.name)} <span style="color:var(--soft);font-size:12px">· ${c.walkins} walk-ins</span></span><span class="ins-bar"><span class="ins-fill" style="width:${Math.max(6,pct)}%;background:${col}"></span></span><b class="ins-n">${pct}%</b></div>`;};
+  const quality=`<div class="split">
+    <div class="panel"><h3>⭐ Best converters (min ${minW} walk-ins)</h3>${bestConv.length?bestConv.map(c=>barRow(c,c.convRate,'#2E7D32')).join(''):'<div class="locked-note">Not enough data yet.</div>'}<div class="ai-tag" style="margin-top:8px">Bookings ÷ walk-ins — get more volume from these partners.</div></div>
+    <div class="panel"><h3>⚠️ Bringing non-qualified walk-ins</h3>${worstNq.length?worstNq.map(c=>barRow(c,c.nqRate,'#C0524A')).join(''):'<div class="locked-note">No non-qualified CP walk-ins. 🎉</div>'}<div class="ai-tag" style="margin-top:8px">Share of walk-ins marked Not qualified — coach them on lead quality.</div></div>
+  </div>`;
+  const avgConv=totWalk?totBook/totWalk:0,coach=[];
+  cps.forEach(c=>{
+    if(c.walkins>=5&&c.booked===0)coach.push({c,tip:'High volume, no bookings yet — tighten lead quality or coach the partner.',col:'#C0524A'});
+    else if(c.walkins>=5&&c.convRate<avgConv*0.7)coach.push({c,tip:'Plenty of walk-ins but below-average conversion — review lead quality.',col:'#E0A32E'});
+    else if(c.walkins>=1&&c.walkins<5&&c.convRate>=Math.max(0.15,avgConv*1.3))coach.push({c,tip:'Converts well but sends few — ask this partner for more walk-ins.',col:'#2E7D32'});
+    else if(c.segment==='dormant'&&c.booked>0)coach.push({c,tip:`Was a booking partner, quiet ${c.daysSinceLast} days — re-engage them.`,col:'#2C5D80'});
+  });
+  const coachHTML=coach.length?coach.sort((a,b)=>b.c.walkins-a.c.walkins).map(({c,tip,col})=>{const k=cpDrill(c.ls,'CP · '+c.name);return `<div class="ins-row" onclick="openDrill('${k}')" style="grid-template-columns:1fr;gap:3px"><div><b style="color:${col}">${escapeHtml(c.name)}</b> <span style="color:var(--soft);font-size:12px">· ${c.walkins} walk-ins · ${c.booked} booked · ${Math.round(c.convRate*100)}%</span></div><div style="font-size:13px;color:var(--soft)">${tip}</div></div>`;}).join(''):'<div class="locked-note">No specific actions right now — partners are performing around the average.</div>';
+  return head+table+segs+quality+`<div class="panel"><h3>🎯 How to get better conversion</h3>${coachHTML}</div>`;
 }
 function notifyItems(){
   const u=currentUser();const base=scoped();
