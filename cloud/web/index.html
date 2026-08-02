@@ -989,6 +989,10 @@ function renderLogin(){
 }
 function gotoAuth(step){loginView={step,err:'',email:loginView.email||'',name:loginView.name||'',company:loginView.company||''};renderLogin();}
 const LOGIN_DOMAIN='bnm.local';
+// Company already exists — never let a plain sign-up create a NEW company.
+// A no-invite sign-up is bounced with a "get an invite" message instead of onboarding.
+// (Flip to true only if you ever need to stand up a brand-new instance from scratch.)
+const ALLOW_SELF_ONBOARD=false;
 function toEmail(id){id=(id||'').trim();return id.includes('@')?id:(id?id.toLowerCase()+'@'+LOGIN_DOMAIN:'');}
 async function authSubmit(){
   const st=loginView.step;
@@ -1023,13 +1027,13 @@ async function authSubmit(){
     if(error){loginView.err=error.message;return renderLogin();}
     if(!data.session){loginView.email=email;loginView.step='checkemail';return renderLogin();}
     session=data.user.id;const mem=await loadMyMember();
-    if(mem){await afterLogin();}else if(pendingInvite){loginView={step:'join',err:'',email};renderLogin();}else{loginView={step:'onboard',err:'',email,company:'Bricks & Milestones'};renderLogin();}
+    if(mem){await afterLogin();}else if(pendingInvite){loginView={step:'join',err:'',email};renderLogin();}else if(ALLOW_SELF_ONBOARD){loginView={step:'onboard',err:'',email,company:'Bricks & Milestones'};renderLogin();}else{await sb.auth.signOut();session=null;loginView={step:'signin',err:'This login isn’t linked to your team yet. Ask your Sales Head to create your login, or to send you an invite link — then sign in.',email};renderLogin();}
     return;
   }
   const {data,error}=await sb.auth.signInWithPassword({email,password:pw});
   if(error){loginView.err=error.message;return renderLogin();}
   session=data.user.id;const mem=await loadMyMember();
-  if(mem){await afterLogin();}else if(pendingInvite){loginView={step:'join',err:'',email};renderLogin();}else{loginView={step:'onboard',err:'',email,company:'Bricks & Milestones'};renderLogin();}
+  if(mem){await afterLogin();}else if(pendingInvite){loginView={step:'join',err:'',email};renderLogin();}else if(ALLOW_SELF_ONBOARD){loginView={step:'onboard',err:'',email,company:'Bricks & Milestones'};renderLogin();}else{await sb.auth.signOut();session=null;loginView={step:'signin',err:'This login isn’t linked to your team yet. Ask your Sales Head to create your login, or to send you an invite link — then sign in.',email};renderLogin();}
 }
 async function afterLogin(){await loadAll();showApp();}
 async function signOut(){closeChat();await sb.auth.signOut();session=null;myCompanyId=null;closeDrawer();loginView={step:'signin',err:'',email:''};showLogin();}
