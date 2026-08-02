@@ -3167,10 +3167,49 @@ function playsHTML(){
   return `<div class="panel">${esc}<h3>🧭 Today's plays — ${rows.length} ranked by urgency</h3>${list}</div>`;
 }
 /* ===================== Channel Partner analytics ===================== */
+function cpAliasMap(){return (db.reportData&&db.reportData.cpAliases)||{};}
+function cpRawNames(){const set={};scoped().forEach(l=>{if(l.source==='walkin'&&l.walkinSource==='CP'&&(l.cpName||'').trim()){const n=l.cpName.trim();set[n.toLowerCase()]=n;}});return Object.values(set).sort((a,b)=>a.localeCompare(b));}
+function cpNorm(s){return String(s||'').toLowerCase().replace(/\b(pvt|ltd|private|limited|realty|realtors|real estate|realestate|properties|property|associate|associates|estates|estate|group|and|the|co|company|consultancy|consultants|inc|llp)\b/g,'').replace(/[^a-z0-9]/g,'');}
+function cpMergeSuggestions(){
+  const aliases=cpAliasMap(),names=cpRawNames(),groups={};
+  names.forEach(n=>{const k=cpNorm(n);if(k)(groups[k]=groups[k]||[]).push(n);});
+  const out=[];
+  Object.values(groups).forEach(g=>{if(g.length<2)return;const canons=new Set(g.map(n=>aliases[n.toLowerCase()]||n));if(canons.size<2)return;out.push({names:g,canon:g.slice().sort((a,b)=>b.length-a.length)[0]});});
+  return out;
+}
+async function cpSaveAliases(map){return await saveReportData(Object.assign({},db.reportData,{cpAliases:map}));}
+async function cpApplySuggestion(idx){const s=(window._cpSugg||[])[idx];if(!s)return;const map=Object.assign({},cpAliasMap());s.names.forEach(v=>{map[v.toLowerCase()]=s.canon;});map[s.canon.toLowerCase()]=s.canon;if(await cpSaveAliases(map))render();}
+function cpMergePick(){const sel=document.getElementById('cp_merge_pick');if(!sel||!sel.value)return;const nm=sel.value,box=document.getElementById('cp_merge_chips');
+  if(box&&!box.querySelector('[data-name="'+(window.CSS&&CSS.escape?CSS.escape(nm):nm)+'"]')){const chip=document.createElement('span');chip.setAttribute('data-name',nm);chip.style.cssText='display:inline-flex;align-items:center;gap:5px;background:#EEF2F7;border:1px solid var(--line);border-radius:14px;padding:3px 5px 3px 11px;font-size:12.5px';chip.innerHTML=escapeHtml(nm)+' <button type="button" onclick="this.parentNode.remove()" style="border:none;background:none;cursor:pointer;font-size:15px;line-height:1;color:var(--soft);padding:0 2px">×</button>';box.appendChild(chip);}
+  sel.value='';}
+async function cpAddMerge(){const chips=[...document.querySelectorAll('#cp_merge_chips [data-name]')].map(c=>c.getAttribute('data-name'));if(chips.length<2){alert('Pick at least two spellings that are the same partner.');return;}let canon=((document.getElementById('cp_merge_canon')||{}).value||'').trim()||chips.slice().sort((a,b)=>b.length-a.length)[0];const map=Object.assign({},cpAliasMap());chips.forEach(v=>{map[v.toLowerCase()]=canon;});map[canon.toLowerCase()]=canon;if(await cpSaveAliases(map))render();}
+async function cpUnmerge(canon){const map=Object.assign({},cpAliasMap());Object.keys(map).forEach(k=>{if(map[k]===canon)delete map[k];});if(await cpSaveAliases(map))render();}
+function cpMergeBlock(){
+  if(currentUser().role!=='sales_head')return '';
+  const aliases=cpAliasMap(),names=cpRawNames();
+  if(names.length<2)return '';
+  const groups={};names.forEach(n=>{const canon=aliases[n.toLowerCase()]||n;(groups[canon]=groups[canon]||[]).push(n);});
+  const merged=Object.entries(groups).filter(([c,m])=>m.length>=2);
+  const mergedHTML=merged.map(([canon,mem])=>`<div class="ins-row" style="grid-template-columns:1fr auto;cursor:default"><span class="ins-l"><b>${escapeHtml(canon)}</b> <span style="color:var(--soft);font-size:12px">← ${mem.filter(m=>m.toLowerCase()!==canon.toLowerCase()).map(escapeHtml).join(', ')}</span></span><button class="act" data-canon="${escapeHtml(canon).replace(/"/g,'&quot;')}" onclick="cpUnmerge(this.dataset.canon)">Unmerge</button></div>`).join('');
+  const sugg=cpMergeSuggestions();window._cpSugg=sugg;
+  const suggHTML=sugg.length?`<div style="margin-top:4px"><div style="font-size:12px;color:var(--soft);margin-bottom:6px">Likely the same partner — one click to merge:</div>${sugg.map((s,i)=>`<div class="ins-row" style="grid-template-columns:1fr auto;cursor:default"><span class="ins-l">${s.names.map(escapeHtml).join('  ·  ')}</span><button class="btn" data-idx="${i}" onclick="cpApplySuggestion(this.dataset.idx)">Merge → ${escapeHtml(s.canon)}</button></div>`).join('')}</div>`:'';
+  const opts=names.map(n=>`<option value="${escapeHtml(n).replace(/"/g,'&quot;')}">${escapeHtml(n)}</option>`).join('');
+  const picker=`<div style="margin-top:12px"><div style="font-size:12px;color:var(--soft);margin-bottom:6px">Or merge manually — pick the spellings that are one partner:</div>
+    <div id="cp_merge_chips" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+    <select class="field" id="cp_merge_pick" style="margin-top:6px" onchange="cpMergePick()"><option value="">＋ Add a spelling…</option>${opts}</select>
+    <input class="field" id="cp_merge_canon" style="margin-top:6px" placeholder="Show them all as… (leave blank to use the longest name)"/>
+    <div style="margin-top:8px"><button class="btn" onclick="cpAddMerge()">Merge partners</button></div></div>`;
+  return `<div class="panel"><h3>🔗 Merge duplicate partners</h3>
+    ${suggHTML||(merged.length?'':'<div class="ai-tag">No obvious duplicates detected. Use the picker below if a partner is split across spellings.</div>')}
+    ${merged.length?`<div style="margin-top:10px"><div style="font-size:12px;color:var(--soft);margin-bottom:4px">Current merges:</div>${mergedHTML}</div>`:''}
+    ${picker}
+    <div class="ai-tag" style="margin-top:8px">Merging combines the walk-ins of different spellings into one partner across all CP analytics. Applies for everyone.</div></div>`;
+}
 function cpStats(){
+  const aliases=cpAliasMap();
   const leads=scoped().filter(l=>!l.mergedInto&&l.source==='walkin'&&l.walkinSource==='CP'&&(l.cpName||'').trim());
   const map={};
-  leads.forEach(l=>{const key=l.cpName.trim().toLowerCase();(map[key]=map[key]||{name:l.cpName.trim(),ls:[]}).ls.push(l);});
+  leads.forEach(l=>{const raw=l.cpName.trim();const canon=aliases[raw.toLowerCase()]||raw;const key=canon.toLowerCase();(map[key]=map[key]||{name:canon,ls:[]}).ls.push(l);});
   const now=today(),MS=86400000;
   return Object.values(map).map(cp=>{
     const ls=cp.ls;
@@ -3235,7 +3274,7 @@ function cpAnalyticsHTML(){
     else if(c.segment==='dormant'&&c.booked>0)coach.push({c,tip:`Was a booking partner, quiet ${c.daysSinceLast} days — re-engage them.`,col:'#2C5D80'});
   });
   const coachHTML=coach.length?coach.sort((a,b)=>b.c.walkins-a.c.walkins).map(({c,tip,col})=>{const k=cpDrill(c.ls,'CP · '+c.name);return `<div class="ins-row" onclick="openDrill('${k}')" style="grid-template-columns:1fr;gap:3px"><div><b style="color:${col}">${escapeHtml(c.name)}</b> <span style="color:var(--soft);font-size:12px">· ${c.walkins} walk-ins · ${c.booked} booked · ${Math.round(c.convRate*100)}%</span></div><div style="font-size:13px;color:var(--soft)">${tip}</div></div>`;}).join(''):'<div class="locked-note">No specific actions right now — partners are performing around the average.</div>';
-  return head+table+segs+quality+`<div class="panel"><h3>🎯 How to get better conversion</h3>${coachHTML}</div>`;
+  return head+table+cpMergeBlock()+segs+quality+`<div class="panel"><h3>🎯 How to get better conversion</h3>${coachHTML}</div>`;
 }
 function notifyItems(){
   const u=currentUser();const base=scoped();
