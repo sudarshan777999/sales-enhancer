@@ -136,12 +136,15 @@
   /* ---------- Board ---------- */
   main{max-width:1360px;margin:0 auto;padding:8px 24px 60px;}
   main.wide{max-width:min(1760px,98vw);}
-  .board{display:flex;gap:14px;overflow-x:auto;padding-bottom:14px;scrollbar-width:thin;scroll-padding-right:24px;}
+  .board{display:flex;gap:12px;overflow-x:auto;padding-bottom:14px;scrollbar-width:thin;scroll-padding-right:24px;}
   .board::after{content:"";flex:0 0 10px;}
   .board::-webkit-scrollbar{height:9px;}
   .board::-webkit-scrollbar-thumb{background:#cdd6e0;border-radius:20px;}
   .board::-webkit-scrollbar-thumb:hover{background:#b6c1cf;}
-  .col{flex:0 0 254px;display:flex;flex-direction:column;}
+  .col{flex:0 0 190px;display:flex;flex-direction:column;}
+  /* pipeline board: use more width so all stage columns fit */
+  #appRoot.board-wide .shell,#appRoot.board-wide .head-in{max-width:min(1720px,97vw);}
+  main.wide{max-width:none;}
   .col-head{display:flex;align-items:center;gap:9px;padding:4px 4px 10px;}
   .col-head i{width:9px;height:9px;border-radius:3px;flex:none;}
   .col-head h3{font-size:13.5px;font-weight:600;}
@@ -371,7 +374,7 @@
   .tk-lead{font-family:'Space Grotesk';color:var(--brand);cursor:pointer;text-decoration:underline;}
   .tk-resp{font-size:12.5px;margin-top:5px;color:var(--ink);}
   .tk-empty{color:var(--soft);font-size:13px;padding:16px 6px;text-align:center;}
-  .tdock{position:fixed;right:20px;top:96px;width:262px;max-height:72vh;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 44px rgba(21,34,56,.22);z-index:60;overflow:hidden;}
+  .tdock{position:fixed;right:20px;bottom:22px;top:auto;width:258px;max-height:64vh;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 44px rgba(21,34,56,.22);z-index:60;overflow:hidden;}
   .tdock-h{display:flex;align-items:center;gap:8px;padding:10px 12px;font-family:'Space Grotesk';font-weight:600;font-size:13.5px;cursor:grab;background:linear-gradient(#FDECEA,var(--surface));border-bottom:1px solid var(--line);user-select:none;}
   .tdock-h:active{cursor:grabbing;}
   .tdock-badge{background:#C0524A;color:#fff;border-radius:20px;font-size:11px;padding:1px 8px;font-weight:700;}
@@ -652,8 +655,8 @@
     </div>
     <div class="notify-panel hidden" id="notifyPanel"></div>
 <div class="toastwrap" id="toastWrap"></div>
-<div class="tdock" id="taskDock" style="display:none"></div>
   </header>
+  <div class="tdock" id="taskDock" style="display:none"></div>
 
   <div class="shell">
     <nav class="sidenav" id="tabs"></nav>
@@ -1603,6 +1606,7 @@ function render(){
   else if(activeTab==='leaderboard'){if(scoreboard.rows===null&&!scoreboard.loading)loadScoreboard();m.innerHTML=leaderboardHTML();}
   else m.innerHTML=tableHTML(leads);
   m.classList.toggle('wide',activeTab==='pipeline');
+  {const ar=document.getElementById('appRoot');if(ar)ar.classList.toggle('board-wide',activeTab==='pipeline'&&pipeView!=='list');}
   if(['funnel','stats','ageing'].includes(activeTab))makeReorderable(m,activeTab);
   const total=scoped().length;
   document.getElementById('count').textContent=total+(u.role==='sales'?' of your leads':' leads in view');
