@@ -446,6 +446,13 @@
   .wcloud span:hover{color:var(--lost);text-decoration:underline;transform:translateY(-1px);}
   .th-sec{margin-bottom:14px;}
   .th-h{font-family:'Space Grotesk';font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--soft);margin-bottom:7px;}
+  .ins-row{display:grid;grid-template-columns:1fr 92px 30px;align-items:center;gap:12px;padding:9px 8px;border-top:1px solid var(--line);cursor:pointer;border-radius:8px;transition:background .12s;}
+  .ins-row:first-child{border-top:none;}
+  .ins-row:hover{background:#F7F9FB;}
+  .ins-l{font-size:13.5px;color:var(--ink);min-width:0;}
+  .ins-bar{height:8px;background:#EDF1F5;border-radius:5px;overflow:hidden;}
+  .ins-fill{display:block;height:100%;border-radius:5px;}
+  .ins-n{font-weight:700;font-size:14px;text-align:right;color:var(--ink);}
   .thchip{display:inline-flex;align-items:center;gap:5px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:3px 11px;text-decoration:none!important;line-height:1.3;}
   .thchip:hover{border-color:currentColor;transform:translateY(-1px);opacity:1;}
   .thchip b{opacity:.55;font-size:11px;font-weight:700;}
@@ -2314,12 +2321,32 @@ function statsHTML(leads){
       <div class="panel"><h3>Follow-ups by salesperson</h3>${spPanel}</div>
       <div class="panel"><h3>Deal status</h3>${tPanel}</div>
     </div>
-    <div class="panel"><h3>Comment themes</h3>${themesHTML(leads)}<div class="ai-tag" style="margin-top:8px">Auto-grouped from your data — competitors, locations &amp; projects, unit types, then other common words. Click any term to see those walk-ins (with comments &amp; assign-task).</div></div>
+    <div class="panel"><h3>Comment insights</h3>${themesHTML(leads)}<div class="ai-tag" style="margin-top:8px">Read from what the team writes in comments — what's blocking deals, buying signals, then competitors, locations &amp; unit types. Click any row to see those walk-ins (with comments &amp; assign-task).</div></div>
     <div class="panel"><h3>Outcomes</h3>${oPanel}</div>${wiPanel}`;
 }
 const THEME_STOP=new Set(('the a an and or but to of in on for with at by from is are was were be been being have has had do does did will would can could should shall may might must not no yes ok okay he she it they them his her their our your you i we us as this that these those there here then than so if else when while about into over under out up down off again once very more most also both each few other some such own same too call called calling spoke speak talk talked told tell said say says ask asked meet met meeting visit visited visiting follow followup followed following revisit revisited discuss discussed discussing customer client lead leads walkin walkins today tomorrow yesterday morning evening back next last week weeks day days month time still going want wants wanted need needs needed interested interest looking look see seen show showed shared send sent give given get got take took come came went make made done per via etc sir madam mr mrs ms number phone email name update details detail info soon later still yet done good great fine sure maybe pls please thanks thank just near option options comparing compare important tight also thing things bit lot able around').split(/\s+/));
 function dedupeTerms(items){const seen=new Set(),out=[];items.forEach(x=>{const k=x.term.toLowerCase();if(!seen.has(k)){seen.add(k);out.push(x);}});return out;}
 function themeChip(term,arr,mx,col){const k='d'+(drillSeq++);drillReg[k]={leads:arr,label:'Comments · '+term};const sz=13+Math.round((arr.length/Math.max(1,mx))*18);return `<span class="drill thchip" style="font-size:${sz}px;color:${col}" title="${arr.length} walk-in(s) · “${escapeHtml(term)}”" onclick="openDrill('${k}')">${escapeHtml(term)}<b>${arr.length}</b></span>`;}
+// Meaningful sales themes — bucket comment text into blockers/signals a sales head can act on.
+const COMMENT_THEMES=[
+  {label:'Budget / price too high',emoji:'💰',kind:'blocker',w:['budget','expensive','costly','high price','price is high','price too high','out of budget','over budget','afford','pricing','price high','rate is high','too high','price bit']},
+  {label:'Home loan / financing',emoji:'🏦',kind:'blocker',w:['home loan','housing loan',' loan',' emi',' bank','finance','financ','sanction','eligibilit','down payment','downpayment','disburse','pre-approv','preapprov']},
+  {label:'Wants discount / negotiating',emoji:'🤝',kind:'blocker',w:['discount','negotiat',' nego','best price','reduce price','concession','waiver','bargain','lowest price','final price','freebie','better rate','some offer']},
+  {label:'Family / decision pending',emoji:'👪',kind:'blocker',w:['wife','husband','spouse',' family','parents','father','mother','discuss with','consult','will decide','decision pending','in-law','convince','partner approval','decision maker']},
+  {label:'Possession / timeline',emoji:'🏗️',kind:'blocker',w:['possession','ready to move',' rtm','construction','under construction','handover','completion','occupancy','delivery date','delay','when ready','moving in']},
+  {label:'Location / connectivity',emoji:'📍',kind:'blocker',w:['location','too far',' distance','commute','connectivity','metro','traffic','locality','far from','road access']},
+  {label:'Comparing other options',emoji:'🧭',kind:'blocker',w:['comparing','also looking','shortlist','other project','other builder','considering','checking other','vs ']},
+  {label:'Not reachable / no response',emoji:'📵',kind:'blocker',w:['not reachable','no response','not responding','did not pick','didnt pick','unreachable','switched off','not answering','no reply','not picking','number busy','call not connect']},
+  {label:'Ready to book / token',emoji:'✅',kind:'signal',w:['booking','token','ready to book','finaliz','finalis','block the unit','blocked the unit','paid token','advance paid','wants to buy','ready to buy','go ahead','close the deal','confirm the']},
+  {label:'Revisit / site visit planned',emoji:'🔁',kind:'signal',w:['revisit','site visit','visit again','second visit','will visit','bring family','coming again','scheduled a visit','plan a visit','next visit']},
+  {label:'Strong interest / liked it',emoji:'🌟',kind:'signal',w:['very interested','loved','liked the','impressed','keen','excited','positive response','really likes','happy with']},
+];
+function insightRows(leads,C,themes,col){
+  const rows=themes.map(th=>({th,arr:leads.filter(l=>{const t=C[l.id]||'';return th.w.some(w=>t.includes(w));})})).filter(x=>x.arr.length).sort((a,b)=>b.arr.length-a.arr.length);
+  const mx=rows.length?rows[0].arr.length:1;
+  return rows.map(({th,arr})=>{const k='d'+(drillSeq++);drillReg[k]={leads:arr,label:th.label};
+    return `<div class="ins-row" onclick="openDrill('${k}')" title="${arr.length} walk-in(s) — click to see them"><span class="ins-l">${th.emoji} ${th.label}</span><span class="ins-bar"><span class="ins-fill" style="width:${Math.max(6,Math.round(arr.length/mx*100))}%;background:${col}"></span></span><b class="ins-n">${arr.length}</b></div>`;}).join('');
+}
 function themesHTML(leads){
   drillReg={};drillSeq=0;
   const commentsOf=l=>(l.log||[]).filter(e=>e.kind==='note'||e.kind==='revisit').map(e=>String(e.t||'')).join('  ').toLowerCase();
@@ -2342,13 +2369,13 @@ function themesHTML(leads){
   leads.forEach(l=>{const t=C[l.id]||'';const m=t.match(/\b([1-9])\s?bhk\b/g);if(m)m.forEach(x=>bump(x.match(/([1-9])/)[1]+' BHK',l));
     UNIT_WORDS.forEach(w=>{if(t.includes(w))bump(title(w),l);});(l.blocks||[]).forEach(b=>bump('Block '+String(b).toUpperCase(),l));});
   const units=Object.entries(unit).map(([term,set])=>({term,arr:[...set]})).sort((a,b)=>b.arr.length-a.arr.length).slice(0,14);
-  // Other themes — cleaned frequency, excluding words already captured above
-  const captured=new Set();[...comp,...loc,...units].forEach(x=>x.term.toLowerCase().split(/\s+/).forEach(w=>captured.add(w)));
-  const freq={};leads.forEach(l=>(C[l.id]||'').split(/[^a-z0-9]+/).forEach(w=>{if(w.length>=3&&!THEME_STOP.has(w)&&!captured.has(w)&&!/^\d+$/.test(w)&&!/bhk/.test(w))freq[w]=(freq[w]||0)+1;}));
-  const other=Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,26).map(([w])=>({term:w,arr:leads.filter(l=>(C[l.id]||'').includes(w))}));
+  // Meaningful themes — what's blocking deals, and buying signals (from the comment text)
+  const blockers=insightRows(leads,C,COMMENT_THEMES.filter(x=>x.kind==='blocker'),'#C0524A');
+  const signals=insightRows(leads,C,COMMENT_THEMES.filter(x=>x.kind==='signal'),'#2E7D32');
+  const insSect=(t,rows)=>rows?`<div class="th-sec"><div class="th-h">${t}</div>${rows}</div>`:'';
   const sect=(t,items,col)=>{if(!items.length)return '';const mx=items[0].arr.length;return `<div class="th-sec"><div class="th-h">${t}</div><div class="wcloud">${items.map(it=>themeChip(it.term,it.arr,mx,col)).join('')}</div></div>`;};
-  if(!(comp.length||loc.length||units.length||other.length))return '<div class="locked-note">No comment themes yet. As the team logs follow-ups, real-estate themes appear here.</div>';
-  return sect('Competitors',comp,'#C0433A')+sect('Locations &amp; projects',loc,'#2C5D80')+sect('Unit types',units,'#2E7D32')+sect('Other themes',other,'var(--brand)');
+  if(!(comp.length||loc.length||units.length||blockers||signals))return '<div class="locked-note">No comment themes yet. As the team logs follow-ups, real-estate themes appear here.</div>';
+  return insSect('What\'s holding deals back',blockers)+insSect('Buying signals',signals)+sect('Competitors',comp,'#C0433A')+sect('Locations &amp; projects',loc,'#2C5D80')+sect('Unit types',units,'#2E7D32');
 }
 function wordCloudHTML(leads){
   const stop=new Set('the a an and or but to of in on for with at by from is are was were be been being have has had do does did will would can could should not no yes he she it they them his her their our your you i we as this that these those about into over under out up down very more most also them him her can call called spoke said told want wants need needs get got very just now'.split(' '));
