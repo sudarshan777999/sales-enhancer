@@ -1260,6 +1260,26 @@ async function requestHandoff(leadId){
 }
 async function acceptTransfer(reqId){const t=db.transfers.find(x=>x.id===reqId);const {error}=await sb.rpc('accept_transfer',{p_request:reqId});if(error){alert(error.message);return;}if(t)await addActivityRow(t.lead_id,{kind:'system',body:'Handoff accepted by '+currentUser().name});closeNotify();await refresh();}
 async function declineTransfer(reqId){const {error}=await sb.rpc('decline_transfer',{p_request:reqId});if(error){alert(error.message);return;}await refresh();}
+// Where a cross-project interest email should go, per project head. Add more as heads get set up.
+const PROJECT_HEAD_EMAIL={Solcrest:'jason@bricksandmilestones.in'};
+function projectHeadEmail(p){
+  if(PROJECT_HEAD_EMAIL[p])return PROJECT_HEAD_EMAIL[p];
+  const h=(db.users||[]).find(u=>u.role==='project_head'&&u.project===p);
+  return h&&h.email&&!/@bnm\.local$/i.test(h.email)?h.email:'';
+}
+function openInterestEmail(l,proj,note){
+  const to=projectHeadEmail(proj);
+  if(!to)return false;
+  const me=currentUser();
+  const cc=me&&me.email&&!/@bnm\.local$/i.test(me.email)?me.email:'';
+  const subject=`Cross-project interest: ${l.name} — interested in ${proj}`;
+  const body=`Hi,\n\n${l.name}${l.phone?' ('+l.phone+')':''}, currently a ${l.project||'—'} lead, has expressed interest in ${proj}.\n`
+    +(note?`\nWhat they said: ${note}\n`:'')
+    +`\nPlease follow up with them for ${proj}.\n\nShared by ${me?me.name:''} via Sales Enhancer.`;
+  const url='mailto:'+to+'?'+(cc?'cc='+encodeURIComponent(cc)+'&':'')+'subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+  window.location.href=url;
+  return true;
+}
 async function flagInterest(leadId){
   const l=db.leads.find(x=>x.id===leadId);if(!l)return;
   const proj=(document.getElementById('ci_proj')||{}).value||'';if(!proj){alert('Choose a project.');return;}
@@ -1267,6 +1287,7 @@ async function flagInterest(leadId){
   const {error}=await sb.from('cross_interest').insert({company_id:myCompanyId,lead_id:leadId,lead_name:l.name,source_project_id:projId(l.project),target_project_id:projId(proj),note,created_by:session});
   if(error){alert('Could not flag interest: '+error.message);return;}
   await addActivityRow(leadId,{kind:'system',body:'Flagged as interested in '+proj+(note?' — '+note:'')});
+  openInterestEmail(l,proj,note);   // opens the salesperson's mail app pre-filled to the project head, cc the salesperson
   await refresh();
 }
 async function closeInterest(id){const {error}=await sb.from('cross_interest').update({status:'closed'}).eq('id',id);if(error){alert(error.message);return;}await refresh();}
@@ -1289,7 +1310,7 @@ function interestBlock(l){
   return `<div class="block"><label>Interested in another B&amp;M project?</label>
     <div class="fu-form"><div class="r" style="gap:8px"><select class="field" id="ci_proj"><option value="">Choose a project…</option>${others.map(p=>`<option>${p}</option>`).join('')}</select><button class="btn" style="white-space:nowrap" onclick="flagInterest('${l.id}')">Flag interest</button></div>
     <textarea class="field" id="ci_note" placeholder="What did they say? (optional)" style="margin-top:8px"></textarea>
-    <div class="ai-tag" style="margin-top:8px">Notifies that project's head, and shows in the Sales Head's cross-project bucket.</div></div>${flagHTML}</div>`;
+    <div class="ai-tag" style="margin-top:8px">Notifies that project's head in-app, shows in the Sales Head's cross-project bucket, and opens an email to the project head (cc you) ready to send.</div></div>${flagHTML}</div>`;
 }
 
 /* ============ scope + filter ============ */
@@ -1767,7 +1788,7 @@ function renderDrawer(){
   facts.push(['Budget',l.budget?'₹'+l.budget:'—',true]);facts.push(['Captured',fmtDate(l.createdAt),true]);if(l.matchCode)facts.push(['Merge code',l.matchCode,true]);
   {const cr=l.createdBy?userName(l.createdBy):'';const crLabel=cr?(cr+(l.viaGre?' · front desk (GRE)':'')):(l.viaGre?'Front desk (GRE)':'');if(crLabel)facts.push(['Created by',crLabel,false]);}
   let flow='';
-  const pinDeal=(u.role==='sales');   // salespeople: qualification + deal status are pinned under Deal Coach, not in the reorderable list
+  const pinDeal=true;   // everyone: qualification + deal status + Add-an-update are pinned under Deal Coach, not in the reorderable list
   const terminal=['booked','lost','not_qualified'].includes(l.stage);
   if(editable&&!terminal){
     // owner
@@ -1811,12 +1832,12 @@ function renderDrawer(){
       <div class="det"><label onclick="this.closest('.det').classList.toggle('open')"><span class="det-caret">▸</span> Personal details</label>
         <div class="det-body">${facts.map(([k,v,m])=>`<div class="fact"><div class="k">${k}</div><div class="v ${m?'mono':''}">${v}</div></div>`).join('')}</div></div>
       ${dealCoachBlock(l)}
-      ${pinDeal?pinnedDealBlocks(l):''}
+      ${pinnedDealBlocks(l)}
+      ${updateBlock(l)}
       <div class="dr-cols">
         <div class="dr-left">
           ${revisitMergeBlock(l)}
           ${taskBlock(l)}
-          ${updateBlock(l)}
           ${waNudgeBlock(l)}
           ${visitsBlock(l)}
           ${labelsBlock(l)}
@@ -1868,18 +1889,20 @@ function taskBlock(l){
   let form='';
   if(canAssign){
     const people=assigneePeople(l);
-    const cbs=people.map(u=>`<label style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;background:#F7F9FB;border:1px solid var(--line);border-radius:8px;padding:4px 9px"><input type="checkbox" class="task_to_cb" value="${u.id}" ${l.ownerId===u.id?'checked':''}/> ${escapeHtml(u.name)}${roleTag(u)}${l.ownerId===u.id?' · owner':''}</label>`).join(' ');
-    form=`<div style="margin-top:10px"><div style="font-size:12px;color:var(--soft);margin-bottom:6px">Assign to <b>one or more</b> people</div>
-      <div id="task_to" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">${cbs||'<span style="color:var(--soft);font-size:12.5px">No teammates to assign.</span>'}</div>
-      <textarea class="field" id="task_new" placeholder="e.g. Which competitor did we lose to? Add any details."></textarea>
-      <div style="margin-top:8px"><button class="btn" onclick="assignTask('${l.id}')">Assign task</button></div></div>`;
+    const opts=people.map(u=>`<option value="${u.id}">${escapeHtml(u.name)}${roleTag(u)}${l.ownerId===u.id?' · owner':''}</option>`).join('');
+    form=people.length?`<div style="margin-top:10px"><div style="font-size:12px;color:var(--soft);margin-bottom:6px">Assign to</div>
+      <select class="field" id="task_to">${people.length>1?`<option value="__all__">Everyone (${people.length})</option>`:''}${opts}</select>
+      <textarea class="field" id="task_new" placeholder="e.g. Which competitor did we lose to? Add any details." style="margin-top:8px"></textarea>
+      <div style="margin-top:8px"><button class="btn" onclick="assignTask('${l.id}')">Assign task</button></div></div>`
+      :`<div class="ai-tag" style="margin-top:8px">No teammates to assign.</div>`;
   }
   return `<div class="block"><label>Tasks${mine.length?` <span class="tchip" style="background:#FBE9E7;color:#A03027">${mine.length} for you</span>`:''}</label>${rows||'<div class="ai-tag">No tasks yet.</div>'}${form}</div>`;
 }
 async function assignTask(id){
   const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;
-  const ids=Array.from(document.querySelectorAll('.task_to_cb')).filter(c=>c.checked).map(c=>c.value);
-  if(!ids.length){alert('Pick at least one person to assign the task to.');return;}
+  const sel=(document.getElementById('task_to')||{}).value||'';
+  const ids= sel==='__all__' ? assigneePeople(l).map(p=>p.id) : (sel?[sel]:[]);
+  if(!ids.length){alert('Pick someone to assign the task to.');return;}
   const el=document.getElementById('task_new');const body=(el&&el.value||'').trim();
   if(!body){alert('Type the task first.');if(el)el.focus();return;}
   const rows=ids.map(to=>({company_id:myCompanyId,lead_id:l.id,lead_name:l.name,assigned_to:to,assigned_by:session,body,status:'open'}));
