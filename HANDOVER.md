@@ -1,198 +1,190 @@
 # Sales Enhancer — Handover Document
 
+_Last updated: 2026-08-02_
+
 **Product:** a lead & walk-in management CRM for a real-estate developer.
-**Tenant/instance in build:** Bricks & Milestones · **Project:** Earthscape (Solcrest available as a second project).
-**Current form:** one self-contained HTML file (vanilla HTML/CSS/JS, no build, no dependencies except Google Fonts).
-**Status:** working prototype / simulation. Not yet production (see "Limitations" and "Cloud roadmap").
+**Tenant/instance in build:** Bricks & Milestones · **Projects:** Earthscape (primary), Solcrest, Lagos.
+**Status:** **Live cloud app in pilot.** (The original single-file prototype still exists as a reference/demo.)
 
 ---
 
-## 1. Files
+## 1. The short story (what happened so far)
 
-| File | Purpose | Storage | AI feature |
-|---|---|---|---|
-| `lead-pipeline-local.html` | **Canonical.** Runs offline by double-click. | Browser `localStorage` | Disabled |
-| `lead-pipeline.html` | Reference only; runs inside Claude. | Claude `window.storage` | Enabled (Anthropic API) |
-| `CLAUDE.md` | Instructions Claude Code auto-loads. | — | — |
-| `HANDOVER.md` | This document. | — | — |
-
-The two HTML files are logically identical except:
-1. **Storage layer** — `localStorage` (local) vs `window.storage` async (Claude).
-2. **AI likelihood** — the local file shows a "turned off" note instead of the assess button.
-3. Login footer copy.
-
-For all future work, treat `lead-pipeline-local.html` as the source of truth.
+1. **Started as a prototype** — one self-contained HTML file (`lead-pipeline-local.html`), vanilla HTML/CSS/JS, no build, saved only in one browser's `localStorage`. Ran by double-click. This still exists and is untouched.
+2. **Went to the cloud** — the app was rebuilt on **Supabase** (Postgres database + real logins + Row Level Security) with the UI kept identical. The storage layer was swapped from `localStorage` to Supabase API calls.
+3. **Hosted on Netlify** — the app now runs on the internet, multi-user, and works even with your Mac turned off.
+4. **Two environments** — a **sandbox** for testing and **production** for real use. New features land on sandbox first, you review, then they're promoted to production.
+5. **Actively growing** — dozens of features have been added since go-live (see §5). Newest is the **Deal Coach** (AI next-best-action suggestions).
 
 ---
 
-## 2. Roles & permissions
+## 2. Where everything lives (the setup)
 
-Four seeded accounts; each sets its own password on first sign-in.
+| Piece | What it is | Details |
+|---|---|---|
+| **Production site** | Your real, live app | `https://bnmsales.netlify.app` |
+| **Sandbox site** | Safe copy for testing | Netlify site `bnmsales-sandbox` |
+| **Production database** | Real customer data | Supabase project ref `xhlgwzpbkovqxuxarcoe` |
+| **Sandbox database** | Test data (isolated) | Supabase project ref `tadcupqosvvjndxyyerc` |
+| **Source code** | The app itself | `cloud/index.html` (canonical), published from `cloud/web/` |
+| **Code backup** | GitHub | `github.com/sudarshan777999/sales-enhancer` (public repo) |
+| **Local test server** | For development | `http://localhost:8123/index.html` (serves `cloud/`) |
 
-| Role | User(s) | Sees | Can do |
-|---|---|---|---|
-| Sales Head | You | All leads, all projects | Everything: edit/delete, reassign, **change walk-in date & source**, all analytics |
-| Project Head | Sanyog | All leads in **their project** (Earthscape) | Edit, reassign disqualified, delete, analytics |
-| Salesperson | Amartya, Savita | **Only their own** leads | Create + edit their own; **cannot delete**; **cannot change walk-in date/source once entered**; cannot reassign |
-
-Permissions are centralised in `can(action, lead)` where `action` ∈ `create | view | edit | delete | assign`. Data visibility is enforced by `scoped()`.
-
----
-
-## 3. The customer journey (stages)
-
-`new → assigned → qualified → booked (won)` — with branches to `not_qualified` (disqualified pool) and `lost`.
-
-Internal stage keys: `new`, `assigned`, `qualified`, `booked`, `lost`, `not_qualified`.
+**How the app knows which database to use:** it checks the web address. If the address contains `sandbox`, `localhost`, or `127.0.0.1` → it uses the **sandbox** database and shows a red SANDBOX banner. Otherwise → **production**.
 
 ---
 
-## 4. Feature set (all implemented)
+## 3. Files in this project
 
-**Capture**
-- Source = **digital** (channel: Website, Google Ads, Meta, portal, referral, WhatsApp) or **walk-in**.
-- Walk-in extras: **Direct vs CP** (channel partner) with **CP name**, **location**, **company**, and an **editable walk-in date** (defaults to today).
-- Salesperson-created leads auto-own to that rep and start at `assigned`.
-
-**Ownership** — heads assign/reassign a salesperson; assigning stamps `assignedAt`.
-
-**Qualify / Disqualify**
-- Qualify → `qualified`, sets a default follow-up date, enables temperature.
-- Disqualify → records reason + `disqualifiedBy`, **clears owner**, moves lead to the **disqualified pool** (`not_qualified`), out of the rep's bucket. A head can **Reassign for follow-up** to another rep (restarts the 7-day decision clock).
-
-**Temperature** — Hot / Warm / Cold, set once qualified. Shown as a chip on cards.
-
-**AI closing-likelihood** (Claude version only) — reads the rep's follow-up comments and returns a % likelihood, a suggested temperature, a one-line rationale, and signal phrases. Stored on the lead as `assessment`.
-
-**Follow-ups & notes** — two salesperson actions:
-- **Add note** — text only → an activity comment.
-- **Set follow-up** — text + reminder date → comment plus a `nextFollowUp` reminder.
-
-**History timeline** — chronological (newest first). Notes/follow-ups render as quote cards; revisits as purple markers; stage changes as quiet markers. Each entry carries date + author.
-
-**Revisits** — log a revisit with a date; per-lead counter (Total visits / Revisits); card chip; per-rep revisit stats.
-
-**Two 7-day SLAs**
-1. **Decision SLA** — an `assigned` lead must be qualified/disqualified within 7 days of `assignedAt`. Card shows amber "Decide in Nd" → red "Decision overdue Nd".
-2. **Stale-qualified alert** — a `qualified` lead with **no follow-up action for 7 days** flags for the heads (bell + alerts panel + card flag + funnel count). Clears when the lead is booked/lost or gets a fresh action. A 60-second timer re-checks.
-
-**Locks** — walk-in **date** and **source** can't be changed by salespeople after entry; only the **Sales Head** sees the edit controls.
-
-**Analytics**
-- **Follow-up stats** tab (role-scoped): totals, due now, avg follow-ups per qualified, win rate, follow-ups by salesperson, temperature mix, outcomes; plus **Direct vs CP** and **by-channel-partner** tables and **Visits & revisits** stats (heads only).
-- **Funnel** tab (heads only): time window (**This month / 60 / 90 / Custom** date range), walk-in funnel (Walk-ins → Qualified → Booked), "where the walk-ins are sitting", qualification by salesperson (qualified vs disqualified — spot over-disqualifiers), Hot/Warm/Cold, revisits by salesperson, and SLA counters (awaiting decision / overdue / stalled).
+| File | Purpose |
+|---|---|
+| `cloud/index.html` | **The canonical cloud app.** All feature work happens here. |
+| `cloud/web/index.html` | The published copy (what Netlify serves). Update by copying from `cloud/index.html`. |
+| `cloud/*.sql` | Database setup + migrations (see §7). |
+| `cloud/manifest.json`, `cloud/icon.svg` | PWA bits (install-to-home-screen). |
+| `lead-pipeline-local.html` | **Original offline prototype.** Do NOT modify — kept as the reference/demo. |
+| `lead-pipeline.html` | Old reference variant (ran inside Claude). Not used. |
+| `CLAUDE.md` | Instructions Claude Code auto-loads. |
+| `HANDOVER.md` | This document. |
 
 ---
 
-## 5. Data model
+## 4. Roles & permissions
 
-`db = { instance: string, users: User[], leads: Lead[] }`, persisted whole under one storage key.
+| Role | Sees | Can do |
+|---|---|---|
+| **Sales Head** (You) | All leads, all projects | Everything: edit/delete, reassign, change walk-in date & source, all analytics, team management, bulk import, targets, reports |
+| **Project Head** | All leads in **their own project** only (an Earthscape head can't see Solcrest) | Full rights within their project |
+| **Salesperson** | **Only their own** leads (plus leads they co-own) | Create + edit their own; cannot delete; cannot change walk-in date/source once entered |
+| **Reception** (front desk) | A single walk-in entry form only — no pipeline, no analytics | Enter new walk-ins and assign them to a salesperson |
 
-**User**
-```
-id, name, role ('sales_head'|'project_head'|'sales'), title,
-project (string|null), pass (hash|null)
-```
-
-**Lead**
-```
-id, name, phone, email,
-source ('digital'|'walkin'), srcDetail,
-walkinSource ('Direct'|'CP'|''), cpName, location, company,
-project, budget, notes,
-stage ('new'|'assigned'|'qualified'|'booked'|'lost'|'not_qualified'),
-ownerId (User.id|null), assignedAt (YYYY-MM-DD|null),
-qualified (null|true|false), nqReason, disqualifiedBy, lostReason,
-temp ('Hot'|'Warm'|'Cold'|null),
-assessment ({likelihood, temperature, rationale, signals[], at}|null),
-nextFollowUp (YYYY-MM-DD|null),
-revisits ([{date, by}]),
-createdAt (YYYY-MM-DD)   // == the walk-in date for walk-ins
-log ([{ t, d (YYYY-MM-DD), kind ('note'|'revisit'|'system'), by, next? }])
-```
-
-Storage keys: `bm_db_v1`, `bm_session_v1`.
+Permissions are enforced two ways: in the browser via `can(action, lead)` and `scoped()`, **and** on the server via Supabase Row Level Security (so they can't be bypassed).
 
 ---
 
-## 6. Code map (single-file JS)
+## 5. Features (all live)
 
-- **Storage:** `loadDB / saveDB / loadSession / saveSession / clearSession`, `boot`
-- **Auth:** `showLogin / showApp / renderLogin / pickUser / submitPw / signOut`, `hash`
-- **Permissions/scope:** `can`, `scoped`, `visible`, `currentUser`, `userName`, `salespeople`
-- **Render:** `render`, `renderTabs`, `renderKPIs`, `cardHTML`, `boardHTML`, `followupsHTML`, `tableHTML`, `statsHTML`, `funnelHTML`
-- **Drawer:** `openDrawer / closeDrawer / renderDrawer`, `visitsBlock`, `editWalkinBlock`, `followBlock`, `timelineHTML`, `likelihoodBlock`
-- **Mutations:** `push`, `addNote`, `logFollowUp`, `setTemp`, `qualify`, `disqualify`, `assign`, `reassignPool`, `markBooked`, `markLost`, `reopen`, `logRevisit`, `setWalkinDate / setWalkinSource / setCpName`, `assessLikelihood`
-- **Modal:** `openModal / closeModal / setSrc / toggleCP / saveLead`
-- **Alerts:** `staleQualified`, `notifyItems`, `refreshNotifyBadge`, `toggleNotify / renderNotify / closeNotify`
-- **Time window / SLA:** `rangeStart / rangeEnd / inRange / setRange / setRangeCustom`, `slaState`
-- **Helpers:** `uid`, `today`, `parseD`, `iso`, `addDays`, `initials`, `fmtDate`, `dueState`
+**Capture & pipeline**
+- Digital leads and walk-ins. Walk-in extras: Direct vs Channel Partner (with CP name), location, company, budget, editable walk-in date, **Phase 1 / Phase 2**.
+- Phone is now **optional** for walk-ins (leads merge by name + a shared random code).
+- **Bulk walk-in import** — CSV upload or paste box; template provided; unmatched agents held unassigned and attached later.
+- **Reception / front-desk** login for entering walk-ins.
+- Pipeline board (drag-friendly, full-width), quick period filters (This month / Last month), bulk assign (Migrate or Share).
 
-**Date rule:** `iso()` formats from **local** components. Never use `toISOString()` (it caused an IST off-by-one — dates showed a day early).
+**The customer journey**
+- Stages: `new → assigned → qualified → booked (won)`, with branches to `not_qualified` (disqualified pool) and `lost`.
+- Deal status: Prospect / Negotiation / Closed Won / Closed Lost.
+- Qualify / disqualify (salespeople can disqualify their own leads in any state); disqualified pool reassignment by heads.
+- **Met Project Head** tracking (with a lock so project heads can't edit their own meeting record).
+
+**Follow-ups, notes & reminders**
+- Combined update block: add a note, set a follow-up, and/or log a revisit in one place.
+- Walk-in updates by salespeople require a follow-up (defaults to +48h).
+- History timeline; revisits with notes and a per-lead counter.
+- Two 7-day SLAs: Decision SLA (qualify/disqualify within 7 days) and Stale-qualified alert (no action for 7 days → notify heads).
+- **Attention colours** — cards go amber (>5 days untouched) then red (>7 days).
+
+**Sales workflow extras**
+- **Salesperson → salesperson handoff** (ownership moves only on accept).
+- **Cross-project interest** (notify another project's head).
+- **Co-ownership** (shared owners with equal access).
+- **Price offered / blocks (A–F) / competitors** capture.
+- **Pricing-approval requests** — rep sends 3 unit options → heads set pre-final/final price → in-app notifications.
+- **Last quote** capture; **Referral** walk-in source with referrer link.
+- **Wonderwall** tracking (proposed → visited → booked).
+- **Booking capture** — unit, agreement value, size, realization (auto-calc), payment scheme, applicant details.
+- **Lost-to-competitor** reason capture.
+
+**Team & productivity**
+- **Team invites** (email + role + project) via invite link.
+- **Assignable tasks** — now multi-owner; a "Tasks" dashboard tab (assigned to me / by me / recently completed).
+- **Shared team labels** (create once, everyone sees; per-user delete).
+- **Team group chat** (one company-wide chat).
+- **Targets & incentives** — per-rep monthly targets; earned incentive auto-computed from bookings.
+- **Floating toast notifications** for incoming leads, pricing, handoffs, tasks.
+- **Deal Coach + Today's Plays + Escalation** — AI next-best-action: every open lead always shows a suggested next step; a "Today's plays" tab; heads get escalation alerts for salespeople with neglected leads.
+
+**Analytics & reporting**
+- Follow-up stats, Funnel (with drill-downs — every number is clickable), Ageing analysis (role-scoped tree), Deal-status distributions.
+- **Report builder** — nested AND/OR conditions, saved named reports (column picker / group-by / CSV export are a planned Stage 2).
+- **Natural-language "ask" box** — type a plain-English question, get matching leads.
+- **Monthly Sales Review report** — brand-styled, print/save-as-PDF, auto-computed from live data + editable historical figures.
+- **Comment insights** (blocker/signal buckets), **word cloud** with click-to-filter.
+- **Saved filters** and **custom labels**.
+- Sales-Head one-click **full-data JSON backup**.
 
 ---
 
-## 7. Known limitations (why this isn't production)
+## 6. Data model (cloud / Supabase)
 
-- **Per-browser storage.** Data lives in one browser's `localStorage`. Nothing is shared between people or devices; the Amartya-vs-Savita isolation is simulated by logging in/out in one browser.
-- **Auth not secure.** Passwords are hashed client-side for show only; a real system hashes server-side (bcrypt/argon2).
-- **Permissions are browser-side.** `can()`/`scoped()` run in the client, so they're bypassable — not real security.
-- **Notifications are in-app only.** The bell works only while a head has the app open; there's no email/WhatsApp push.
-- **AI likelihood needs Claude/an API key** — off in the offline file.
+Core tables (all scoped by `company_id`, protected by Row Level Security):
+
+- `companies` — the tenant (Bricks & Milestones). Holds `report_data`.
+- `projects` — Earthscape, Solcrest, Lagos (auto-created on Sales Head login).
+- `members` — users: `role` (`sales_head` | `project_head` | `sales` | `reception`), `project_id`, `prefs` (saved filters, labels, panel order, saved reports, targets).
+- `leads` — the main record: name, phone (optional), source, walk-in details, stage, deal_status, owner_id + `co_owners[]`, qualified/nq_reason, temp/deal fields, next_follow_up, `booking` (jsonb), `walkin_phase`, `labels`, price_offered, `blocks`, competitors, lost_to, `last_quote`, `wonderwall_*`, met_project_head + ph_meeting_date.
+- `lead_activity` — the timeline (notes, revisits, system events).
+- `tasks` — assignable tasks (multi-assignee).
+- `invitations` — pending team invites (with accept token).
+- `transfer_requests` + `cross_interest` — handoffs & cross-project interest.
+- `pricing_requests` — pricing-approval flow.
+- `promotions` — payment-scheme catalog.
+- `messages` — team group chat.
+- `targets` — per-member monthly target + incentive.
+
+**Date rule (important):** dates are stored as local `YYYY-MM-DD`. Never use `toISOString()` — it caused an IST off-by-one bug (dates showed a day early).
 
 ---
 
-## 8. Cloud roadmap (the next milestone)
+## 7. Database migrations
 
-Goal: real multi-user, secure, shared, with server-enforced permissions and real notifications. Keep the current UI; replace the storage layer with API calls.
+The database was built up through a numbered series of SQL migrations (`cloud/migration-2.sql` … `migration-21.sql`, plus `schema.sql`, `sandbox-setup.sql`, and `promote-to-prod.sql`). Highlights: booking, walk-in phase, handoffs/cross-project, deal status + met-PH lock, saved filters/labels, tasks, targets/incentives, promotions/schemes, reception role, referral source, pricing requests, wonderwall, lost-to, chat, co-ownership/blocks/competitors, and RLS fixes for disqualify.
 
-**Recommended stack:** Supabase (Postgres + Auth + Row Level Security) + a scheduled Edge Function for notifications. (Firebase is a viable alternative.)
+**Both databases are currently caught up** through the latest promoted migrations. `promote-to-prod.sql` bundles the set that production needs.
 
-### Suggested schema
-```
-companies(id, name)                                  -- tenant, e.g. "Bricks & Milestones"
-projects(id, company_id, name)                       -- "Earthscape", "Solcrest"
-profiles(id -> auth.users, company_id, name,
-         role 'sales_head'|'project_head'|'sales',
-         project_id nullable)                         -- project scoping for heads/reps
-leads(id, company_id, project_id, owner_id,
-      name, phone, email, source, src_detail,
-      walkin_source, cp_name, location, company_name,
-      budget, notes, stage,
-      qualified, nq_reason, disqualified_by, lost_reason,
-      temp, next_follow_up, assigned_at, created_at)   -- created_at doubles as walk-in date
-lead_activity(id, lead_id, kind 'note'|'revisit'|'system',
-      body, author_id, next_follow_up, created_at)     -- the timeline/log
-revisits(id, lead_id, visited_on, logged_by)           -- or fold into lead_activity(kind='revisit')
-assessments(id, lead_id, likelihood, temperature,
-      rationale, signals jsonb, created_at)            -- AI likelihood history
-```
+---
 
-### Row Level Security (the rules that enforce the buckets on the server)
-- **sales_head:** full read/write on all rows within their `company_id`.
-- **project_head:** read/write on rows where `leads.project_id = profile.project_id`.
-- **sales:** read/write only where `leads.owner_id = auth.uid()`. On disqualify, `owner_id` is set null → the row leaves the rep's view automatically; heads reassign it.
-- Field-level: only `sales_head` may update `leads.created_at` (walk-in date) and `walkin_source`/`cp_name`.
+## 8. Deploy / promote flow
 
-### Server jobs (what the browser can't do)
-- **Stale-qualified sweep:** a scheduled function that finds `qualified` leads with no `lead_activity` in 7 days and notifies the Project Head + Sales Head by email/WhatsApp.
-- **Decision-SLA sweep:** `assigned` leads with no qualify/disqualify within 7 days of `assigned_at`.
+**For code-only changes (no new database columns):**
+1. Edit `cloud/index.html`.
+2. Copy it to the published folder: `cp cloud/index.html cloud/web/index.html`.
+3. `git push` on `main` → Netlify **auto-deploys to sandbox**.
+4. You review on the sandbox site.
+5. Promote to production: `git checkout production && git merge main && git push origin production` → Netlify auto-deploys `bnmsales`. Then `git checkout main`.
 
-### Migration steps (suggested for Claude Code)
-1. Stand up Supabase; create the schema + RLS above; seed the four demo users.
-2. Build a small API/client module that mirrors the current `db` operations (get leads, create, update stage, add activity, etc.).
-3. Swap the single-file app's storage calls (`saveDB`/`loadDB`) for that client; keep all UI and business logic.
-4. Wire real auth (Supabase Auth) in place of the local password/session code.
-5. Add the two scheduled notification functions.
-6. Keep the single-file prototype untouched as the reference/demo (e.g. move cloud work into a `cloud/` subfolder).
+**For changes that need a new database column/table:**
+- Run the migration SQL on the **sandbox** Supabase first, review, then run it on **production** Supabase **before** the code that uses it goes live. (Database change first, then code.)
+
+**Branch note:** `main` deploys sandbox; `production` deploys prod. As of the last clean reset, `origin/main == origin/production` for the app code — the old "Channelforce" commits were cleared off `main` (they live in a separate private repo). Keep them separate so promotes stay clean.
 
 ---
 
 ## 9. Business rules to preserve (do not regress)
-1. Salespeople see only their own leads; heads see project/all.
+
+1. Salespeople see only their own (or co-owned) leads; project heads see their project; sales head sees all.
 2. Salespeople can create + edit but **not delete**.
-3. Disqualifying a walk-in **removes it from the rep's bucket** into the disqualified pool; heads reassign.
-4. **Walk-in date & source are locked** after entry for everyone except the Sales Head.
-5. **Decision SLA:** qualify/disqualify within 7 days of assignment.
-6. **Stale-qualified alert:** qualified + no follow-up for 7 days → notify heads until booked/lost.
+3. Disqualifying moves a lead to the disqualified pool for heads to reassign (owner is kept, not nulled — a recent fix).
+4. Walk-in date & source are locked after entry for everyone except the Sales Head.
+5. Decision SLA: qualify/disqualify within 7 days of assignment.
+6. Stale-qualified alert: qualified + no follow-up for 7 days → notify heads until booked/lost.
 7. Dates are local (`iso()`), never UTC.
+8. Strict per-project isolation for project heads.
+
+---
+
+## 10. Still to do (before wider rollout)
+
+- **Re-enable "Confirm email"** in BOTH Supabase projects (turned OFF for easy testing during the build).
+- **Server-side stale-lead alerts** — scheduled Supabase function to email/WhatsApp reminders (the browser can't do this on its own).
+- **Turn the AI closing-likelihood feature back on** (needs an API key server-side).
+- **Report builder Stage 2** — column picker, group-by/aggregations, CSV export, maybe charts.
+- Add a service worker before go-live (deliberately omitted during active dev to avoid stale caches).
+
+---
+
+## 11. Scope note
+
+This document covers **Sales Enhancer only** (the Bricks & Milestones app).
+
+**Channelforce** — the separate broker product — is a different codebase in its own private repo and has its **own handover document**. Do not mix the two. (There is also a longer-term "Sales Enhancer as SaaS" direction for licensing this app to other real-estate companies; that remains a future idea, not part of the current build.)
