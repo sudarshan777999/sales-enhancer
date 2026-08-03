@@ -1582,9 +1582,7 @@ function renderSavedBar(){
   const ppl=(u&&u.role==='sales_head')?salespeople():(u&&u.role==='project_head')?salespeople(u.project):[];
   const ownerChips=ppl.map(p=>{const on=filters.some(f=>f.field==='owner'&&String(f.value||'').split(',').includes(p.id));return `<button class="sfchip ${on?'on':''}" onclick="toggleOwner('${p.id}')">👤 ${escapeHtml(p.name)}</button>`;}).join('');
   const chips=list.map((sf,i)=>{const on=JSON.stringify({m:sf.mode||'AND',f:sf.filters})===cur;return `<button class="sfchip ${on?'on':''}" onclick="applySaved(${i})">${sf.name}</button>`;}).join('');
-  const ask=`<div class="ask-bar"><span class="ask-ic">✦</span><input class="field" id="askBox" autocomplete="off" placeholder="Ask in plain words… e.g. revisited and project head didn't meet and lost" value="${(lastAsk||'').replace(/"/g,'&quot;')}" onkeydown="if(event.key==='Enter')runAsk()"/><button class="btn" onclick="runAsk()">Show walk-ins</button><button class="btn ghost" onclick="saveAsk()" title="Save this question">★ Save</button></div>`;
-  const askChips=savedAsks().map((s,i)=>`<button class="sfchip askc" onclick="applySavedAsk(${i})" title="${escapeHtml(s.q)}">✦ ${escapeHtml(s.name)}<span class="xx" onclick="event.stopPropagation();deleteSavedAsk(${i})">✕</span></button>`).join('');
-  el.innerHTML=ask+`<div class="sfbar">${askChips}${ownerChips}${quick}${chips}${active?`<button class="sfchip clear" onclick="clearFilters()">✕ Clear filters (${active})</button>`:''}<button class="sfchip add" onclick="openFilters()">＋ Filter / save</button></div>`;
+  el.innerHTML=`<div class="sfbar">${ownerChips}${quick}${chips}${active?`<button class="sfchip clear" onclick="clearFilters()">✕ Clear filters (${active})</button>`:''}<button class="sfchip add" onclick="openFilters()">＋ Filter / save</button></div>`;
 }
 /* ---- custom labels ---- */
 const LABEL_COLORS=['#2C5D80','#2E9E5B','#D9982B','#C0524A','#7E57C2','#2C9C9A','#4A6FA5','#98A2B0'];
@@ -1738,6 +1736,7 @@ function render(){
   const total=scoped().length;
   document.getElementById('count').textContent=total+(u.role==='sales'?' of your leads':' leads in view');
   refreshNotifyBadge();renderSavedBar();renderMyTarget();renderTaskDock();
+  if(activeTab==='crossproject'){const k=document.getElementById('kpis');if(k)k.innerHTML='';const sb=document.getElementById('savedBar');if(sb)sb.innerHTML='';}   // cross-project: no stats/filters
   if(openId)renderDrawer();
 }
 function bookedThisMonth(memberId,m){return db.leads.filter(l=>l.ownerId===memberId&&l.stage==='booked'&&l.booking&&(l.booking.at||'').slice(0,7)===m).length;}
