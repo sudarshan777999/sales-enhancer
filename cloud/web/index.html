@@ -859,6 +859,19 @@ function memberName(id){const u=user(id);return u?u.name:'';}
 function titleFor(m){const p=projName(m.project_id);if(m.role==='sales_head')return 'Sales Head';if(m.role==='project_head')return 'Project Head'+(p?' · '+p:'');if(m.role==='reception')return 'Receptionist';return 'Salesperson'+(p?' · '+p:'');}
 function leadFromRow(r){return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',source:r.source,srcDetail:r.src_detail||'',walkinSource:r.walkin_source||'',cpName:r.cp_name||'',location:r.location||'',company:r.company_name||'',project:projName(r.project_id),budget:r.budget||'',notes:r.notes||'',stage:r.stage,ownerId:r.owner_id||null,qualified:r.qualified,nqReason:r.nq_reason||'',disqualifiedBy:r.disqualified_by||'',lostReason:r.lost_reason||'',temp:r.temp||null,nextFollowUp:r.next_follow_up||null,assignedAt:r.assigned_at||null,createdAt:r.created_at,assessment:null,booking:r.booking||null,walkinPhase:r.walkin_phase||'',dealStatus:r.deal_status||'',metProjectHead:!!r.met_project_head,phMeetingDate:r.ph_meeting_date||'',labels:Array.isArray(r.labels)?r.labels:[],coOwners:Array.isArray(r.co_owners)?r.co_owners:[],priceOffered:r.price_offered||'',blocks:Array.isArray(r.blocks)?r.blocks:[],competitors:r.competitors||'',referralName:r.referral_name||'',referralLeadId:r.referral_lead_id||null,wwSuggested:!!r.wonderwall_suggested,wwVisited:!!r.wonderwall_visited,lostTo:r.lost_to||'',lastQuote:r.last_quote||null,pendingRevisit:!!r.pending_revisit,mergedInto:r.merged_into||null,viaGre:!!r.via_gre,createdBy:r.created_by||null,matchCode:r.match_code||'',revisits:[],log:[]};}
 
+// Fetch ALL rows for a query, paging past Supabase's 1000-row cap.
+// makeQuery must return a FRESH query builder each call (filters/order applied, no .range()).
+async function fetchAll(makeQuery){
+  const PAGE=1000;let from=0;const out=[];
+  for(;;){
+    const {data,error}=await makeQuery().range(from,from+PAGE-1);
+    if(error){console.error('fetchAll',error);break;}
+    const batch=data||[];out.push(...batch);
+    if(batch.length<PAGE)break;   // last page
+    from+=PAGE;
+  }
+  return out;
+}
 async function loadAll(){
   const {data:projs}=await sb.from('projects').select('*');
   projById={};projByName={};(projs||[]).forEach(p=>{projById[p.id]=p.name;projByName[p.name]=p.id;});
@@ -869,10 +882,11 @@ async function loadAll(){
   // shared label pool — union of every member's labels (first colour wins)
   {const map={};(mem||[]).forEach(m=>{(((m.prefs||{}).labels)||[]).forEach(x=>{if(x&&x.name&&!(x.name in map))map[x.name]=x.color||'#6C7A93';});});db.allLabels=Object.keys(map).map(name=>({name,color:map[name]}));}
   await ensureProjects();
-  const {data:leads}=await sb.from('leads').select('*');
-  const rows=leads||[];const ids=rows.map(l=>l.id);
+  const rows=await fetchAll(()=>sb.from('leads').select('*'));   // page past the 1000-row cap
+  const ids=rows.map(l=>l.id);
   let acts=[];
-  if(ids.length){const {data:a}=await sb.from('lead_activity').select('*').in('lead_id',ids).order('created_at',{ascending:true});acts=a||[];}
+  // RLS already limits activity to leads this user can see, so no .in() needed — page through ALL of it
+  if(ids.length){acts=await fetchAll(()=>sb.from('lead_activity').select('*').order('created_at',{ascending:true}).order('id',{ascending:true}));}
   const byLead={};acts.forEach(a=>{(byLead[a.lead_id]=byLead[a.lead_id]||[]).push(a);});
   db.leads=rows.map(r=>{const L=leadFromRow(r);(byLead[r.id]||[]).forEach(a=>{const d=(a.created_at||'').slice(0,10);const by=memberName(a.author_id);L.log.push({t:a.body||'',d,kind:a.kind,by,next:a.next_follow_up||null});if(a.kind==='revisit'){const nt=/^Revisited \(visit #\d+\)$/.test(a.body||'')?'':(a.body||'');L.revisits.push({date:d,by,note:nt});}});return L;});
   const [{data:trs},{data:cis}]=await Promise.all([
@@ -887,8 +901,8 @@ async function loadAll(){
   const {data:promos}=await sb.from('promotions').select('*').order('name');
   db.promotions=promos||[];
   await ensurePromotions();
-  const {data:tks}=await sb.from('tasks').select('*').order('created_at',{ascending:false});
-  db.tasks=tks||[];
+  const tks=await fetchAll(()=>sb.from('tasks').select('*').order('created_at',{ascending:false}));
+  db.tasks=tks;
   const {data:comp}=await sb.from('companies').select('id,name,report_data').eq('id',myCompanyId).maybeSingle();
   db.company=comp||null;db.reportData=(comp&&comp.report_data)||{};
   scoreboard.rows=null;   // invalidate leaderboard cache so it reflects fresh activity
