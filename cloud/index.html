@@ -1412,7 +1412,7 @@ function matchFilter(l,f){const v=f.value;switch(f.field){
   case 'wwvis':return v==='yes'?!!l.wwVisited:!l.wwVisited;
   case 'phase':return (l.walkinPhase||'')===v;
   case 'project':return l.project===v;
-  case 'owner':return (l.ownerId||'')===v;
+  case 'owner':return String(v||'').split(',').filter(Boolean).includes(l.ownerId||'');   // supports multiple selected salespeople (OR within owner)
   case 'followup':return v==='due'?(l.stage==='qualified'&&l.nextFollowUp&&dueState(l.nextFollowUp).n<=0):v==='upcoming'?(l.stage==='qualified'&&l.nextFollowUp&&dueState(l.nextFollowUp).n>0):v==='none'?(l.stage==='qualified'&&!l.nextFollowUp):true;
   case 'revisits':return v==='yes'?((l.revisits||[]).length>0):((l.revisits||[]).length===0);
   case 'name':return inc(l.name,v);
@@ -1474,11 +1474,14 @@ function setCapturedRange(val){
 function applyQuickView(days){setCapturedRange(addDays(-days)+'|'+addDays(0));}
 function monthRange(offset){const d=today();const start=new Date(d.getFullYear(),d.getMonth()+offset,1);const end=new Date(d.getFullYear(),d.getMonth()+offset+1,0);return iso(start)+'|'+iso(end);}
 function applyMonth(offset){setCapturedRange(monthRange(offset));}
-// one-click salesperson chip — toggles the Owner filter (one at a time), keeps other filters
+// one-click salesperson chip — toggles a salesperson in/out of the Owner filter (multi-select), keeps other filters
 function toggleOwner(id){
   const others=filters.filter(f=>f.field!=='owner');
   const cur=filters.find(f=>f.field==='owner');
-  filters=(cur&&cur.value===id)?others:others.concat([{field:'owner',value:id}]);
+  const set=new Set((cur&&cur.value?String(cur.value).split(','):[]).filter(Boolean));
+  set.has(id)?set.delete(id):set.add(id);
+  const val=Array.from(set).join(',');
+  filters=val?others.concat([{field:'owner',value:val}]):others;
   filterMode='AND';_returnTab=null;render();
 }
 function renderSavedBar(){
@@ -1490,7 +1493,7 @@ function renderSavedBar(){
   const quick=mv(0,'This month')+mv(-1,'Last month')+qv(15,'Last 15 days')+qv(30,'Last 30 days');
   const u=currentUser();
   const ppl=(u&&u.role==='sales_head')?salespeople():(u&&u.role==='project_head')?salespeople(u.project):[];
-  const ownerChips=ppl.map(p=>{const on=filters.some(f=>f.field==='owner'&&f.value===p.id);return `<button class="sfchip ${on?'on':''}" onclick="toggleOwner('${p.id}')">👤 ${escapeHtml(p.name)}</button>`;}).join('');
+  const ownerChips=ppl.map(p=>{const on=filters.some(f=>f.field==='owner'&&String(f.value||'').split(',').includes(p.id));return `<button class="sfchip ${on?'on':''}" onclick="toggleOwner('${p.id}')">👤 ${escapeHtml(p.name)}</button>`;}).join('');
   const chips=list.map((sf,i)=>{const on=JSON.stringify({m:sf.mode||'AND',f:sf.filters})===cur;return `<button class="sfchip ${on?'on':''}" onclick="applySaved(${i})">${sf.name}</button>`;}).join('');
   const ask=`<div class="ask-bar"><span class="ask-ic">✦</span><input class="field" id="askBox" autocomplete="off" placeholder="Ask in plain words… e.g. revisited and project head didn't meet and lost" value="${(lastAsk||'').replace(/"/g,'&quot;')}" onkeydown="if(event.key==='Enter')runAsk()"/><button class="btn" onclick="runAsk()">Show walk-ins</button><button class="btn ghost" onclick="saveAsk()" title="Save this question">★ Save</button></div>`;
   const askChips=savedAsks().map((s,i)=>`<button class="sfchip askc" onclick="applySavedAsk(${i})" title="${escapeHtml(s.q)}">✦ ${escapeHtml(s.name)}<span class="xx" onclick="event.stopPropagation();deleteSavedAsk(${i})">✕</span></button>`).join('');
