@@ -1464,15 +1464,22 @@ async function saveCurrentFilter(){
 }
 function applySaved(i){const sf=savedFilters()[i];if(!sf)return;_returnTab=null;filters=JSON.parse(JSON.stringify(sf.filters));filterMode=sf.mode||'AND';closeFilters();render();}
 async function deleteSaved(i){const list=savedFilters().slice();list.splice(i,1);if(await savePrefs(Object.assign({},myPrefs,{savedFilters:list}))){renderFilterBuilder();render();}}
-function applyQuickView(days){filters=[{field:'source',value:'walkin'},{field:'captured',value:addDays(-days)+'|'+addDays(0)}];filterMode='AND';_returnTab=null;render();}
+// Quick period chips ADD to your current filters (toggle the date range) so you can combine e.g. Savita + Walk-in + Last month.
+function setCapturedRange(val){
+  const others=filters.filter(f=>f.field!=='captured');
+  const cur=filters.find(f=>f.field==='captured');
+  filters=(cur&&cur.value===val)?others:others.concat([{field:'captured',value:val}]);   // click the active period again to clear just the date
+  filterMode='AND';_returnTab=null;render();
+}
+function applyQuickView(days){setCapturedRange(addDays(-days)+'|'+addDays(0));}
 function monthRange(offset){const d=today();const start=new Date(d.getFullYear(),d.getMonth()+offset,1);const end=new Date(d.getFullYear(),d.getMonth()+offset+1,0);return iso(start)+'|'+iso(end);}
-function applyMonth(offset){filters=[{field:'captured',value:monthRange(offset)}];filterMode='AND';_returnTab=null;render();}
+function applyMonth(offset){setCapturedRange(monthRange(offset));}
 function renderSavedBar(){
   const el=document.getElementById('savedBar');if(!el)return;
   const list=savedFilters();const active=activeFilters().length;
   const cur=JSON.stringify({m:filterMode,f:activeFilters()});
-  const qv=(days,label)=>{const val=addDays(-days)+'|'+addDays(0);const on=filters.length===2&&filters.some(f=>f.field==='captured'&&f.value===val)&&filters.some(f=>f.field==='source'&&f.value==='walkin');return `<button class="sfchip ${on?'on':''}" onclick="applyQuickView(${days})">${label}</button>`;};
-  const mv=(offset,label)=>{const val=monthRange(offset);const on=filters.length===1&&filters[0].field==='captured'&&filters[0].value===val;return `<button class="sfchip ${on?'on':''}" onclick="applyMonth(${offset})">${label}</button>`;};
+  const qv=(days,label)=>{const val=addDays(-days)+'|'+addDays(0);const on=filters.some(f=>f.field==='captured'&&f.value===val);return `<button class="sfchip ${on?'on':''}" onclick="applyQuickView(${days})">${label}</button>`;};
+  const mv=(offset,label)=>{const val=monthRange(offset);const on=filters.some(f=>f.field==='captured'&&f.value===val);return `<button class="sfchip ${on?'on':''}" onclick="applyMonth(${offset})">${label}</button>`;};
   const quick=mv(0,'This month')+mv(-1,'Last month')+qv(15,'Last 15 days')+qv(30,'Last 30 days');
   const chips=list.map((sf,i)=>{const on=JSON.stringify({m:sf.mode||'AND',f:sf.filters})===cur;return `<button class="sfchip ${on?'on':''}" onclick="applySaved(${i})">${sf.name}</button>`;}).join('');
   const ask=`<div class="ask-bar"><span class="ask-ic">✦</span><input class="field" id="askBox" autocomplete="off" placeholder="Ask in plain words… e.g. revisited and project head didn't meet and lost" value="${(lastAsk||'').replace(/"/g,'&quot;')}" onkeydown="if(event.key==='Enter')runAsk()"/><button class="btn" onclick="runAsk()">Show walk-ins</button><button class="btn ghost" onclick="saveAsk()" title="Save this question">★ Save</button></div>`;
