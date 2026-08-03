@@ -3539,12 +3539,17 @@ function renderTaskDock(){
   }
   const body=taskDock.collapsed?'':segBtns+listBody;
   el.className='tdock'+(taskDock.collapsed?' collapsed':'');
-  el.innerHTML=`<div class="tdock-h" id="tdockH"><span>✓ Tasks</span>${toMe.length?`<span class="tdock-badge">${toMe.length}</span>`:''}<button class="tdock-min" onclick="event.stopPropagation();tdToggleCollapse()" title="${taskDock.collapsed?'Expand':'Collapse'}">${taskDock.collapsed?'▸':'▾'}</button></div>${body}`;
-  if(taskDock.pos){el.style.left=Math.min(taskDock.pos.left,window.innerWidth-60)+'px';el.style.top=Math.min(taskDock.pos.top,window.innerHeight-60)+'px';el.style.right='auto';}
+  el.innerHTML=`<div class="tdock-h" id="tdockH" title="${taskDock.collapsed?'Click to expand':'Click to minimise · drag to move'}"><span>✓ Tasks</span>${toMe.length?`<span class="tdock-badge">${toMe.length}</span>`:''}<span class="tdock-min" aria-hidden="true">${taskDock.collapsed?'▸':'▾'}</span></div>${body}`;
+  if(taskDock.pos){                                    // restore saved position, clamped so the WHOLE pane (incl. the ▾) stays on-screen
+    const dw=el.offsetWidth||258, dh=el.offsetHeight||60;
+    const L=Math.max(4,Math.min(taskDock.pos.left, window.innerWidth-dw-4));
+    const T=Math.max(56,Math.min(taskDock.pos.top, window.innerHeight-dh-4));
+    el.style.left=L+'px';el.style.top=T+'px';el.style.right='auto';
+  }
   const h=document.getElementById('tdockH');
-  h.onmousedown=function(e){if(e.target.closest('.tdock-min'))return;e.preventDefault();const r=el.getBoundingClientRect();const ox=e.clientX-r.left,oy=e.clientY-r.top;
-    const mv=function(ev){let nl=ev.clientX-ox,nt=ev.clientY-oy;nl=Math.max(4,Math.min(window.innerWidth-el.offsetWidth-4,nl));nt=Math.max(56,Math.min(window.innerHeight-44,nt));el.style.left=nl+'px';el.style.top=nt+'px';el.style.right='auto';};
-    const up=function(){document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);taskDock.pos={left:parseInt(el.style.left)||16,top:parseInt(el.style.top)||92};tdSave();};
+  h.onmousedown=function(e){if(e.button!==0)return;e.preventDefault();const r=el.getBoundingClientRect();const ox=e.clientX-r.left,oy=e.clientY-r.top;const sx=e.clientX,sy=e.clientY;let moved=false;
+    const mv=function(ev){if(!moved&&Math.abs(ev.clientX-sx)+Math.abs(ev.clientY-sy)<4)return;moved=true;let nl=ev.clientX-ox,nt=ev.clientY-oy;nl=Math.max(4,Math.min(window.innerWidth-el.offsetWidth-4,nl));nt=Math.max(56,Math.min(window.innerHeight-el.offsetHeight-4,nt));el.style.left=nl+'px';el.style.top=nt+'px';el.style.right='auto';};
+    const up=function(){document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);if(moved){taskDock.pos={left:parseInt(el.style.left)||16,top:parseInt(el.style.top)||92};tdSave();}else{tdToggleCollapse();}};   // a plain click (no drag) minimises/expands
     document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);};
 }
 function pollNotify(){
