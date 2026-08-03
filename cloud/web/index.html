@@ -2378,6 +2378,31 @@ function timelineHTML(l){
   if(!items.length)return '<div class="locked-note">No activity yet. Log a follow-up to start the history.</div>';
   return `<div class="log">`+items.join('')+`</div>`;
 }
+// date a lead was marked Closed Lost / Lost (from its timeline), fallback to captured date
+function lostAt(l){
+  const ds=(l.log||[]).filter(x=>x.kind==='system'&&/closed lost|^lost\s*[—-]/i.test(x.t||'')).map(x=>x.d).filter(Boolean).sort();
+  return ds.length?ds[ds.length-1]:(l.createdAt||'');
+}
+// Closed-Lost analytics: salesperson-wise, reason-wise, month-wise, CP-wise (each bar opens those leads)
+function closedLostPanels(leads){
+  const lost=leads.filter(l=>l.stage==='lost');
+  if(!lost.length)return '';
+  const sub=t=>`<div style="font-family:'Space Grotesk';font-weight:600;font-size:12.5px;margin:2px 0 9px;color:var(--soft)">${t}</div>`;
+  const bar=(rows,color)=>{const mx=Math.max(1,...rows.map(r=>r.arr.length));return rows.length?rows.map(r=>`<div class="barrow"><div class="lbl">${escapeHtml(r.label)}</div><div class="track"><div class="fillb" style="width:${Math.round(r.arr.length/mx*100)}%;background:${color}">${drillN(r.arr,'Closed Lost · '+r.label)}</div></div></div>`).join(''):'<div class="locked-note">None.</div>';};
+  const group=(keyFn)=>{const m={};lost.forEach(l=>{const k=keyFn(l);(m[k]=m[k]||[]).push(l);});return m;};
+  const bySp=group(l=>l.ownerId?userName(l.ownerId):'Unassigned');
+  const spRows=Object.entries(bySp).map(([k,arr])=>({label:k,arr})).sort((a,b)=>b.arr.length-a.arr.length);
+  const byRs=group(l=>((l.lostReason||'').split(' — ')[0]||'').trim()||'(no reason)');
+  const rsRows=Object.entries(byRs).map(([k,arr])=>({label:k,arr})).sort((a,b)=>b.arr.length-a.arr.length);
+  const byCp=group(l=>(l.walkinSource||'')==='CP'?(l.cpName||'(unnamed CP)'):l.source==='walkin'?'Direct walk-in':'Digital');
+  const cpRows=Object.entries(byCp).map(([k,arr])=>({label:k,arr})).sort((a,b)=>b.arr.length-a.arr.length);
+  const byMo=group(l=>(lostAt(l)||'').slice(0,7)||'unknown');
+  const moRows=Object.entries(byMo).sort((a,b)=>a[0]<b[0]?1:-1).map(([ym,arr])=>({label:ym==='unknown'?'(unknown)':rMonthLabel(ym),arr}));
+  return `<div class="panel"><h3>Closed Lost — analytics <span style="font-weight:400;color:var(--soft);font-size:12px">· ${lost.length} lost</span></h3>
+    <div class="split"><div>${sub('By salesperson')}${bar(spRows,'#C0524A')}</div><div>${sub('By reason')}${bar(rsRows,'#A0453D')}</div></div>
+    <div class="split" style="margin-top:4px"><div>${sub('By month (when lost)')}${bar(moRows,'#7E57C2')}</div><div>${sub('By channel partner')}${bar(cpRows,'#4A6FA5')}</div></div>
+    <div class="ai-tag" style="margin-top:8px">Tap any bar to open those lost leads. “By CP” groups CP walk-ins by partner; direct walk-ins and digital leads are shown separately.</div></div>`;
+}
 function statsHTML(leads){
   const noteCount=l2=>l2.log.filter(e=>e.kind==='note').length;
   const totalFu=leads.reduce((a,l)=>a+noteCount(l),0);
@@ -2440,7 +2465,7 @@ function statsHTML(leads){
       <div class="panel"><h3>Deal status</h3>${tPanel}</div>
     </div>
     <div class="panel"><h3>Comment insights</h3>${themesHTML(leads)}<div class="ai-tag" style="margin-top:8px">Read from what the team writes in comments — what's blocking deals, buying signals, then competitors, locations &amp; unit types. Click any row to see those walk-ins (with comments &amp; assign-task).</div></div>
-    <div class="panel"><h3>Outcomes</h3>${oPanel}</div>${wiPanel}`;
+    <div class="panel"><h3>Outcomes</h3>${oPanel}</div>${closedLostPanels(leads)}${wiPanel}`;
 }
 const THEME_STOP=new Set(('the a an and or but to of in on for with at by from is are was were be been being have has had do does did will would can could should shall may might must not no yes ok okay he she it they them his her their our your you i we us as this that these those there here then than so if else when while about into over under out up down off again once very more most also both each few other some such own same too call called calling spoke speak talk talked told tell said say says ask asked meet met meeting visit visited visiting follow followup followed following revisit revisited discuss discussed discussing customer client lead leads walkin walkins today tomorrow yesterday morning evening back next last week weeks day days month time still going want wants wanted need needs needed interested interest looking look see seen show showed shared send sent give given get got take took come came went make made done per via etc sir madam mr mrs ms number phone email name update details detail info soon later still yet done good great fine sure maybe pls please thanks thank just near option options comparing compare important tight also thing things bit lot able around').split(/\s+/));
 function dedupeTerms(items){const seen=new Set(),out=[];items.forEach(x=>{const k=x.term.toLowerCase();if(!seen.has(k)){seen.add(k);out.push(x);}});return out;}
