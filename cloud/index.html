@@ -2384,9 +2384,30 @@ function lostAt(l){
   return ds.length?ds[ds.length-1]:(l.createdAt||'');
 }
 // Closed-Lost analytics: salesperson-wise, reason-wise, month-wise, CP-wise (each bar opens those leads)
+let clFilter={period:'all',sp:''};
+function setClPeriod(p){clFilter.period=p;render();}
+function setClSp(v){clFilter.sp=v;render();}
+function clInPeriod(dateStr){
+  if(clFilter.period==='all')return true;
+  const d=parseD(dateStr||'');if(!d)return false;const now=today();
+  if(clFilter.period==='this')return d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth();
+  if(clFilter.period==='last'){const lm=new Date(now.getFullYear(),now.getMonth()-1,1);return d.getFullYear()===lm.getFullYear()&&d.getMonth()===lm.getMonth();}
+  if(clFilter.period==='3m')return d>=new Date(now.getFullYear(),now.getMonth()-2,1);
+  return true;
+}
 function closedLostPanels(leads){
-  const lost=leads.filter(l=>l.stage==='lost');
-  if(!lost.length)return '';
+  const allLost=leads.filter(l=>l.stage==='lost');
+  if(!allLost.length)return '';
+  const su=currentUser();
+  const showSp=su&&(su.role==='sales_head'||su.role==='project_head');
+  const ppl=showSp?(su.role==='sales_head'?salespeople():salespeople(su.project)):[];
+  const periods=[['all','All time'],['this','This month'],['last','Last month'],['3m','Last 3 months']];
+  const periodSeg=`<div class="seg" style="flex-wrap:wrap">${periods.map(([k,lb])=>`<button class="${clFilter.period===k?'on':''}" onclick="setClPeriod('${k}')">${lb}</button>`).join('')}</div>`;
+  const spSel=showSp?`<select class="field" style="max-width:210px" onchange="setClSp(this.value)"><option value="">All salespeople</option>${ppl.map(p=>`<option value="${p.id}" ${clFilter.sp===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}</select>`:'';
+  const controls=`<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px">${periodSeg}${spSel}</div>`;
+  let lost=allLost.filter(l=>clInPeriod(lostAt(l)));
+  if(clFilter.sp)lost=lost.filter(l=>l.ownerId===clFilter.sp);
+  if(!lost.length)return `<div class="panel"><h3>Closed Lost — analytics</h3>${controls}<div class="locked-note">No closed-lost leads for this filter.</div></div>`;
   const sub=t=>`<div style="font-family:'Space Grotesk';font-weight:600;font-size:12.5px;margin:2px 0 9px;color:var(--soft)">${t}</div>`;
   const bar=(rows,color)=>{const mx=Math.max(1,...rows.map(r=>r.arr.length));return rows.length?rows.map(r=>`<div class="barrow"><div class="lbl">${escapeHtml(r.label)}</div><div class="track"><div class="fillb" style="width:${Math.round(r.arr.length/mx*100)}%;background:${color}">${drillN(r.arr,'Closed Lost · '+r.label)}</div></div></div>`).join(''):'<div class="locked-note">None.</div>';};
   const group=(keyFn)=>{const m={};lost.forEach(l=>{const k=keyFn(l);(m[k]=m[k]||[]).push(l);});return m;};
@@ -2398,7 +2419,7 @@ function closedLostPanels(leads){
   const cpRows=Object.entries(byCp).map(([k,arr])=>({label:k,arr})).sort((a,b)=>b.arr.length-a.arr.length);
   const byMo=group(l=>(lostAt(l)||'').slice(0,7)||'unknown');
   const moRows=Object.entries(byMo).sort((a,b)=>a[0]<b[0]?1:-1).map(([ym,arr])=>({label:ym==='unknown'?'(unknown)':rMonthLabel(ym),arr}));
-  return `<div class="panel"><h3>Closed Lost — analytics <span style="font-weight:400;color:var(--soft);font-size:12px">· ${lost.length} lost</span></h3>
+  return `<div class="panel"><h3>Closed Lost — analytics <span style="font-weight:400;color:var(--soft);font-size:12px">· ${lost.length} lost</span></h3>${controls}
     <div class="split"><div>${sub('By salesperson')}${bar(spRows,'#C0524A')}</div><div>${sub('By reason')}${bar(rsRows,'#A0453D')}</div></div>
     <div class="split" style="margin-top:4px"><div>${sub('By month (when lost)')}${bar(moRows,'#7E57C2')}</div><div>${sub('By channel partner')}${bar(cpRows,'#4A6FA5')}</div></div>
     <div class="ai-tag" style="margin-top:8px">Tap any bar to open those lost leads. “By CP” groups CP walk-ins by partner; direct walk-ins and digital leads are shown separately.</div></div>`;
