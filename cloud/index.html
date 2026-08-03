@@ -1087,6 +1087,7 @@ function toEmail(id){id=(id||'').trim();return id.includes('@')?id:(id?id.toLowe
 async function authSubmit(){
   const st=loginView.step;
   if(st==='onboard'){
+    if(!ALLOW_SELF_ONBOARD){await sb.auth.signOut();session=null;loginView={step:'signin',err:'Self sign-up is disabled. Ask your Sales Head for an invite link.',email:''};return renderLogin();}
     const company=(document.getElementById('ob_company').value||'').trim();
     const name=(document.getElementById('ob_name').value||'').trim();
     if(!company||!name){loginView.err='Please fill in both fields.';return renderLogin();}
@@ -1630,7 +1631,10 @@ async function rcSubmit(){
   const btn=document.querySelector('.rc-submit');if(btn){btn.disabled=true;btn.textContent='Saving…';}
   const {error}=await sb.from('leads').insert(row);
   if(btn){btn.disabled=false;btn.textContent='＋ Add walk-in';}
-  if(error){alert('Could not add the walk-in: '+error.message);return;}
+  if(error){
+    if(/foreign key|owner/i.test(error.message||'')){await refresh();alert('The salesperson list was out of date — it has been refreshed. Please pick the salesperson again and re-add the walk-in.');return;}
+    alert('Could not add the walk-in: '+error.message);return;
+  }
   rcLastOwner=ownerId;
   rcSession.unshift({name,owner:owner?owner.name:'',date,revisit,src:walkin_source==='CP'?('CP'+(cp?' · '+cp:'')):src_detail});
   renderReception();
@@ -3748,7 +3752,8 @@ async function boot(){
   if(s){session=s.user.id;const mem=await loadMyMember();
     if(mem){await afterLogin();}
     else if(pendingInvite){loginView={step:'join',err:'',email:s.user.email};showLogin();}
-    else{loginView={step:'onboard',err:'',email:s.user.email,company:'Bricks & Milestones'};showLogin();}}
+    else if(ALLOW_SELF_ONBOARD){loginView={step:'onboard',err:'',email:s.user.email,company:'Bricks & Milestones'};showLogin();}
+    else{await sb.auth.signOut();session=null;loginView={step:'signin',err:'This login isn’t linked to your team yet. Ask your Sales Head to add you or send an invite link, then sign in.',email:''};showLogin();}}
   else{loginView={step:pendingInvite?'signup':'signin',err:'',email:''};showLogin();}
 }
 boot();
