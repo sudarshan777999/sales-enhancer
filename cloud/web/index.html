@@ -2452,9 +2452,27 @@ function closedLostPanels(leads){
     <div class="split" style="margin-top:4px"><div>${sub('By month (when lost) — tap for a reason pie 🥧')}${bar(moRows,'#7E57C2',r=>drillPie(r.arr,'Closed Lost · '+r.label))}</div><div>${sub('By channel partner')}${bar(cpRows,'#4A6FA5')}</div></div>
     <div class="ai-tag" style="margin-top:8px">Use the filter bar above (salesperson, period, etc.) to narrow this — it flows straight into these breakdowns. Tap a month for a downloadable reason pie; tap any other bar to open those lost leads.</div></div>`;
 }
+// Qualification snapshot: % qualified, % not-qualified, and the not-qualified reasons
+function qualificationPanel(leads){
+  const total=leads.length;if(!total)return '';
+  const qual=leads.filter(l=>l.qualified===true);
+  const nq=leads.filter(l=>l.stage==='not_qualified');
+  const pending=leads.filter(l=>l.qualified!==true&&l.stage!=='not_qualified');
+  const pct=n=>Math.round(n/total*100);
+  const stat=(k,arr)=>`<div class="stat"><div class="k">${k}</div><div class="v">${drillN(arr,'Qualification · '+k)} <small style="font-size:13px;color:var(--soft);font-weight:500">${pct(arr.length)}%</small></div></div>`;
+  const m={};nq.forEach(l=>{const r=(l.nqReason||'').trim()||'(no reason given)';(m[r]=m[r]||[]).push(l);});
+  const rows=Object.entries(m).map(([k,arr])=>({label:k,arr})).sort((a,b)=>b.arr.length-a.arr.length);
+  const mx=Math.max(1,...rows.map(r=>r.arr.length));
+  const bars=rows.length?rows.map(r=>`<div class="barrow"><div class="lbl">${escapeHtml(r.label)}</div><div class="track"><div class="fillb" style="width:${Math.round(r.arr.length/mx*100)}%;background:#B26A00">${drillN(r.arr,'Not qualified · '+r.label)}</div></div></div>`).join(''):'<div class="locked-note">No disqualified leads in view.</div>';
+  return `<div class="panel"><h3>Qualification <span style="font-weight:400;color:var(--soft);font-size:12px">· ${total} leads in view</span></h3>
+    <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">${stat('Qualified',qual)}${stat('Not qualified',nq)}${stat('Pending decision',pending)}</div>
+    <div style="font-family:'Space Grotesk';font-weight:600;font-size:12.5px;margin:6px 0 9px;color:var(--soft)">Why leads were not qualified</div>${bars}
+    <div class="ai-tag" style="margin-top:8px">Percentages are of all leads in view. Tap any figure or reason to open those leads. Respects the filter bar above.</div></div>`;
+}
 function closedLostTabHTML(){
-  const h=closedLostPanels(visible());
-  return h||`<div class="panel"><h3>Closed Lost — analytics</h3><div class="locked-note">No closed-lost leads for the current filter.</div></div>`;
+  const leads=visible();
+  const c=closedLostPanels(leads)||`<div class="panel"><h3>Closed Lost — analytics</h3><div class="locked-note">No closed-lost leads for the current filter.</div></div>`;
+  return c+qualificationPanel(leads);
 }
 function statsHTML(leads){
   const noteCount=l2=>l2.log.filter(e=>e.kind==='note').length;
