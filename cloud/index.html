@@ -2684,9 +2684,14 @@ function numOf(v){const n=parseFloat(String(v==null?'':v).replace(/[^0-9.]/g,'')
 function calcRealization(){const av=numOf(document.getElementById('bk_av').value);const sz=numOf(document.getElementById('bk_size').value);const r=sz>0?Math.round(av/sz):0;document.getElementById('bk_real').value=r?('₹'+r.toLocaleString('en-IN')+' /sq.ft'):'—';}
 function openBooking(id,status){
   const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;bookingLeadId=id;bookingStatus=status||'Booked';const b=l.booking||{};
+  const defCS=b.closingSource||(l.walkinSource==='CP'?'Channel Partner':l.walkinSource==='Referral'?'Referral':l.source==='digital'?'Digital':'Direct');
   document.getElementById('bookBody').innerHTML=`
     <div class="ai-tag" style="margin-bottom:12px">Customer: <b>${l.name}</b> · ${l.project||''}</div>
     <div class="block"><label>Unit booked <span class="req">*</span></label><input class="field" id="bk_apartment" placeholder="e.g. D-1201 (block + unit)" value="${b.apartment||''}"/></div>
+    <div class="facts" style="grid-template-columns:1fr 1fr;gap:12px">
+      <div class="block" style="margin:0"><label>Closing source <span class="req">*</span></label><select class="field" id="bk_csource" onchange="bkCsourceToggle()">${['Direct','Digital','Referral','Channel Partner'].map(s=>`<option ${defCS===s?'selected':''}>${s}</option>`).join('')}</select></div>
+      <div class="block" id="bk_cp_wrap" style="margin:0;${defCS==='Channel Partner'?'':'display:none'}"><label>Closing CP name <span class="req">*</span></label><input class="field" id="bk_ccp" placeholder="Partner who closed the deal" value="${(b.closingCp||l.cpName||'').replace(/"/g,'&quot;')}"/></div>
+    </div>
     <div class="block"><label>Location</label><input class="field" id="bk_location" placeholder="e.g. Whitefield" value="${b.location||l.location||''}"/></div>
     <div class="facts" style="grid-template-columns:1fr 1fr;gap:12px">
       <div class="block" style="margin:0"><label>Applicant company</label><input class="field" id="bk_company" placeholder="Where they work" value="${b.company||l.company||''}"/></div>
@@ -2704,17 +2709,29 @@ function openBooking(id,status){
   document.getElementById('bookScrim').classList.add('on');
 }
 function closeBooking(){document.getElementById('bookScrim').classList.remove('on');}
+function bkCsourceToggle(){const cp=(document.getElementById('bk_csource')||{}).value==='Channel Partner';const w=document.getElementById('bk_cp_wrap');if(w)w.style.display=cp?'':'none';}
+// which CP a booked deal is credited to (from the closing-source field; legacy bookings fall back to the walk-in CP)
+function closingCpOf(l){
+  if(l.stage!=='booked')return null;
+  const b=l.booking||{};
+  if(b.closingSource)return b.closingSource==='Channel Partner'?((b.closingCp||'').trim()||null):null;
+  return l.walkinSource==='CP'?((l.cpName||'').trim()||null):null;   // older bookings had no closing source
+}
 async function saveBooking(){
   const id=bookingLeadId;const l=db.leads.find(x=>x.id===id);if(!l)return;
   const av=numOf(document.getElementById('bk_av').value),sz=numOf(document.getElementById('bk_size').value);
   const g=id=>document.getElementById(id).value.trim();
-  const booking={apartment:g('bk_apartment'),location:g('bk_location'),company:g('bk_company'),applicantAge:g('bk_appage'),coApplicant:g('bk_coapp'),coApplicantAge:g('bk_coappage'),coApplicantCompany:g('bk_cocompany'),agreementValue:av||null,size:sz||null,realization:(sz>0?Math.round(av/sz):null),paymentStructure:document.getElementById('bk_pay').value,at:iso(today())};
+  const closingSource=document.getElementById('bk_csource').value;
+  const closingCp=closingSource==='Channel Partner'?g('bk_ccp'):'';
+  if(closingSource==='Channel Partner'&&!closingCp){alert('Enter the channel partner who closed the deal.');document.getElementById('bk_ccp').focus();return;}
+  const booking={apartment:g('bk_apartment'),location:g('bk_location'),company:g('bk_company'),applicantAge:g('bk_appage'),coApplicant:g('bk_coapp'),coApplicantAge:g('bk_coappage'),coApplicantCompany:g('bk_cocompany'),agreementValue:av||null,size:sz||null,realization:(sz>0?Math.round(av/sz):null),paymentStructure:document.getElementById('bk_pay').value,closingSource,closingCp,at:iso(today())};
   if(!await updateLead(id,{stage:'booked',deal_status:bookingStatus,next_follow_up:null,booking}))return;
   await addActivityRow(id,{kind:'system',body:'Booked 🎉'+(booking.apartment?' — '+booking.apartment:'')+(booking.agreementValue?' · AV ₹'+booking.agreementValue.toLocaleString('en-IN'):'')});
   closeBooking();await refresh();
 }
 function bookingFactsHTML(l){const b=l.booking;if(!b)return '';
-  const rows=[['Unit booked',b.apartment||'—'],['Location',b.location||'—'],['Applicant company',b.company||'—'],['Applicant age',b.applicantAge||'—'],['Co-applicant',b.coApplicant||'—'],['Co-applicant age',b.coApplicantAge||'—'],['Co-applicant company',b.coApplicantCompany||'—'],['Agreement Value',b.agreementValue?('₹'+Number(b.agreementValue).toLocaleString('en-IN')):'—'],['Size',b.size?(b.size+' sq.ft'):'—'],['Realization',b.realization?('₹'+Number(b.realization).toLocaleString('en-IN')+' /sq.ft'):'—'],['Payment',b.paymentStructure||'—']];
+  const closing=b.closingSource?(b.closingSource==='Channel Partner'?('CP · '+(b.closingCp||'—')):b.closingSource):'—';
+  const rows=[['Unit booked',b.apartment||'—'],['Closing source',closing],['Location',b.location||'—'],['Applicant company',b.company||'—'],['Applicant age',b.applicantAge||'—'],['Co-applicant',b.coApplicant||'—'],['Co-applicant age',b.coApplicantAge||'—'],['Co-applicant company',b.coApplicantCompany||'—'],['Agreement Value',b.agreementValue?('₹'+Number(b.agreementValue).toLocaleString('en-IN')):'—'],['Size',b.size?(b.size+' sq.ft'):'—'],['Realization',b.realization?('₹'+Number(b.realization).toLocaleString('en-IN')+' /sq.ft'):'—'],['Payment',b.paymentStructure||'—']];
   return `<div class="block"><label>Booking details</label><div class="facts">${rows.map(([k,v])=>`<div class="fact"><div class="k">${k}</div><div class="v mono">${v}</div></div>`).join('')}</div><div style="margin-top:10px"><button class="act" onclick="openBooking('${l.id}')">Edit booking details</button></div></div>`;}
 async function markLost(id,reason){if(!reason)return;const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;if(!await updateLead(id,{stage:'lost',lost_reason:reason,next_follow_up:null}))return;await addActivityRow(id,{kind:'system',body:'Lost — '+reason});await refresh();}
 async function reopen(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const stage=l.qualified?'qualified':(l.ownerId?'assigned':'new');if(!await updateLead(id,{stage,lost_reason:'',nq_reason:''}))return;await addActivityRow(id,{kind:'system',body:'Reopened'});await refresh();}
@@ -3478,19 +3495,22 @@ function cpMergeBlock(){
 }
 function cpStats(){
   const aliases=cpAliasMap();
-  const leads=visible().filter(l=>!l.mergedInto&&l.source==='walkin'&&l.walkinSource==='CP'&&(l.cpName||'').trim());
+  const all=visible().filter(l=>!l.mergedInto);
+  const canon=raw=>{const r=(raw||'').trim();if(!r)return null;return aliases[r.toLowerCase()]||r;};
   const map={};
-  leads.forEach(l=>{const raw=l.cpName.trim();const canon=aliases[raw.toLowerCase()]||raw;const key=canon.toLowerCase();(map[key]=map[key]||{name:canon,ls:[]}).ls.push(l);});
+  const ensure=name=>{const key=name.toLowerCase();return (map[key]=map[key]||{name,walkinLs:[],bookedLs:[]});};
+  all.forEach(l=>{ if(l.source==='walkin'&&l.walkinSource==='CP'){const c=canon(l.cpName);if(c)ensure(c).walkinLs.push(l);} });   // walk-ins a CP brought in
+  all.forEach(l=>{ const cc=closingCpOf(l);if(cc){const c=canon(cc);if(c)ensure(c).bookedLs.push(l);} });                       // bookings credited to the CLOSING CP
   const now=today(),MS=86400000;
   return Object.values(map).map(cp=>{
-    const ls=cp.ls;
-    const walkins=ls.length;
-    const booked=ls.filter(l=>l.stage==='booked').length;
-    const qualified=ls.filter(l=>l.qualified===true||l.stage==='booked').length;
-    const nq=ls.filter(l=>l.stage==='not_qualified').length;
-    const lost=ls.filter(l=>l.stage==='lost').length;
-    const dates=ls.map(l=>parseD(l.createdAt)).sort((a,b)=>a-b);
-    const first=dates[0],last=dates[dates.length-1];
+    const seen=new Map();[...cp.walkinLs,...cp.bookedLs].forEach(l=>seen.set(l.id,l));const ls=[...seen.values()];
+    const walkins=cp.walkinLs.length;
+    const booked=cp.bookedLs.length;
+    const qualified=cp.walkinLs.filter(l=>l.qualified===true||l.stage==='booked').length;
+    const nq=cp.walkinLs.filter(l=>l.stage==='not_qualified').length;
+    const lost=cp.walkinLs.filter(l=>l.stage==='lost').length;
+    const dates=ls.map(l=>parseD(l.createdAt)).filter(Boolean).sort((a,b)=>a-b);
+    const first=dates[0]||now,last=dates[dates.length-1]||now;
     const daysSinceLast=Math.round((now-last)/MS),daysSinceFirst=Math.round((now-first)/MS);
     const months=new Set(ls.map(l=>String(l.createdAt).slice(0,7)));
     const convRate=walkins?booked/walkins:0,qualRate=walkins?qualified/walkins:0,nqRate=walkins?nq/walkins:0;
@@ -3500,7 +3520,7 @@ function cpStats(){
     else if(months.size>=3&&daysSinceLast<=45)segment='consistent';
     else segment='active';
     return {name:cp.name,ls,walkins,booked,qualified,nq,lost,first,last,daysSinceLast,daysSinceFirst,monthsActive:months.size,convRate,qualRate,nqRate,segment};
-  }).sort((a,b)=>b.walkins-a.walkins);
+  }).sort((a,b)=>b.walkins-a.walkins||b.booked-a.booked);
 }
 function cpDrill(arr,label){const k='d'+(drillSeq++);drillReg[k]={leads:arr,label};return k;}
 function cpAnalyticsHTML(){
