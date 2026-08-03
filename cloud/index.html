@@ -459,6 +459,32 @@
   .foot{max-width:1360px;margin:0 auto;padding:0 24px 40px;color:var(--soft);font-size:12px;display:flex;align-items:center;gap:14px;}
   .hidden{display:none !important;}
   @media (max-width:820px){.kpis{grid-template-columns:repeat(3,1fr);}.modal-b{grid-template-columns:1fr;}.fu-row .note{display:none;}.search input{width:150px;}}
+  /* ---------- Phone (key screens) ---------- */
+  @media (max-width:640px){
+    .head-in{padding:10px 14px;gap:10px;flex-wrap:wrap;}
+    .logo b{font-size:15px;}
+    .ctx{display:none;}
+    .search{order:3;flex:1 1 100%;margin-left:0;}
+    .search input{width:100%;}
+    .whoami{padding-left:10px;}
+    .whoami .rl{display:none;}
+    .whoami .nm{max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .band,main,.perm-note{padding-left:14px;padding-right:14px;}
+    main{padding-top:6px;padding-bottom:84px;}
+    .kpis{grid-template-columns:repeat(2,1fr);gap:8px;margin:12px 0 6px;}
+    .kpi{padding:10px 12px;}
+    .kpi .val{font-size:22px;}
+    .ask-bar{flex-wrap:wrap;}
+    .ask-bar input{flex:1 1 100%;}
+    .ask-bar .btn{flex:1;}
+    .col{flex:0 0 80vw;}                 /* pipeline: one stage at a time, peek the next */
+    .drawer{width:100vw;}
+    .dr-head{padding:16px 16px 12px;}
+    .dr-head h2{font-size:18px;}
+    .dr-body{padding:16px 16px 64px;}
+    .modal-scrim{padding:4vh 10px;}
+    .btn,.tab,.navi{min-height:40px;}    /* comfortable tap targets */
+  }
   .act.ds-on{background:var(--brand);color:#fff;border-color:var(--brand);}
   /* saved-filter chips + labels */
   .sfbar{display:flex;flex-wrap:wrap;gap:8px;padding:10px 0 2px;}
