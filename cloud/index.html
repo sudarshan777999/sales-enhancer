@@ -1153,15 +1153,65 @@ async function downloadBackup(btn){
   showToast({icon:'⬇︎',title:'Backup downloaded',msg:n+' records across '+tables.length+' tables → check your Downloads',autoHide:6000});
 }
 function closeTeam(){document.getElementById('teamScrim').classList.remove('on');}
+let teamEdit=null;
+function teamRoleOpts(sel){return [['sales','Salesperson'],['project_head','Project Head'],['sales_head','Sales Head'],['reception','Receptionist']].map(([v,l])=>`<option value="${v}" ${sel===v?'selected':''}>${l}</option>`).join('');}
+async function saveMember(id){
+  if(currentUser().role!=='sales_head')return;
+  const name=((document.getElementById('ed_name_'+id)||{}).value||'').trim();
+  const role=(document.getElementById('ed_role_'+id)||{}).value||'sales';
+  const proj=(document.getElementById('ed_proj_'+id)||{}).value||'';
+  if(!name){alert('Name cannot be empty.');return;}
+  const patch={name,role,project_id:(role==='sales'||role==='project_head')?(projId(proj)||null):null};
+  const {error}=await sb.from('members').update(patch).eq('id',id);
+  if(error){alert('Could not save: '+error.message);return;}
+  teamEdit=null;await refresh();await renderTeam();
+}
+async function deleteMember(id){
+  if(currentUser().role!=='sales_head')return;
+  if(id===session){alert('You can’t delete your own account.');return;}
+  const m=db.users.find(x=>x.id===id);const nm=m?m.name:'this member';
+  const owned=db.leads.filter(l=>l.ownerId===id).length;
+  const coOwned=db.leads.filter(l=>(l.coOwners||[]).includes(id)).length;
+  if(owned||coOwned){alert(nm+' still owns '+owned+' lead(s)'+(coOwned?' and co-owns '+coOwned:'')+'. Reassign those first (Bulk assign, or the lead drawer), then delete.');return;}
+  if(!confirm('Remove '+nm+' from the team? This removes their access. (To fully delete their login, also remove them in Supabase → Authentication.)'))return;
+  await sb.from('lead_activity').update({author_id:null}).eq('author_id',id);
+  await sb.from('messages').update({member_id:null}).eq('member_id',id);
+  await sb.from('tasks').delete().eq('assigned_to',id);
+  await sb.from('tasks').delete().eq('assigned_by',id);
+  const {error}=await sb.from('members').delete().eq('id',id);
+  if(error){alert('Could not remove '+nm+': '+error.message+' — they may still be referenced (a handoff or pricing request). Clear those first.');return;}
+  await refresh();await renderTeam();
+}
+async function saveCompanyName(){
+  if(currentUser().role!=='sales_head')return;
+  const n=((document.getElementById('team_company')||{}).value||'').trim();if(!n)return;
+  const {error}=await sb.from('companies').update({name:n}).eq('id',myCompanyId);
+  if(error){alert('Could not save company name: '+error.message);return;}
+  if(db.company)db.company.name=n;alert('Company name updated.');
+}
 async function renderTeam(){
   const body=document.getElementById('teamBody');body.innerHTML='<div class="locked-note">Loading…</div>';
   const {data:invs}=await sb.from('invitations').select('*').eq('status','pending');
-  const memRows=db.users.map(m=>`<tr><td><b class="mono">${m.name}</b></td><td>${ROLE_LABEL[m.role]}</td><td>${m.project||'—'}</td></tr>`).join('');
+  const memRows=db.users.map(m=>{
+    if(teamEdit===m.id){
+      return `<tr>
+        <td><input class="field" id="ed_name_${m.id}" value="${escapeHtml(m.name)}" style="min-width:110px"/></td>
+        <td><select class="field" id="ed_role_${m.id}">${teamRoleOpts(m.role)}</select></td>
+        <td><select class="field" id="ed_proj_${m.id}"><option value="">—</option>${PROJECTS.map(p=>`<option ${m.project===p?'selected':''}>${p}</option>`).join('')}</select></td>
+        <td style="white-space:nowrap"><button class="act" onclick="saveMember('${m.id}')">Save</button> <button class="btn ghost" style="padding:4px 9px" onclick="teamEdit=null;renderTeam()">Cancel</button></td></tr>`;
+    }
+    const self=m.id===session;
+    return `<tr><td><b class="mono">${escapeHtml(m.name)}</b></td><td>${ROLE_LABEL[m.role]||m.role}</td><td>${m.project||'—'}</td>
+      <td style="white-space:nowrap"><button class="btn ghost" style="padding:4px 9px" onclick="teamEdit='${m.id}';renderTeam()">Edit</button>${self?'':` <button class="btn ghost" style="padding:4px 9px;color:var(--lost)" onclick="deleteMember('${m.id}')">Delete</button>`}</td></tr>`;
+  }).join('');
   const projOpts=PROJECTS.map(p=>`<option>${p}</option>`).join('');
   const invRows=(invs||[]).map(v=>{const link=inviteLink(v.token);return `<div class="fu-form" style="margin-top:8px"><div style="font-size:12.5px"><b>${v.email||'(no email)'}</b> · ${ROLE_LABEL[v.role]} · ${projName(v.project_id)||'—'}</div><div class="r" style="margin-top:8px;gap:8px"><input class="field" style="font-size:11px" readonly value="${link}"/><button class="btn" style="white-space:nowrap" onclick="copyText('${link}')">Copy link</button></div></div>`;}).join('');
   body.innerHTML=`
+    <div class="block"><label>Company</label>
+      <div class="r" style="gap:8px"><input class="field" id="team_company" value="${escapeHtml(db.company?db.company.name:'')}"/><button class="btn" style="white-space:nowrap" onclick="saveCompanyName()">Save name</button></div></div>
     <div class="block"><label>Current members</label>
-      <table style="box-shadow:none"><thead><tr><th>Name</th><th>Role</th><th>Project</th></tr></thead><tbody>${memRows}</tbody></table></div>
+      <table style="box-shadow:none"><thead><tr><th>Name</th><th>Role</th><th>Project</th><th></th></tr></thead><tbody>${memRows}</tbody></table>
+      <div class="ai-tag" style="margin-top:8px">Edit a person to change their name, role or project. Delete removes their access (reassign their leads first).</div></div>
     <div class="block"><label>Imported customers</label>
       <button class="btn ghost" onclick="reconcileAgents()">Attach imported customers to their agents</button>
       <div class="ai-tag" style="margin-top:8px">Bulk-imported customers tagged with an agent who wasn't a member yet are held unassigned. Once that agent has a login, click this to attach them all at once.</div></div>
