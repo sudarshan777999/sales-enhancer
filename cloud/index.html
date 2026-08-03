@@ -379,6 +379,8 @@
   .tdock-h:active{cursor:grabbing;}
   .tdock-badge{background:#C0524A;color:#fff;border-radius:20px;font-size:11px;padding:1px 8px;font-weight:700;}
   .tdock-min{margin-left:auto;border:none;background:none;cursor:pointer;color:var(--soft);font-size:13px;padding:2px 4px;}
+  .tdock.collapsed{width:auto;max-height:none;}                 /* minimised = shrink to a small pill, not a full-width bar */
+  .tdock.collapsed .tdock-h{border-bottom:none;padding:8px 12px;}
   .td-seg{display:flex;gap:4px;padding:9px 10px 5px;}
   .td-seg button{flex:1;border:1px solid var(--line);background:var(--surface);border-radius:8px;font-size:11px;padding:4px 3px;cursor:pointer;color:var(--soft);font-weight:600;}
   .td-seg button.on{background:var(--brand);color:#fff;border-color:var(--brand);}
@@ -3544,11 +3546,11 @@ function renderTaskDock(){
     const dw=el.offsetWidth||258, dh=el.offsetHeight||60;
     const L=Math.max(4,Math.min(taskDock.pos.left, window.innerWidth-dw-4));
     const T=Math.max(56,Math.min(taskDock.pos.top, window.innerHeight-dh-4));
-    el.style.left=L+'px';el.style.top=T+'px';el.style.right='auto';
+    el.style.left=L+'px';el.style.top=T+'px';el.style.right='auto';el.style.bottom='auto';   // clear CSS bottom so top+bottom don't stretch the pane
   }
   const h=document.getElementById('tdockH');
   h.onmousedown=function(e){if(e.button!==0)return;e.preventDefault();const r=el.getBoundingClientRect();const ox=e.clientX-r.left,oy=e.clientY-r.top;const sx=e.clientX,sy=e.clientY;let moved=false;
-    const mv=function(ev){if(!moved&&Math.abs(ev.clientX-sx)+Math.abs(ev.clientY-sy)<4)return;moved=true;let nl=ev.clientX-ox,nt=ev.clientY-oy;nl=Math.max(4,Math.min(window.innerWidth-el.offsetWidth-4,nl));nt=Math.max(56,Math.min(window.innerHeight-el.offsetHeight-4,nt));el.style.left=nl+'px';el.style.top=nt+'px';el.style.right='auto';};
+    const mv=function(ev){if(!moved&&Math.abs(ev.clientX-sx)+Math.abs(ev.clientY-sy)<4)return;moved=true;let nl=ev.clientX-ox,nt=ev.clientY-oy;nl=Math.max(4,Math.min(window.innerWidth-el.offsetWidth-4,nl));nt=Math.max(56,Math.min(window.innerHeight-el.offsetHeight-4,nt));el.style.left=nl+'px';el.style.top=nt+'px';el.style.right='auto';el.style.bottom='auto';};
     const up=function(){document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);if(moved){taskDock.pos={left:parseInt(el.style.left)||16,top:parseInt(el.style.top)||92};tdSave();}else{tdToggleCollapse();}};   // a plain click (no drag) minimises/expands
     document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);};
 }
