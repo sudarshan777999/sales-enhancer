@@ -756,6 +756,16 @@
   </div>
 </div>
 
+<div class="modal-scrim" id="pieScrim">
+  <div class="modal">
+    <div class="modal-h"><h2 id="pieTitle">Closed Lost — reasons</h2></div>
+    <div class="modal-b" style="display:block;text-align:center">
+      <canvas id="pieCanvas" style="max-width:100%;border:1px solid var(--line);border-radius:10px"></canvas>
+    </div>
+    <div class="modal-f"><button class="btn" onclick="downloadPie()">⬇ Download JPG</button><button class="btn ghost" onclick="pieSeeLeads()">See these leads</button><button class="btn ghost" onclick="closePie()">Close</button></div>
+  </div>
+</div>
+
 <!-- Bulk walk-ins modal -->
 <div class="modal-scrim" id="bulkScrim">
   <div class="modal">
@@ -2385,12 +2395,49 @@ function lostAt(l){
   const ds=(l.log||[]).filter(x=>x.kind==='system'&&/closed lost|^lost\s*[—-]/i.test(x.t||'')).map(x=>x.d).filter(Boolean).sort();
   return ds.length?ds[ds.length-1]:(l.createdAt||'');
 }
+// ---- pie chart (loss reasons) : shared helpers ----
+const PIE_COLORS=['#C0524A','#E0A32E','#4A6FA5','#2E9E5B','#7E57C2','#2C9C9A','#D98A00','#8C6BB1','#B26A00','#5C6879'];
+function reasonCounts(leads){const m={};leads.forEach(l=>{const r=((l.lostReason||'').split(' — ')[0]||'').trim()||'(no reason)';m[r]=(m[r]||0)+1;});return Object.entries(m).sort((a,b)=>b[1]-a[1]);}
+function svgPie(entries,size){
+  const total=entries.reduce((a,e)=>a+e[1],0)||1;const r=size/2,cx=r,cy=r;let ang=-Math.PI/2,paths='';
+  entries.forEach((e,i)=>{const frac=e[1]/total,a2=ang+frac*2*Math.PI,col=PIE_COLORS[i%PIE_COLORS.length];
+    if(entries.length===1){paths+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${col}"/>`;}
+    else{const x1=cx+r*Math.cos(ang),y1=cy+r*Math.sin(ang),x2=cx+r*Math.cos(a2),y2=cy+r*Math.sin(a2),large=frac>0.5?1:0;paths+=`<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${large} 1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${col}"/>`;}
+    ang=a2;});
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${paths}</svg>`;
+}
+function pieLegend(entries){const total=entries.reduce((a,e)=>a+e[1],0)||1;return entries.map((e,i)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:13px"><span style="width:12px;height:12px;border-radius:3px;background:${PIE_COLORS[i%PIE_COLORS.length]};flex:none"></span><span style="flex:1">${escapeHtml(e[0])}</span><b class="mono">${e[1]}</b><span style="color:var(--soft)">· ${Math.round(e[1]/total*100)}%</span></div>`).join('');}
+// clickable count that opens the reason PIE (instead of the lead list)
+function drillPie(arr,label){const k='d'+(drillSeq++);drillReg[k]={leads:arr,label};return `<span class="drill" onclick="event.stopPropagation();openReasonPie('${k}')">${arr.length}</span>`;}
+let _pieKey=null;
+function openReasonPie(k){const d=drillReg[k];if(!d)return;_pieKey=k;const label=(d.label||'').replace('Closed Lost · ','');
+  document.getElementById('pieTitle').textContent='Closed Lost — reasons · '+label;
+  drawPieCanvas(reasonCounts(d.leads),label,d.leads.length);
+  document.getElementById('pieScrim').classList.add('on');}
+function closePie(){document.getElementById('pieScrim').classList.remove('on');}
+function pieSeeLeads(){const d=drillReg[_pieKey];if(d){closePie();openLeadList(d.label,d.leads);}}
+function downloadPie(){const cv=document.getElementById('pieCanvas');if(!cv)return;const a=document.createElement('a');a.download='closed-lost-reasons.jpg';a.href=cv.toDataURL('image/jpeg',0.95);document.body.appendChild(a);a.click();a.remove();}
+function drawPieCanvas(entries,label,total){
+  const cv=document.getElementById('pieCanvas');if(!cv)return;const W=920,H=520,S=2;cv.width=W*S;cv.height=H*S;cv.style.width='100%';
+  const ctx=cv.getContext('2d');ctx.setTransform(S,0,0,S,0,0);
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#15223a';ctx.font="600 21px Inter,system-ui,sans-serif";ctx.textAlign='left';
+  ctx.fillText('Closed Lost — reasons · '+label,30,40);
+  ctx.fillStyle='#8a8578';ctx.font='13px Inter,system-ui,sans-serif';
+  ctx.fillText((total||0)+' closed-lost lead'+(total===1?'':'s'),30,62);
+  const tot=entries.reduce((a,e)=>a+e[1],0)||1,cx=215,cy=310,r=155;let ang=-Math.PI/2;
+  entries.forEach((e,i)=>{const frac=e[1]/tot,a2=ang+frac*2*Math.PI;ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,ang,a2);ctx.closePath();ctx.fillStyle=PIE_COLORS[i%PIE_COLORS.length];ctx.fill();
+    if(frac>0.05){const mid=(ang+a2)/2,lx=cx+Math.cos(mid)*r*0.6,ly=cy+Math.sin(mid)*r*0.6;ctx.fillStyle='#fff';ctx.font='600 14px Inter';ctx.textAlign='center';ctx.fillText(Math.round(frac*100)+'%',lx,ly);ctx.textAlign='left';}
+    ang=a2;});
+  let ly=150;
+  entries.forEach((e,i)=>{ctx.fillStyle=PIE_COLORS[i%PIE_COLORS.length];ctx.fillRect(440,ly-12,15,15);ctx.fillStyle='#15223a';ctx.font='15px Inter';const pct=Math.round(e[1]/tot*100);const t=(e[0].length>34?e[0].slice(0,33)+'…':e[0])+'  —  '+e[1]+' ('+pct+'%)';ctx.fillText(t,464,ly);ly+=28;});
+}
 // Closed-Lost analytics: salesperson-wise, reason-wise, month-wise, CP-wise (each bar opens those leads)
 function closedLostPanels(leads){
   const lost=leads.filter(l=>l.stage==='lost');
   if(!lost.length)return '';
   const sub=t=>`<div style="font-family:'Space Grotesk';font-weight:600;font-size:12.5px;margin:2px 0 9px;color:var(--soft)">${t}</div>`;
-  const bar=(rows,color)=>{const mx=Math.max(1,...rows.map(r=>r.arr.length));return rows.length?rows.map(r=>`<div class="barrow"><div class="lbl">${escapeHtml(r.label)}</div><div class="track"><div class="fillb" style="width:${Math.round(r.arr.length/mx*100)}%;background:${color}">${drillN(r.arr,'Closed Lost · '+r.label)}</div></div></div>`).join(''):'<div class="locked-note">None.</div>';};
+  const bar=(rows,color,clicker)=>{clicker=clicker||(r=>drillN(r.arr,'Closed Lost · '+r.label));const mx=Math.max(1,...rows.map(r=>r.arr.length));return rows.length?rows.map(r=>`<div class="barrow"><div class="lbl">${escapeHtml(r.label)}</div><div class="track"><div class="fillb" style="width:${Math.round(r.arr.length/mx*100)}%;background:${color}">${clicker(r)}</div></div></div>`).join(''):'<div class="locked-note">None.</div>';};
   const group=(keyFn)=>{const m={};lost.forEach(l=>{const k=keyFn(l);(m[k]=m[k]||[]).push(l);});return m;};
   const bySp=group(l=>l.ownerId?userName(l.ownerId):'Unassigned');
   const spRows=Object.entries(bySp).map(([k,arr])=>({label:k,arr})).sort((a,b)=>b.arr.length-a.arr.length);
@@ -2402,8 +2449,8 @@ function closedLostPanels(leads){
   const moRows=Object.entries(byMo).sort((a,b)=>a[0]<b[0]?1:-1).map(([ym,arr])=>({label:ym==='unknown'?'(unknown)':rMonthLabel(ym),arr}));
   return `<div class="panel"><h3>Closed Lost — analytics <span style="font-weight:400;color:var(--soft);font-size:12px">· ${lost.length} lost</span></h3>
     <div class="split"><div>${sub('By salesperson')}${bar(spRows,'#C0524A')}</div><div>${sub('By reason')}${bar(rsRows,'#A0453D')}</div></div>
-    <div class="split" style="margin-top:4px"><div>${sub('By month (when lost)')}${bar(moRows,'#7E57C2')}</div><div>${sub('By channel partner')}${bar(cpRows,'#4A6FA5')}</div></div>
-    <div class="ai-tag" style="margin-top:8px">Use the filter bar above (salesperson, period, etc.) to narrow this — it flows straight into these breakdowns. Tap any bar to open those lost leads.</div></div>`;
+    <div class="split" style="margin-top:4px"><div>${sub('By month (when lost) — tap for a reason pie 🥧')}${bar(moRows,'#7E57C2',r=>drillPie(r.arr,'Closed Lost · '+r.label))}</div><div>${sub('By channel partner')}${bar(cpRows,'#4A6FA5')}</div></div>
+    <div class="ai-tag" style="margin-top:8px">Use the filter bar above (salesperson, period, etc.) to narrow this — it flows straight into these breakdowns. Tap a month for a downloadable reason pie; tap any other bar to open those lost leads.</div></div>`;
 }
 function closedLostTabHTML(){
   const h=closedLostPanels(visible());
@@ -3125,6 +3172,11 @@ function reportHTML(){
   // NQ & Closed-Lost categories
   const nqSlide=crossReasonSlide('NQ — Categories',inMonth.filter(l=>l.stage==='not_qualified'),l=>l.nqReason,cats,slide);
   const lostSlide=crossReasonSlide('Closed-Lost — Categories',inMonth.filter(l=>l.stage==='lost'),l=>l.lostReason,cats,slide);
+  // Closed-Lost reason pie
+  const lostLeads=inMonth.filter(l=>l.stage==='lost');const lostEntries=reasonCounts(lostLeads);
+  const lostPieSlide=lostEntries.length
+    ? slide('Closed Lost — Reasons',`<div style="display:flex;gap:34px;align-items:center;flex-wrap:wrap"><div style="flex:none">${svgPie(lostEntries,240)}</div><div style="flex:1;min-width:230px">${pieLegend(lostEntries)}<div style="margin-top:12px;font-family:'Space Grotesk';font-weight:600;color:#5a4a2a">${lostLeads.length} closed-lost this month</div></div></div>`)
+    : slide('Closed Lost — Reasons',`<div style="color:#9c8a63">No closed-lost leads this month.</div>`);
   // Historic Sales Summary (external)
   const histRows=parseLines(rd.historicText);let histSlide;
   if(histRows.length){
@@ -3133,7 +3185,7 @@ function reportHTML(){
     const bars=histRows.map(r=>`<div class="rbar-row"><div class="rl">${r[0]}</div><div class="rt"><div class="rf" style="width:${Math.round(numOf(r[3])/umax*100)}%;background:#C9B27A;color:#4a3a1a">${r[3]||''}</div></div></div>`).join('');
     histSlide=slide('Historic Sales Summary',`<table class="rtable"><thead><tr><th>Month</th><th>3.5 BHK (₹)</th><th>3 BHK (₹)</th><th>Units sold</th></tr></thead><tbody>${body}</tbody></table><div style="margin-top:14px">${bars}</div>`);
   } else histSlide=slide('Historic Sales Summary',`<div style="color:#9c8a63">Add the historic realization trend via <b>Edit external data</b>. Format per line: <b>Month, 3.5BHK, 3BHK, Units</b></div>`);
-  return toolbar+editor+titleSlide+perfSlide+histSlide+srcSlide+cpSlide+statSlide+nqSlide+lostSlide+clSlide;
+  return toolbar+editor+titleSlide+perfSlide+histSlide+srcSlide+cpSlide+statSlide+nqSlide+lostSlide+lostPieSlide+clSlide;
 }
 function toggleReportEditor(){const e=document.getElementById('reportEditor');if(e)e.style.display=e.style.display==='none'?'':'none';}
 async function saveReport(){const rd=Object.assign({},db.reportData||{});rd.performanceText=document.getElementById('rd_perf').value;rd.historicText=document.getElementById('rd_hist').value;if(await saveReportData(rd))render();}
