@@ -1655,12 +1655,13 @@ function render(){
   renderTabs();renderKPIs(leads);
   const m=document.getElementById('main');
   if(activeTab==='pipeline')m.innerHTML=pipeToggle()+(pipeView==='list'?pipelineListHTML(leads):boardHTML(leads));
-  else if(activeTab==='plays')m.innerHTML=playsHTML();
+  else if(activeTab==='plays')m.innerHTML=filterBanner()+playsHTML();
   else if(activeTab==='followups')m.innerHTML=followupsHTML(leads);
-  else if(activeTab==='stats')m.innerHTML=statsHTML(scoped());
+  else if(activeTab==='stats')m.innerHTML=filterBanner()+statsHTML(visible());
   else if(activeTab==='funnel')m.innerHTML=funnelHTML();
-  else if(activeTab==='cp')m.innerHTML=cpAnalyticsHTML();
-  else if(activeTab==='ageing')m.innerHTML=ageingTreeHTML();
+  else if(activeTab==='cp')m.innerHTML=filterBanner()+cpAnalyticsHTML();
+  else if(activeTab==='ageing')m.innerHTML=filterBanner()+ageingTreeHTML();
+  else if(activeTab==='lostanalytics')m.innerHTML=closedLostTabHTML();
   else if(activeTab==='crossproject')m.innerHTML=crossProjectHTML();
   else if(activeTab==='report')m.innerHTML=reportHTML();
   else if(activeTab==='builder')m.innerHTML=reportBuilderHTML();
@@ -1703,6 +1704,7 @@ const NAV_META={
   cp:{icon:'🤝',color:'7A5AB6',group:'Insights'},
   ageing:{icon:'⌛',color:'B26A00',group:'Insights'},
   stats:{icon:'📈',color:'2C9C9A',group:'Insights'},
+  lostanalytics:{icon:'📉',color:'C0524A',group:'Insights'},
   leaderboard:{icon:'🏆',color:'D98A00',group:'Insights'},
   builder:{icon:'🧱',color:'5C6879',group:'Insights'},
   crossproject:{icon:'🔀',color:'2C9C9A',group:'More'},
@@ -1716,7 +1718,7 @@ function renderTabs(){
   const playCount=s.filter(isOpenLead).map(dealCoach).filter(Boolean).length;
   const tabs=[['pipeline','Pipeline',s.length],['plays',"Today's plays",playCount||'']];
   if(cu&&(cu.role==='sales_head'||cu.role==='project_head'))tabs.push(['funnel','Funnel',''],['cp','CP analytics','']);
-  tabs.push(['ageing','Ageing',''],['followups','Follow-ups due',dueCount],['stats','Follow-up stats',''],['builder','Builder',''],['all','All leads',s.length]);
+  tabs.push(['ageing','Ageing',''],['followups','Follow-ups due',dueCount],['stats','Follow-up stats',''],['lostanalytics','Closed Lost',''],['builder','Builder',''],['all','All leads',s.length]);
   if(cu&&cu.role!=='reception')tabs.push(['leaderboard','Leaderboard','']);
   if(cu&&(cu.role==='sales_head'||cu.role==='project_head')){const ci=(db.crossInterest||[]).filter(c=>c.status==='open'&&(cu.role==='sales_head'||c.target_project_id===myProjId())).length;tabs.push(['crossproject','Cross-project',ci||'']);}
   if(cu&&cu.role==='sales_head')tabs.push(['report','Report','']);
@@ -2424,6 +2426,10 @@ function closedLostPanels(leads){
     <div class="split" style="margin-top:4px"><div>${sub('By month (when lost)')}${bar(moRows,'#7E57C2')}</div><div>${sub('By channel partner')}${bar(cpRows,'#4A6FA5')}</div></div>
     <div class="ai-tag" style="margin-top:8px">Tap any bar to open those lost leads. “By CP” groups CP walk-ins by partner; direct walk-ins and digital leads are shown separately.</div></div>`;
 }
+function closedLostTabHTML(){
+  const h=closedLostPanels(scoped());
+  return h||`<div class="panel"><h3>Closed Lost — analytics</h3><div class="locked-note">No closed-lost leads yet.</div></div>`;
+}
 function statsHTML(leads){
   const noteCount=l2=>l2.log.filter(e=>e.kind==='note').length;
   const totalFu=leads.reduce((a,l)=>a+noteCount(l),0);
@@ -2486,7 +2492,7 @@ function statsHTML(leads){
       <div class="panel"><h3>Deal status</h3>${tPanel}</div>
     </div>
     <div class="panel"><h3>Comment insights</h3>${themesHTML(leads)}<div class="ai-tag" style="margin-top:8px">Read from what the team writes in comments — what's blocking deals, buying signals, then competitors, locations &amp; unit types. Click any row to see those walk-ins (with comments &amp; assign-task).</div></div>
-    <div class="panel"><h3>Outcomes</h3>${oPanel}</div>${closedLostPanels(leads)}${wiPanel}`;
+    <div class="panel"><h3>Outcomes</h3>${oPanel}</div>${wiPanel}`;
 }
 const THEME_STOP=new Set(('the a an and or but to of in on for with at by from is are was were be been being have has had do does did will would can could should shall may might must not no yes ok okay he she it they them his her their our your you i we us as this that these those there here then than so if else when while about into over under out up down off again once very more most also both each few other some such own same too call called calling spoke speak talk talked told tell said say says ask asked meet met meeting visit visited visiting follow followup followed following revisit revisited discuss discussed discussing customer client lead leads walkin walkins today tomorrow yesterday morning evening back next last week weeks day days month time still going want wants wanted need needs needed interested interest looking look see seen show showed shared send sent give given get got take took come came went make made done per via etc sir madam mr mrs ms number phone email name update details detail info soon later still yet done good great fine sure maybe pls please thanks thank just near option options comparing compare important tight also thing things bit lot able around').split(/\s+/));
 function dedupeTerms(items){const seen=new Set(),out=[];items.forEach(x=>{const k=x.term.toLowerCase();if(!seen.has(k)){seen.add(k);out.push(x);}});return out;}
@@ -2902,7 +2908,7 @@ let ageGroup='rep';
 function setAgeGroup(g){ageGroup=g;render();}
 function ageingTreeHTML(){
   const u=currentUser();
-  const base=scoped().filter(l=>l.source==='walkin'&&l.stage==='qualified'&&!l.mergedInto);
+  const base=visible().filter(l=>l.source==='walkin'&&l.stage==='qualified'&&!l.mergedInto);
   const total=base.length,over=base.filter(l=>qualAgeDays(l)>7).length;
   const avg=total?Math.round(base.reduce((a,l)=>a+qualAgeDays(l),0)/total):0;
   // dimensions available for the tree
@@ -3316,7 +3322,7 @@ function escalationList(){
 function openNeglected(memberId){openLeadList(userName(memberId)+' — leads slipping',neglectedLeads(memberId));}
 function playsHTML(){
   const u=currentUser();const isHead=u&&(u.role==='sales_head'||u.role==='project_head');
-  const rows=scoped().filter(isOpenLead).map(l=>({l,t:dealCoach(l)})).filter(x=>x.t).sort((a,b)=>b.t.pri-a.t.pri);
+  const rows=visible().filter(isOpenLead).map(l=>({l,t:dealCoach(l)})).filter(x=>x.t).sort((a,b)=>b.t.pri-a.t.pri);
   const dotFor=c=>c==='hot'?'#C0524A':c==='warm'?'#E0A32E':'#4A6FA5';
   let esc='';
   if(isHead){const flags=escalationList();
@@ -3370,7 +3376,7 @@ function cpMergeBlock(){
 }
 function cpStats(){
   const aliases=cpAliasMap();
-  const leads=scoped().filter(l=>!l.mergedInto&&l.source==='walkin'&&l.walkinSource==='CP'&&(l.cpName||'').trim());
+  const leads=visible().filter(l=>!l.mergedInto&&l.source==='walkin'&&l.walkinSource==='CP'&&(l.cpName||'').trim());
   const map={};
   leads.forEach(l=>{const raw=l.cpName.trim();const canon=aliases[raw.toLowerCase()]||raw;const key=canon.toLowerCase();(map[key]=map[key]||{name:canon,ls:[]}).ls.push(l);});
   const now=today(),MS=86400000;
