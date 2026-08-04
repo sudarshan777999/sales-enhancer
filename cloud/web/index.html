@@ -2747,8 +2747,18 @@ function renderCpManager(){
   const q=cpMgrFilter.toLowerCase();
   const shown=q?all.filter(n=>n.toLowerCase().includes(q)):all;
   const rows=shown.map(n=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--line2)"><span style="flex:1;min-width:0">${escapeHtml(n)}</span><button class="x" title="Remove" onclick="cpMgrRemove('${escapeHtml(n).replace(/'/g,"&#39;")}')">✕</button></div>`).join('');
+  const unionNames=Array.from(new Set(cpNames().concat(cpRawNames()))).sort((a,b)=>a.toLowerCase().localeCompare(b.toLowerCase()));
+  const cpOpt=unionNames.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+  const canMerge=currentUser().role==='sales_head';
   box.innerHTML=`<div class="ai-tag" style="margin-bottom:12px">This is the master list of empanelled Channel Partners. It's the dropdown salespeople and the front desk pick from — they can't type a free CP name.</div>
     <div class="block"><label>Add a CP</label><div class="r" style="gap:8px"><input class="field" id="cp_new" placeholder="Firm name / individual CP" autocomplete="off"/><button class="btn" style="white-space:nowrap" onclick="cpMgrAdd()">Add</button></div></div>
+    ${canMerge?`<div class="block"><label>Merge duplicates</label>
+      <div class="r" style="gap:8px;align-items:center;flex-wrap:wrap">
+        <select class="field" id="cp_merge_from" style="flex:1;min-width:120px"><option value="">Duplicate to remove…</option>${cpOpt}</select>
+        <span style="color:var(--soft);font-weight:700">→</span>
+        <select class="field" id="cp_merge_into" style="flex:1;min-width:120px"><option value="">Keep this one…</option>${cpOpt}</select>
+        <button class="btn" style="white-space:nowrap" onclick="cpMerge()">Merge</button></div>
+      <div class="ai-tag" style="margin-top:6px">Moves all leads &amp; bookings from the first name onto the second, then removes the first — fixes spelling duplicates (e.g. Jomet Matthew → Jomet Mathew Individual). The list on the left also includes names typed on old leads.</div></div>`:''}
     <div class="block"><label>Bulk add (one name per line)</label><textarea class="field" id="cp_bulk" style="min-height:80px" placeholder="Paste CP names, one per line"></textarea><button class="btn ghost" style="margin-top:8px" onclick="cpMgrImport()">Import list</button></div>
     <div class="block"><label>Current CPs (${all.length})</label>
       <input class="field" id="cp_search" placeholder="Search…" value="${escapeHtml(cpMgrFilter)}" oninput="cpMgrSearch(this.value)" style="margin-bottom:6px"/>
@@ -2759,6 +2769,23 @@ function cpMgrSearch(v){cpMgrFilter=v;renderCpManager();}
 async function cpMgrAdd(){const el=document.getElementById('cp_new');const n=(el&&el.value||'').trim();if(!n)return;const list=cpNames().slice();if(list.some(x=>x.toLowerCase()===n.toLowerCase())){alert('That CP is already in the list.');return;}list.push(n);if(await saveCpList(list)){cpMgrFilter='';renderCpManager();}}
 async function cpMgrImport(){const el=document.getElementById('cp_bulk');const raw=(el&&el.value||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);if(!raw.length)return;const list=cpNames().concat(raw);if(await saveCpList(list)){alert('Imported. The list now has '+cpNames().length+' CPs.');cpMgrFilter='';renderCpManager();}}
 async function cpMgrRemove(name){if(!confirm('Remove “'+name+'” from the CP list?'))return;const list=cpNames().filter(n=>n!==name);if(await saveCpList(list))renderCpManager();}
+async function cpMerge(){
+  if(currentUser().role!=='sales_head')return;
+  const from=((document.getElementById('cp_merge_from')||{}).value||'').trim();
+  const into=((document.getElementById('cp_merge_into')||{}).value||'').trim();
+  if(!from||!into){alert('Pick both the duplicate and the name to keep.');return;}
+  if(from.toLowerCase()===into.toLowerCase()){alert('Pick two different names.');return;}
+  if(!confirm('Merge "'+from+'" into "'+into+'"?\nAll its leads and bookings move to "'+into+'", and "'+from+'" is removed from the list.'))return;
+  const {error}=await sb.from('leads').update({cp_name:into}).eq('cp_name',from);   // walk-in CP
+  if(error){alert('Merge failed: '+error.message);return;}
+  const affected=(db.leads||[]).filter(l=>l.booking&&(l.booking.closingCp||'')===from);   // closing CP on bookings
+  for(const l of affected){const b=Object.assign({},l.booking,{closingCp:into});await sb.from('leads').update({booking:b}).eq('id',l.id);}
+  const list=cpNames().filter(n=>n.toLowerCase()!==from.toLowerCase());
+  if(!list.some(n=>n.toLowerCase()===into.toLowerCase()))list.push(into);
+  await saveCpList(list);
+  await refresh();renderCpManager();
+  alert('Merged "'+from+'" → "'+into+'".');
+}
 function openBooking(id,status){
   const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;bookingLeadId=id;bookingStatus=status||'Booked';const b=l.booking||{};
   const defCS=b.closingSource||(l.walkinSource==='CP'?'Channel Partner':l.walkinSource==='Referral'?'Referral':l.source==='digital'?'Digital':'Direct');
