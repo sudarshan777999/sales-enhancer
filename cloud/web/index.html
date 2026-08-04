@@ -747,7 +747,7 @@
       <div class="fld hidden" id="wf_ref"><label>Referred by</label><input class="field" id="m_refname" placeholder="Name of the referrer"/></div>
       <div class="fld hidden" id="wf_reflink"><label>Referrer already a customer?</label><select class="field" id="m_reflink"></select></div>
       <div class="fld hidden" id="wf_phase"><label>Phase</label><select class="field" id="m_phase"><option value="">—</option><option>Phase 1</option><option>Phase 2</option></select></div>
-      <div class="fld hidden" id="wf_cp"><label>CP name</label><input class="field" id="m_cp" placeholder="Channel partner name"/></div>
+      <div class="fld hidden" id="wf_cp"><label>CP name</label><select class="field" id="m_cp" onchange="cpMaybeAdd(this)"></select></div>
       <div class="fld hidden" id="wf_location"><label>Location</label><input class="field" id="m_location" placeholder="e.g. Whitefield"/></div>
       <div class="fld hidden" id="wf_company"><label>Company</label><input class="field" id="m_company" placeholder="Where they work"/></div>
       <div class="fld hidden" id="wf_date"><label>Date of walk-in</label><input type="date" class="field" id="m_walkindate"/></div>
@@ -767,6 +767,14 @@
     <div class="modal-h"><h2>Your team</h2></div>
     <div class="modal-b" style="display:block" id="teamBody"></div>
     <div class="modal-f"><button class="btn ghost" onclick="closeTeam()">Close</button></div>
+  </div>
+</div>
+
+<div class="modal-scrim" id="cpScrim">
+  <div class="modal">
+    <div class="modal-h"><h2>Channel Partners</h2></div>
+    <div class="modal-b" style="display:block" id="cpBody"></div>
+    <div class="modal-f"><button class="btn ghost" onclick="closeCpManager()">Close</button></div>
   </div>
 </div>
 
@@ -1675,7 +1683,7 @@ function receptionFormHTML(){
       <div class="rc-row">
         <div class="rc-field"><label>Source</label><select class="field" id="rc_source" onchange="rcToggleSource()"><option value="Direct">Direct</option><option value="CP">Channel Partner</option></select></div>
         <div class="rc-field" id="rc_sub_wrap"><label>Sub-source</label><select class="field" id="rc_sub">${subOpts}</select></div>
-        <div class="rc-field hidden" id="rc_cp_wrap"><label>Channel Partner name</label><input class="field" id="rc_cp" autocomplete="off" placeholder="CP / agent name"/></div>
+        <div class="rc-field hidden" id="rc_cp_wrap"><label>Channel Partner name</label>${cpSelectHTML('rc_cp','')}</div>
       </div>
       <div class="rc-field"><label>Location (optional)</label><input class="field" id="rc_location" autocomplete="off" placeholder="Where they came from / area of interest"/></div>
       <div class="rc-field"><label class="rc-check"><input type="checkbox" id="rc_revisit"/> This customer has visited before (revisit)</label></div>
@@ -1725,6 +1733,7 @@ function render(){
     <button class="bell" onclick="openChat()" title="Team chat">💬</button>
     ${u.role==='sales_head'?`<button class="signout" onclick="openSchemes()" title="Payment schemes">Schemes</button>`:''}
     ${u.role==='sales_head'?`<button class="signout" onclick="openTeam()" title="Manage team">Team</button>`:''}
+    ${(u.role==='sales_head'||u.role==='project_head')?`<button class="signout" onclick="openCpManager()" title="Manage channel partners">CPs</button>`:''}
     ${u.role==='sales_head'?`<button class="signout" onclick="downloadBackup(this)" title="Download a full backup of all your data">⬇︎ Backup</button>`:''}
     <button class="signout" onclick="signOut()">Sign out</button>`;
   const bb=document.getElementById('bulkBtn');if(bb)bb.style.display=(u.role==='sales_head')?'':'none';
@@ -2705,6 +2714,51 @@ async function saveEdit(){const id=editLeadId;const l=db.leads.find(x=>x.id===id
 }
 function numOf(v){const n=parseFloat(String(v==null?'':v).replace(/[^0-9.]/g,''));return isNaN(n)?0:n;}
 function calcRealization(){const av=numOf(document.getElementById('bk_av').value);const sz=numOf(document.getElementById('bk_size').value);const r=sz>0?Math.round(av/sz):0;document.getElementById('bk_real').value=r?('₹'+r.toLocaleString('en-IN')+' /sq.ft'):'—';}
+/* ===== Channel Partner master list (dropdown source) ===== */
+function cpNames(){return (db.reportData&&Array.isArray(db.reportData.cpList))?db.reportData.cpList:[];}
+function cpCanManage(){const u=currentUser();return !!u&&(u.role==='sales_head'||u.role==='project_head');}
+function cpOptionsHTML(current){
+  const names=cpNames().slice().sort((a,b)=>String(a).toLowerCase().localeCompare(String(b).toLowerCase()));
+  const cur=(current||'').trim();
+  const inList=names.some(n=>n.toLowerCase()===cur.toLowerCase());
+  let html='<option value="">— Select channel partner —</option>';
+  if(cur&&!inList)html+=`<option value="${escapeHtml(cur)}" selected>${escapeHtml(cur)} (not in list)</option>`;
+  html+=names.map(n=>`<option value="${escapeHtml(n)}" ${cur.toLowerCase()===String(n).toLowerCase()?'selected':''}>${escapeHtml(n)}</option>`).join('');
+  if(cpCanManage())html+='<option value="__add__">＋ Add a new CP…</option>';
+  return html;
+}
+function cpSelectHTML(id,current){return `<select class="field" id="${id}" onchange="cpMaybeAdd(this)">${cpOptionsHTML(current)}</select>`;}
+function fillCpSelect(id,current){const el=document.getElementById(id);if(el)el.innerHTML=cpOptionsHTML(current);}
+async function saveCpList(list){const clean=Array.from(new Set(list.map(s=>String(s).trim()).filter(Boolean))).sort((a,b)=>a.toLowerCase().localeCompare(b.toLowerCase()));const rd=Object.assign({},db.reportData||{});rd.cpList=clean;return await saveReportData(rd);}
+async function cpMaybeAdd(sel){
+  if(sel.value!=='__add__')return;
+  if(!cpCanManage()){sel.value='';return;}
+  const name=(prompt('New channel partner name (firm or individual CP):')||'').trim();
+  if(!name){sel.value='';return;}
+  const list=cpNames().slice();if(!list.some(n=>n.toLowerCase()===name.toLowerCase()))list.push(name);
+  if(await saveCpList(list)){fillCpSelect(sel.id,name);}else{sel.value='';}
+}
+function openCpManager(){if(!cpCanManage())return;document.getElementById('cpScrim').classList.add('on');cpMgrFilter='';renderCpManager();}
+function closeCpManager(){document.getElementById('cpScrim').classList.remove('on');}
+let cpMgrFilter='';
+function renderCpManager(){
+  const box=document.getElementById('cpBody');if(!box)return;
+  const all=cpNames().slice().sort((a,b)=>a.toLowerCase().localeCompare(b.toLowerCase()));
+  const q=cpMgrFilter.toLowerCase();
+  const shown=q?all.filter(n=>n.toLowerCase().includes(q)):all;
+  const rows=shown.map(n=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--line2)"><span style="flex:1;min-width:0">${escapeHtml(n)}</span><button class="x" title="Remove" onclick="cpMgrRemove('${escapeHtml(n).replace(/'/g,"&#39;")}')">✕</button></div>`).join('');
+  box.innerHTML=`<div class="ai-tag" style="margin-bottom:12px">This is the master list of empanelled Channel Partners. It's the dropdown salespeople and the front desk pick from — they can't type a free CP name.</div>
+    <div class="block"><label>Add a CP</label><div class="r" style="gap:8px"><input class="field" id="cp_new" placeholder="Firm name / individual CP" autocomplete="off"/><button class="btn" style="white-space:nowrap" onclick="cpMgrAdd()">Add</button></div></div>
+    <div class="block"><label>Bulk add (one name per line)</label><textarea class="field" id="cp_bulk" style="min-height:80px" placeholder="Paste CP names, one per line"></textarea><button class="btn ghost" style="margin-top:8px" onclick="cpMgrImport()">Import list</button></div>
+    <div class="block"><label>Current CPs (${all.length})</label>
+      <input class="field" id="cp_search" placeholder="Search…" value="${escapeHtml(cpMgrFilter)}" oninput="cpMgrSearch(this.value)" style="margin-bottom:6px"/>
+      <div style="max-height:300px;overflow-y:auto">${rows||'<div class="locked-note">No CPs yet — add or import above.</div>'}</div></div>`;
+  const s=document.getElementById('cp_search');if(s){s.focus();s.setSelectionRange(s.value.length,s.value.length);}
+}
+function cpMgrSearch(v){cpMgrFilter=v;renderCpManager();}
+async function cpMgrAdd(){const el=document.getElementById('cp_new');const n=(el&&el.value||'').trim();if(!n)return;const list=cpNames().slice();if(list.some(x=>x.toLowerCase()===n.toLowerCase())){alert('That CP is already in the list.');return;}list.push(n);if(await saveCpList(list)){cpMgrFilter='';renderCpManager();}}
+async function cpMgrImport(){const el=document.getElementById('cp_bulk');const raw=(el&&el.value||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);if(!raw.length)return;const list=cpNames().concat(raw);if(await saveCpList(list)){alert('Imported. The list now has '+cpNames().length+' CPs.');cpMgrFilter='';renderCpManager();}}
+async function cpMgrRemove(name){if(!confirm('Remove “'+name+'” from the CP list?'))return;const list=cpNames().filter(n=>n!==name);if(await saveCpList(list))renderCpManager();}
 function openBooking(id,status){
   const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;bookingLeadId=id;bookingStatus=status||'Booked';const b=l.booking||{};
   const defCS=b.closingSource||(l.walkinSource==='CP'?'Channel Partner':l.walkinSource==='Referral'?'Referral':l.source==='digital'?'Digital':'Direct');
@@ -2715,7 +2769,7 @@ function openBooking(id,status){
       <div class="block" style="margin:0"><label>Booking date <span class="req">*</span></label><input type="date" class="field" id="bk_date" value="${b.at||iso(today())}"/></div>
       <div class="block" style="margin:0"><label>Closing source <span class="req">*</span></label><select class="field" id="bk_csource" onchange="bkCsourceToggle()">${['Direct','Digital','Referral','Channel Partner'].map(s=>`<option ${defCS===s?'selected':''}>${s}</option>`).join('')}</select></div>
     </div>
-    <div class="block" id="bk_cp_wrap" style="${defCS==='Channel Partner'?'':'display:none'}"><label>Closing CP name <span class="req">*</span></label><input class="field" id="bk_ccp" placeholder="Partner who closed the deal" value="${(b.closingCp||l.cpName||'').replace(/"/g,'&quot;')}"/></div>
+    <div class="block" id="bk_cp_wrap" style="${defCS==='Channel Partner'?'':'display:none'}"><label>Closing CP name <span class="req">*</span></label>${cpSelectHTML('bk_ccp', b.closingCp||l.cpName||'')}</div>
     <div class="block"><label>Location</label><input class="field" id="bk_location" placeholder="e.g. Whitefield" value="${b.location||l.location||''}"/></div>
     <div class="facts" style="grid-template-columns:1fr 1fr;gap:12px">
       <div class="block" style="margin:0"><label>Applicant company</label><input class="field" id="bk_company" placeholder="Where they work" value="${b.company||l.company||''}"/></div>
@@ -2767,7 +2821,8 @@ async function deleteLead(id){if(!can('delete'))return;const l=db.leads.find(x=>
 /* ============ modal ============ */
 function openModal(){
   const u=currentUser();modalSrc='digital';setSrc('digital');
-  ['m_name','m_email','m_budget','m_notes','m_location','m_company','m_cp','m_phase','m_refname'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});
+  ['m_name','m_email','m_budget','m_notes','m_location','m_company','m_phase','m_refname'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});
+  fillCpSelect('m_cp','');   // populate the CP dropdown from the master list
   document.getElementById('m_wsource').value='Direct';document.getElementById('m_walkindate').value=iso(today());
   const projSel=document.getElementById('m_project');
   if(u.role==='sales'){projSel.innerHTML=`<option>${u.project}</option>`;projSel.disabled=true;}
