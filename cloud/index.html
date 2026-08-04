@@ -482,9 +482,32 @@
     .dr-head{padding:16px 16px 12px;}
     .dr-head h2{font-size:18px;}
     .dr-body{padding:16px 16px 64px;}
-    .modal-scrim{padding:4vh 10px;}
+    .whoami{flex-wrap:wrap;gap:6px;}
+    /* modals: use the screen, tighter padding, stacked fields & buttons */
+    .modal-scrim{padding:3vh 8px;}
+    .modal{width:100%;border-radius:14px;}
+    .modal-h{padding:15px 16px;} .modal-h h2{font-size:18px;}
+    .modal-b{padding:16px;gap:12px;}
+    .modal-f{padding:13px 16px 18px;flex-wrap:wrap;}
+    .modal-f .btn{flex:1;min-width:120px;}
+    .facts{grid-template-columns:1fr!important;gap:10px;}   /* stack fact/booking fields on phones */
+    /* data tables: readable + swipeable */
+    .list-table{font-size:12px;} .list-table th,.list-table td{padding:8px 9px;}
+    .panel{padding:14px 14px;} .panel h3{font-size:15px;}
+    .stat-grid{gap:8px;}
+    .report-toolbar{flex-wrap:wrap;gap:8px;}
+    .rc-card{padding:18px 16px;}
+    /* header: compact the many buttons so they don't eat the screen */
+    .perm-note{display:none;}
+    header .btn,.head-in .signout,.whoami .signout,.whoami .bell{font-size:12px;padding:6px 9px;}
+    .whoami .bell{padding:5px 8px;font-size:15px;}
+    .whoami .u-av{width:28px;height:28px;}
+    main,main.wide{max-width:100vw!important;overflow-x:auto;}   /* board scrolls INSIDE main; don't let it stretch the page */
+    #appRoot.board-wide .shell,#appRoot.board-wide .head-in{max-width:100%;}
+    body{overflow-x:hidden;}   /* stop whole-page sideways drift */
     .btn,.tab,.navi{min-height:40px;}    /* comfortable tap targets */
   }
+  @media (max-width:400px){ .kpis{grid-template-columns:1fr 1fr;} .kpi .val{font-size:20px;} }
   .act.ds-on{background:var(--brand);color:#fff;border-color:var(--brand);}
   /* saved-filter chips + labels */
   .sfbar{display:flex;flex-wrap:wrap;gap:8px;padding:10px 0 2px;}
@@ -2702,8 +2725,8 @@ function openBooking(id,status){
       <div class="block" style="margin:0"><label>Co-applicant company</label><input class="field" id="bk_cocompany" placeholder="optional" value="${b.coApplicantCompany||''}"/></div>
     </div>
     <div class="facts" style="grid-template-columns:1fr 1fr;gap:12px">
-      <div class="block" style="margin:0"><label>Agreement Value (₹)</label><input class="field" id="bk_av" placeholder="e.g. 12000000" value="${b.agreementValue||''}" oninput="calcRealization()"/></div>
-      <div class="block" style="margin:0"><label>Apartment size (sq.ft)</label><input class="field" id="bk_size" placeholder="e.g. 1200" value="${b.size||''}" oninput="calcRealization()"/></div>
+      <div class="block" style="margin:0"><label>Agreement Value (₹) <span class="req">*</span></label><input class="field" id="bk_av" placeholder="e.g. 12000000" value="${b.agreementValue||''}" oninput="calcRealization()"/></div>
+      <div class="block" style="margin:0"><label>Apartment size (sq.ft) <span class="req">*</span></label><input class="field" id="bk_size" placeholder="e.g. 1200" value="${b.size||''}" oninput="calcRealization()"/></div>
     </div>
     <div class="block"><label>Realization (AV ÷ size)</label><input class="field" id="bk_real" readonly style="background:#F3F5F8" value="${b.realization?('₹'+Number(b.realization).toLocaleString('en-IN')+' /sq.ft'):'—'}"/></div>
     <div class="block"><label>Payment structure</label><select class="field" id="bk_pay">${PAYMENT_STRUCTURES.map(p=>`<option ${b.paymentStructure===p?'selected':''}>${p}</option>`).join('')}</select></div>`;
@@ -2722,6 +2745,9 @@ async function saveBooking(){
   const id=bookingLeadId;const l=db.leads.find(x=>x.id===id);if(!l)return;
   const av=numOf(document.getElementById('bk_av').value),sz=numOf(document.getElementById('bk_size').value);
   const g=id=>document.getElementById(id).value.trim();
+  if(!g('bk_apartment')){alert('Enter the unit booked.');document.getElementById('bk_apartment').focus();return;}
+  if(!av){alert('Enter the Agreement Value.');document.getElementById('bk_av').focus();return;}
+  if(!sz){alert('Enter the apartment size (sq.ft).');document.getElementById('bk_size').focus();return;}
   const closingSource=document.getElementById('bk_csource').value;
   const closingCp=closingSource==='Channel Partner'?g('bk_ccp'):'';
   if(closingSource==='Channel Partner'&&!closingCp){alert('Enter the channel partner who closed the deal.');document.getElementById('bk_ccp').focus();return;}
