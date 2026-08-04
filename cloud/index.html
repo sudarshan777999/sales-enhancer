@@ -504,7 +504,7 @@
     .whoami .u-av{width:28px;height:28px;}
     main,main.wide{max-width:100vw!important;overflow-x:auto;}   /* board scrolls INSIDE main; don't let it stretch the page */
     #appRoot.board-wide .shell,#appRoot.board-wide .head-in{max-width:100%;}
-    body{overflow-x:hidden;}   /* stop whole-page sideways drift */
+    html,body{overflow-x:hidden;max-width:100%;}   /* stop whole-page sideways drift (which makes phones zoom out) */
     .btn,.tab,.navi{min-height:40px;}    /* comfortable tap targets */
   }
   @media (max-width:400px){ .kpis{grid-template-columns:1fr 1fr;} .kpi .val{font-size:20px;} }
