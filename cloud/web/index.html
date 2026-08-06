@@ -1063,6 +1063,13 @@ function can(action,lead){
   }
   return false;
 }
+// Can a specific member (by id) currently open this lead? Mirrors can('view') for an arbitrary person.
+function memberCanView(mid,lead){
+  const m=user(mid);if(!m||!lead)return false;
+  if(m.role==='sales_head')return true;
+  if(m.role==='project_head')return lead.project===m.project;
+  return lead.ownerId===mid||(Array.isArray(lead.coOwners)&&lead.coOwners.includes(mid));
+}
 
 /* ============ AUTH ============ */
 function showLogin(){document.getElementById('appRoot').classList.add('hidden');document.getElementById('authRoot').classList.remove('hidden');renderLogin();const td=document.getElementById('taskDock');if(td)td.style.display='none';}
@@ -2140,6 +2147,14 @@ async function assignTask(id){
   const rows=ids.map(to=>({company_id:myCompanyId,lead_id:l.id,lead_name:l.name,assigned_to:to,assigned_by:session,body,status:'open'}));
   const {error}=await sb.from('tasks').insert(rows);
   if(error){alert('Could not assign: '+error.message);return;}
+  // Auto-share the lead with anyone who couldn't otherwise open it, so they can complete the task.
+  const co=Array.isArray(l.coOwners)?l.coOwners.slice():[];const shared=[];
+  ids.forEach(to=>{if(!memberCanView(to,l)&&!co.includes(to)){co.push(to);shared.push(to);}});
+  if(shared.length){
+    const {error:e2}=await sb.from('leads').update({co_owners:co}).eq('id',l.id);
+    if(e2){alert('Task assigned, but sharing the lead failed: '+e2.message);}
+    else{await addActivityRow(id,{kind:'system',body:'Shared with '+shared.map(userName).join(', ')+' (task)'});}
+  }
   await addActivityRow(id,{kind:'system',body:'Assigned a task to '+ids.map(userName).join(', ')+': '+body});
   await refresh();
 }
