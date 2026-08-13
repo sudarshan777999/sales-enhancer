@@ -902,7 +902,7 @@ const NQ_REASONS=['Budget mismatch','Just browsing / not serious','Wrong locatio
 const LOST_REASONS=['Went with a competitor','Price / negotiation gap','Postponed purchase','Went unresponsive','Location not suitable','Home loan rejected'];
 const PAYMENT_STRUCTURES=['TES Pre EMI','Solcrest Payment Holiday','Normal CLP'];
 const PHASES=['Phase 1','Phase 2'];
-const DEAL_STATUSES=['Prospect','Negotiation','Closed Won','Closed Lost'];
+const DEAL_STATUSES=['First Contact Done','Prospect','Closed Won','Closed Lost'];
 
 const DEFAULT_USERS=[
   {id:'head',   name:'You',    role:'sales_head',  title:'Sales Head',            project:null,        pass:null},
@@ -2278,7 +2278,7 @@ function dealStatusBlock(l){
   const cur=l.dealStatus||'';const seg=s=>`<button class="act ${cur===s?'ds-on':''}" onclick="setDealStatus('${l.id}','${s}')">${s}</button>`;
   return `<div class="block"><label>Deal status${cur?` · <span style="color:var(--ink)">${cur}</span>`:''}</label>
     <div class="actions">
-      ${seg('Prospect')}${seg('Negotiation')}
+      ${seg('First Contact Done')}${seg('Prospect')}
       <button class="act win ${cur==='Closed Won'?'ds-on':''}" onclick="openBooking('${l.id}','Closed Won')">Closed Won</button>
     </div>
     <div class="fu-form" style="margin-top:9px"><div class="r" style="margin-bottom:0;gap:8px;flex-wrap:wrap">
@@ -2288,7 +2288,7 @@ function dealStatusBlock(l){
     </div></div></div>`;
 }
 function closedLostBtn(id){const reason=(document.getElementById('lr_'+id)||{}).value;const comp=((document.getElementById('lc_'+id)||{}).value||'').trim();if(!reason){alert('Pick a reason for the loss.');return;}closedLost(id,reason,comp);}
-async function setDealStatus(id,s){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const patch={deal_status:s,stage:'qualified'};if(s==='Prospect'||s==='Negotiation')patch.lost_reason='';if(!await updateLead(id,patch))return;await addActivityRow(id,{kind:'system',body:'Deal status → '+s});await refresh();}
+async function setDealStatus(id,s){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const patch={deal_status:s,stage:'qualified'};if(s==='First Contact Done'||s==='Prospect')patch.lost_reason='';if(!await updateLead(id,patch))return;await addActivityRow(id,{kind:'system',body:'Deal status → '+s});await refresh();}
 // The qualify-or-disqualify panel (before a lead is qualified).
 function qualifyBlock(l){
   return `<div class="block"><label>Qualify this lead</label><div class="actions">
@@ -2622,7 +2622,7 @@ function statsHTML(leads){
   const spPanel=spRows.length?spRows.map(([nm,n])=>`<div class="barrow"><div class="lbl">${nm}</div><div class="track"><div class="fillb" style="width:${Math.round(n/spMax*100)}%;background:var(--brand)">${n}</div></div></div>`).join(''):'<div class="locked-note">No follow-up comments logged yet.</div>';
   const dsc={};DEAL_STATUSES.forEach(s=>dsc[s]=0);leads.forEach(l=>{if(l.dealStatus)dsc[l.dealStatus]=(dsc[l.dealStatus]||0)+1;});
   const dsMax=Math.max(1,...DEAL_STATUSES.map(s=>dsc[s]));
-  const dsCol={'Prospect':'#6C7A93','Negotiation':'#4A6FA5','Booked':'#2C9C9A','Closed Won':'#2E9E5B','Closed Lost':'#C0524A'};
+  const dsCol={'First Contact Done':'#4A6FA5','Prospect':'#6C7A93','Booked':'#2C9C9A','Closed Won':'#2E9E5B','Closed Lost':'#C0524A'};
   const tPanel=DEAL_STATUSES.map(s=>`<div class="barrow"><div class="lbl"><span class="d" style="background:${dsCol[s]}"></span>${s}</div><div class="track"><div class="fillb" style="width:${Math.round(dsc[s]/dsMax*100)}%;background:${dsCol[s]}">${dsc[s]}</div></div></div>`).join('');
   const oPanel=outs.map(([nm,n,c])=>`<div class="barrow"><div class="lbl"><span class="d" style="background:${c}"></span>${nm}</div><div class="track"><div class="fillb" style="width:${Math.round(n/oMax*100)}%;background:${c}">${n}</div></div></div>`).join('');
   return `<div class="stat-grid">
@@ -3050,7 +3050,7 @@ function parseAsk(q){
   if(/\bbooked\b|\bwon\b|closed won/.test(t))add(l=>l.stage==='booked','booked / won');
   if(/not qualified|disqualif/.test(t))add(l=>l.stage==='not_qualified','not qualified');
   else if(/qualified/.test(t))add(l=>l.qualified===true,'qualified');
-  if(/negotiat/.test(t))add(l=>l.dealStatus==='Negotiation','in negotiation');
+  if(/first contact/.test(t))add(l=>l.dealStatus==='First Contact Done','first contact done');
   if(/\bprospect\b/.test(t))add(l=>l.dealStatus==='Prospect','prospect');
   if(/wonderwall|wonder wall/.test(t)){
     if(/(not|no |without|has not|have not)/.test(t)&&/propos|suggest/.test(t))add(l=>!l.wwSuggested,'wonderwall not proposed');
@@ -3087,7 +3087,7 @@ function runAsk(){
 function funnelHTML(){
   const all=scoped().filter(l=>l.source==='walkin'&&inRange(l)&&passesFilters(l));const N=all.length;const cnt=fn=>all.filter(fn).length;
   const allLeads=scoped().filter(l=>inRange(l)&&passesFilters(l));
-  const dsCol={'Prospect':'#6C7A93','Negotiation':'#4A6FA5','Booked':'#2C9C9A','Closed Won':'#2E9E5B','Closed Lost':'#C0524A'};
+  const dsCol={'First Contact Done':'#4A6FA5','Prospect':'#6C7A93','Booked':'#2C9C9A','Closed Won':'#2E9E5B','Closed Lost':'#C0524A'};
   const qualified=cnt(l=>l.qualified===true),disq=cnt(l=>l.stage==='not_qualified'),pending=cnt(l=>l.stage==='assigned'&&l.qualified===null),newp=cnt(l=>l.stage==='new'),activeQ=cnt(l=>l.stage==='qualified'),booked=cnt(l=>l.stage==='booked'),lost=cnt(l=>l.stage==='lost');
   drillReg={};drillSeq=0;
   const A={pending:all.filter(l=>l.stage==='assigned'&&l.qualified===null),overdue:all.filter(l=>{const s=slaState(l);return s&&s.over;}),qualified:all.filter(l=>l.qualified===true),disq:all.filter(l=>l.stage==='not_qualified'),stalled:all.filter(l=>staleQualified(l)),newp:all.filter(l=>l.stage==='new'),activeQ:all.filter(l=>l.stage==='qualified'),booked:all.filter(l=>l.stage==='booked'),lost:all.filter(l=>l.stage==='lost')};
@@ -3135,7 +3135,7 @@ function funnelHTML(){
   const ageBy={};activeQual.forEach(l=>{const nm=l.ownerId?userName(l.ownerId):'Unassigned';(ageBy[nm]=ageBy[nm]||[]).push(l);});
   const ageReps=Object.keys(ageBy).sort((a,b)=>ageBy[b].filter(l=>qualAgeDays(l)>7).length-ageBy[a].filter(l=>qualAgeDays(l)>7).length);
   const ageChip=l=>{const d=qualAgeDays(l);return `<span class="age-chip ${d>7?'over':''}" onclick="openDrawer('${l.id}')" title="Qualified ${d} day(s) ago${l.dealStatus?' · '+l.dealStatus:''}">${escapeHtml(l.name)} · ${d}d</span>`;};
-  const AGE_STAGES=['Prospect','Negotiation'];
+  const AGE_STAGES=['First Contact Done','Prospect'];
   const ageingPanel=`<div class="panel"><h3>Ageing since qualification — by salesperson</h3><div class="ai-tag" style="margin-bottom:10px">Open qualified walk-ins, grouped by deal stage. <b style="color:var(--lost)">Red = over 7 days</b> since they were qualified — chase or close them. (Shows all open ones, not limited to the window above.)</div>${ageReps.length?ageReps.map(nm=>{const arr=ageBy[nm].slice().sort((a,b)=>qualAgeDays(b)-qualAgeDays(a));const over=arr.filter(l=>qualAgeDays(l)>7).length;
     const rows=AGE_STAGES.map(s=>{const g=arr.filter(l=>(l.dealStatus||'')===s);return g.length?`<div class="age-row"><span class="age-lbl">${s}</span><span class="age-chips">${g.map(ageChip).join('')}</span></div>`:'';}).join('');
     const ns=arr.filter(l=>!AGE_STAGES.includes(l.dealStatus||''));const nsRow=ns.length?`<div class="age-row"><span class="age-lbl">No status</span><span class="age-chips">${ns.map(ageChip).join('')}</span></div>`:'';
@@ -3150,7 +3150,7 @@ function ageingTreeHTML(){
   const total=base.length,over=base.filter(l=>qualAgeDays(l)>7).length;
   const avg=total?Math.round(base.reduce((a,l)=>a+qualAgeDays(l),0)/total):0;
   // dimensions available for the tree
-  const AGE_STAGES=['Prospect','Negotiation','No status'];
+  const AGE_STAGES=['First Contact Done','Prospect','No status'];
   const DIM={
     project:{get:l=>l.project||'—',icon:'📁 '},
     rep:{get:l=>l.ownerId?userName(l.ownerId):'Unassigned',icon:'👤 '},
