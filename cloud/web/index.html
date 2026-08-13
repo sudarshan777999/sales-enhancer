@@ -1517,7 +1517,8 @@ const FILTER_FIELDS=[
   {k:'block',label:'Block interest',type:'select',opts:()=>['A','B','C','D','E','F'].map(b=>[b,b])},
   {k:'competitor',label:'Competitor contains',type:'text'},
   {k:'wwsug',label:'Wonderwall suggested',type:'select',opts:()=>[['yes','Yes'],['no','No']]},
-  {k:'wwvis',label:'Wonderwall visited',type:'select',opts:()=>[['yes','Yes'],['no','No']]}
+  {k:'wwvis',label:'Wonderwall visited',type:'select',opts:()=>[['yes','Yes'],['no','No']]},
+  {k:'rnr',label:'RNR attempts',type:'select',opts:()=>[['any','1 or more'],['0','None (0)'],['1','1'],['2','2'],['3plus','3 or more']]}
 ];
 function fieldMeta(k){return FILTER_FIELDS.find(f=>f.k===k)||FILTER_FIELDS[0];}
 function setDateRange(i,which,v){if(!filters[i])return;const p=(filters[i].value||'').split('|');let from=p[0]||'',to=p[1]||'';if(which==='from')from=v;else to=v;filters[i].value=(from||to)?(from+'|'+to):'';}
@@ -1545,6 +1546,7 @@ function matchFilter(l,f){const v=f.value;switch(f.field){
   case 'company':return inc(l.company,v);
   case 'cp':return inc(l.cpName,v);
   case 'budget':return inc(l.budget,v);
+  case 'rnr':{const n=rnrCount(l);return v==='any'?n>0:v==='0'?n===0:v==='3plus'?n>=3:n===Number(v);}
   default:return true;}}
 function activeFilters(){return filters.filter(f=>f.field&&f.value!=='');}
 function passesFilters(l){const a=activeFilters();if(!a.length)return true;return filterMode==='AND'?a.every(f=>matchFilter(l,f)):a.some(f=>matchFilter(l,f));}
@@ -1850,7 +1852,7 @@ function cardHTML(l){
   if(l.stage==='lost'&&l.lostReason)reason=`<div class="reason-tag">Lost · <b>${l.lostReason}</b></div>`;
   return `<div class="card ${crit?'crit':attn?'attn':''}" style="--l:${st.color}" onclick="openDrawer('${l.id}')">
     <div class="top"><div><div class="nm">${l.name}</div><div class="proj">${l.project||'—'} · <span title="${l.source==='walkin'?'Walk-in date':'Captured'}">📅 ${fmtDate(l.createdAt)}</span></div></div><span class="src ${l.source}">${l.source==='digital'?'Digital':'Walk-in'}</span></div>
-    <div class="meta">${l.ownerId?`<div class="avatar" title="${userName(l.ownerId)}">${initials(userName(l.ownerId))}</div>`:`<div class="avatar none" title="Unassigned">–</div>`}${l.viaGre?`<span class="tchip" style="background:#E8F5E9;color:#2E7D32" title="Entered at the front desk (GRE)">GRE</span>`:''}${l.pendingRevisit?`<span class="tchip" style="background:#FFF3E0;color:#B26A00" title="Marked as a revisit by the front desk — needs merge">↩ Revisit · merge</span>`:''}${l.dealStatus?`<span class="tchip" style="background:#E7EEF5;color:#2C5D80">${l.dealStatus}</span>`:''}${(l.metProjectHead===false&&(l.revisits&&l.revisits.length))?`<span class="tchip" style="background:#FBE9E7;color:#A03027" title="Revisited but no Project-Head meeting">No PH mtg</span>`:''}${(l.revisits&&l.revisits.length)?`<span class="tchip" style="background:#EDE7F6;color:#5E35B1">↩ ${l.revisits.length}</span>`:''}${(l.labels||[]).map(n=>`<span class="lchip" style="background:${labelColor(n)}">${n}</span>`).join('')}${slaHTML}${dueHTML}${l.budget?`<span class="budget">₹${l.budget}</span>`:''}</div>
+    <div class="meta">${l.ownerId?`<div class="avatar" title="${userName(l.ownerId)}">${initials(userName(l.ownerId))}</div>`:`<div class="avatar none" title="Unassigned">–</div>`}${l.viaGre?`<span class="tchip" style="background:#E8F5E9;color:#2E7D32" title="Entered at the front desk (GRE)">GRE</span>`:''}${l.pendingRevisit?`<span class="tchip" style="background:#FFF3E0;color:#B26A00" title="Marked as a revisit by the front desk — needs merge">↩ Revisit · merge</span>`:''}${l.dealStatus?`<span class="tchip" style="background:#E7EEF5;color:#2C5D80">${l.dealStatus}</span>`:''}${(l.metProjectHead===false&&(l.revisits&&l.revisits.length))?`<span class="tchip" style="background:#FBE9E7;color:#A03027" title="Revisited but no Project-Head meeting">No PH mtg</span>`:''}${(l.revisits&&l.revisits.length)?`<span class="tchip" style="background:#EDE7F6;color:#5E35B1">↩ ${l.revisits.length}</span>`:''}${rnrCount(l)?`<span class="tchip" style="background:#FDECEA;color:#B23B3B" title="Ring-no-response attempts">☎ RNR ×${rnrCount(l)}</span>`:''}${(l.labels||[]).map(n=>`<span class="lchip" style="background:${labelColor(n)}">${n}</span>`).join('')}${slaHTML}${dueHTML}${l.budget?`<span class="budget">₹${l.budget}</span>`:''}</div>
     ${reason}</div>`;
 }
 function setPipeView(v){pipeView=v;try{localStorage.setItem('bm_pipe_view',v);}catch(e){}render();}
@@ -2092,7 +2094,7 @@ function followBlock(l){
     <label style="margin-top:18px">Set up a follow-up ${badge}</label>
     <div class="fu-form">
       <textarea class="field" id="fu_note" placeholder="What's the plan for next contact?"></textarea>
-      <div class="r" style="margin-top:9px;align-items:center;gap:9px"><span style="font-size:12.5px;color:var(--soft);white-space:nowrap">Remind on</span><input type="date" class="field" style="max-width:175px" id="fu_date" value="${l.nextFollowUp||iso(today())}"/><button class="btn" style="white-space:nowrap" onclick="logFollowUp('${l.id}')">Set follow-up</button></div>
+      <div class="r" style="margin-top:9px;align-items:center;gap:9px"><span style="font-size:12.5px;color:var(--soft);white-space:nowrap">Remind on</span><input type="date" class="field" style="max-width:175px" id="fu_date" value="${l.nextFollowUp||iso(today())}"/><button class="btn" style="white-space:nowrap" onclick="logFollowUp('${l.id}')">Set follow-up</button><button class="btn ghost" style="white-space:nowrap" title="Log a Ring-No-Response attempt (customer didn't pick up)" onclick="logRNR('${l.id}')">☎ RNR${rnrCount(l)?' · '+rnrCount(l):''}</button></div>
     </div></div>`;
 }
 async function addNote(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const t=document.getElementById('note_text').value.trim();if(!t)return;await addActivityRow(id,{kind:'note',body:t});await refresh();}
@@ -2273,6 +2275,9 @@ async function qualify(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l)
 async function disqualify(id,reason){if(!reason)return;const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;if(!await updateLead(id,{qualified:false,stage:'not_qualified',nq_reason:reason,disqualified_by:currentUser().name}))return;await addActivityRow(id,{kind:'system',body:'Disqualified — '+reason});await refresh();}
 async function requalify(id){const l=db.leads.find(x=>x.id===id);const u=currentUser();if(!l||!u||!can('edit',l))return;if(!await updateLead(id,{qualified:true,stage:'qualified',nq_reason:'',next_follow_up:l.nextFollowUp||addDays(3)}))return;await addActivityRow(id,{kind:'system',body:'Moved back to Qualified by '+u.name});await refresh();}
 async function logFollowUp(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const date=document.getElementById('fu_date').value;const note=document.getElementById('fu_note').value.trim();if(!note&&!date)return;if(date){if(!await updateLead(id,{next_follow_up:date}))return;}await addActivityRow(id,{kind:'note',body:note||'Followed up',next:date||null});await refresh();}
+// RNR = Ring No Response. Logged as a system entry; the count is derived from the timeline (no DB column needed).
+function rnrCount(l){return (l.log||[]).filter(e=>/^RNR\b/.test(e.t||'')).length;}
+async function logRNR(id){const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;const n=rnrCount(l)+1;await addActivityRow(id,{kind:'system',body:'RNR — ring no response (attempt #'+n+')'});await refresh();}
 async function setTemp(id,t){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;if(l.temp===t){if(!await updateLead(id,{temp:null}))return;await addActivityRow(id,{kind:'system',body:'Cleared temperature'});}else{if(!await updateLead(id,{temp:t}))return;await addActivityRow(id,{kind:'system',body:'Marked as '+t+' lead'});}await refresh();}
 function dealStatusBlock(l){
   const cur=l.dealStatus||'';const seg=s=>`<button class="act ${cur===s?'ds-on':''}" onclick="setDealStatus('${l.id}','${s}')">${s}</button>`;
@@ -2627,6 +2632,7 @@ function statsHTML(leads){
   const oPanel=outs.map(([nm,n,c])=>`<div class="barrow"><div class="lbl"><span class="d" style="background:${c}"></span>${nm}</div><div class="track"><div class="fillb" style="width:${Math.round(n/oMax*100)}%;background:${c}">${n}</div></div></div>`).join('');
   return `<div class="stat-grid">
       ${card('Follow-ups logged',totalFu)}
+      ${card('RNR attempts',leads.reduce((a,l)=>a+rnrCount(l),0))}
       ${card('Due now',dueNow)}
       ${card('Avg follow-ups / qualified',avgFu)}
       ${card('Win rate',winRate+'%')}
@@ -3184,7 +3190,7 @@ function ageingTreeHTML(){
 }
 /* ============ report builder (visual AND/OR query) ============ */
 let rbFilters=[], rbMatch='AND';
-const RB_F2C={stage:'stage',source:'source',captured:'captured',dstatus:'dealStatus',metph:'metph',phase:'phase',project:'project',owner:'owner',walkin:'walkinVia',comment:'lastcomment',label:'labels',competitor:'competitors',budget:'budget',company:'company',cp:'walkinVia',name:'name',wwsug:'wwsug',wwvis:'wwvis',revisits:'revisits',followup:'nextfu'};
+const RB_F2C={stage:'stage',source:'source',captured:'captured',dstatus:'dealStatus',metph:'metph',phase:'phase',project:'project',owner:'owner',walkin:'walkinVia',comment:'lastcomment',label:'labels',competitor:'competitors',budget:'budget',company:'company',cp:'walkinVia',name:'name',wwsug:'wwsug',wwvis:'wwvis',revisits:'revisits',followup:'nextfu',rnr:'rnr'};
 let rbNameVal='';
 const RB_DEF_COLS=['name','project','owner','stage','dealStatus','captured'];
 let reportCols=RB_DEF_COLS.slice(), reportGroupBy='';
@@ -3203,6 +3209,7 @@ const REPORT_COLS=[
   {k:'qage',label:'Days since qualified',get:l=>l.stage==='qualified'?String(qualAgeDays(l)):''},
   {k:'nextfu',label:'Next follow-up',get:l=>l.nextFollowUp||''},
   {k:'revisits',label:'Revisits',get:l=>String((l.revisits||[]).length)},
+  {k:'rnr',label:'RNR',get:l=>String(rnrCount(l))},
   {k:'metph',label:'Met PH',get:l=>l.metProjectHead?'Yes':'No'},
   {k:'budget',label:'Budget',get:l=>l.budget||''},
   {k:'location',label:'Location',get:l=>l.location||''},
@@ -3216,7 +3223,7 @@ const REPORT_COLS=[
   {k:'gre',label:'GRE',get:l=>l.viaGre?'Yes':'No'},
   {k:'lastcomment',label:'Last comment',get:l=>{const c=(l.log||[]).filter(e=>(e.kind==='note'||e.kind==='revisit')&&e.t);return c.length?c[c.length-1].t:'';}}
 ];
-const REPORT_GROUPS=['owner','project','stage','dealStatus','walkinVia','phase','source','metph','gre','wwsug','wwvis','lostto','competitors','labels'];
+const REPORT_GROUPS=['owner','project','stage','dealStatus','walkinVia','phase','source','metph','gre','wwsug','wwvis','lostto','competitors','labels','rnr'];
 function reportCol(k){return REPORT_COLS.find(c=>c.k===k);}
 function rbCell(c,l){let v=c.get(l);if((c.k==='captured'||c.k==='nextfu')&&v)v=fmtDate(v);return v==null?'':String(v);}
 function rbRerender(){const m=document.getElementById('main');if(m)m.innerHTML=reportBuilderHTML();}
