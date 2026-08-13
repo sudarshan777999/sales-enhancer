@@ -2244,7 +2244,7 @@ function updateBlock(l){
     <div class="fu-form">
       <textarea class="field" id="upd_note_${l.id}" placeholder="What happened? A note, a call, a visit…" style="min-height:64px"></textarea>
       ${fuControls}
-      <div style="margin-top:11px"><button class="btn" onclick="saveUpdate('${l.id}')">Save update</button></div>
+      <div style="margin-top:11px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="saveUpdate('${l.id}')">Save update</button><button class="btn ghost" style="white-space:nowrap" title="Log a Ring-No-Response attempt (customer didn't pick up) — also sets a reminder for tomorrow" onclick="logRNR('${l.id}')">☎ RNR${rnrCount(l)?' · '+rnrCount(l):''}</button></div>
     </div></div>`;
 }
 async function saveUpdate(id){
