@@ -2277,7 +2277,7 @@ async function requalify(id){const l=db.leads.find(x=>x.id===id);const u=current
 async function logFollowUp(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const date=document.getElementById('fu_date').value;const note=document.getElementById('fu_note').value.trim();if(!note&&!date)return;if(date){if(!await updateLead(id,{next_follow_up:date}))return;}await addActivityRow(id,{kind:'note',body:note||'Followed up',next:date||null});await refresh();}
 // RNR = Ring No Response. Logged as a system entry; the count is derived from the timeline (no DB column needed).
 function rnrCount(l){return (l.log||[]).filter(e=>/^RNR\b/.test(e.t||'')).length;}
-async function logRNR(id){const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;const n=rnrCount(l)+1;await addActivityRow(id,{kind:'system',body:'RNR — ring no response (attempt #'+n+')'});await refresh();}
+async function logRNR(id){const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;const n=rnrCount(l)+1;const date=addDays(1);if(!await updateLead(id,{next_follow_up:date}))return;await addActivityRow(id,{kind:'system',body:'RNR — ring no response (attempt #'+n+') · reminder set for tomorrow',next:date});await refresh();}
 async function setTemp(id,t){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;if(l.temp===t){if(!await updateLead(id,{temp:null}))return;await addActivityRow(id,{kind:'system',body:'Cleared temperature'});}else{if(!await updateLead(id,{temp:t}))return;await addActivityRow(id,{kind:'system',body:'Marked as '+t+' lead'});}await refresh();}
 function dealStatusBlock(l){
   const cur=l.dealStatus||'';const seg=s=>`<button class="act ${cur===s?'ds-on':''}" onclick="setDealStatus('${l.id}','${s}')">${s}</button>`;
