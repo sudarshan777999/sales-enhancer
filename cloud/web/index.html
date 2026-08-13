@@ -3381,6 +3381,11 @@ function reportHTML(){
   const statBody=cats.map(c=>{const cl=inMonth.filter(l=>srcCat(l)===c);const cells=statuses.map(([_,st])=>`<td class="mono">${cl.filter(l=>l.stage===st).length}</td>`).join('');return `<tr><td>${c}</td>${cells}<td class="mono"><b>${cl.length}</b></td></tr>`;}).join('');
   const statTot=statuses.map(([_,st])=>`<td class="mono"><b>${inMonth.filter(l=>l.stage===st).length}</b></td>`).join('');
   const statSlide=slide('Visits — Status Summary',`<table class="rtable"><thead><tr><th>Source</th>${statuses.map(s=>`<th>${s[0]}</th>`).join('')}<th>Total</th></tr></thead><tbody>${statBody}<tr style="background:#F3E9D2"><td><b>Total</b></td>${statTot}<td class="mono"><b>${inMonth.length}</b></td></tr></tbody></table>`);
+  // Deal Status Summary — the qualified-pipeline track (First Contact Done / Prospect / Closed Won / Closed Lost)
+  const dsBody=cats.map(c=>{const cl=inMonth.filter(l=>srcCat(l)===c);const cells=DEAL_STATUSES.map(s=>`<td class="mono">${cl.filter(l=>(l.dealStatus||'')===s).length}</td>`).join('');const withDs=cl.filter(l=>DEAL_STATUSES.includes(l.dealStatus||'')).length;return `<tr><td>${c}</td>${cells}<td class="mono"><b>${withDs}</b></td></tr>`;}).join('');
+  const dsTot=DEAL_STATUSES.map(s=>`<td class="mono"><b>${inMonth.filter(l=>(l.dealStatus||'')===s).length}</b></td>`).join('');
+  const dsTotAll=inMonth.filter(l=>DEAL_STATUSES.includes(l.dealStatus||'')).length;
+  const dsSlide=slide('Deal Status Summary',`<div style="overflow-x:auto"><table class="rtable"><thead><tr><th>Source</th>${DEAL_STATUSES.map(s=>`<th>${s}</th>`).join('')}<th>Total</th></tr></thead><tbody>${dsBody}<tr style="background:#F3E9D2"><td><b>Total</b></td>${dsTot}<td class="mono"><b>${dsTotAll}</b></td></tr></tbody></table></div><div style="margin-top:12px;color:#5a4a2a;font-size:13px"><b>First Contact Done</b> and <b>Prospect</b> are the open qualified pipeline; Closed Won / Closed Lost are decided.</div>`);
   // NQ & Closed-Lost categories
   const nqSlide=crossReasonSlide('NQ — Categories',inMonth.filter(l=>l.stage==='not_qualified'),l=>l.nqReason,cats,slide);
   const lostSlide=crossReasonSlide('Closed-Lost — Categories',inMonth.filter(l=>l.stage==='lost'),l=>l.lostReason,cats,slide);
@@ -3397,7 +3402,7 @@ function reportHTML(){
     const bars=histRows.map(r=>`<div class="rbar-row"><div class="rl">${r[0]}</div><div class="rt"><div class="rf" style="width:${Math.round(numOf(r[3])/umax*100)}%;background:#C9B27A;color:#4a3a1a">${r[3]||''}</div></div></div>`).join('');
     histSlide=slide('Historic Sales Summary',`<table class="rtable"><thead><tr><th>Month</th><th>3.5 BHK (₹)</th><th>3 BHK (₹)</th><th>Units sold</th></tr></thead><tbody>${body}</tbody></table><div style="margin-top:14px">${bars}</div>`);
   } else histSlide=slide('Historic Sales Summary',`<div style="color:#9c8a63">Add the historic realization trend via <b>Edit external data</b>. Format per line: <b>Month, 3.5BHK, 3BHK, Units</b></div>`);
-  return toolbar+editor+titleSlide+perfSlide+histSlide+srcSlide+cpSlide+statSlide+nqSlide+lostSlide+lostPieSlide+clSlide;
+  return toolbar+editor+titleSlide+perfSlide+histSlide+srcSlide+cpSlide+statSlide+dsSlide+nqSlide+lostSlide+lostPieSlide+clSlide;
 }
 function toggleReportEditor(){const e=document.getElementById('reportEditor');if(e)e.style.display=e.style.display==='none'?'':'none';}
 async function saveReport(){const rd=Object.assign({},db.reportData||{});rd.performanceText=document.getElementById('rd_perf').value;rd.historicText=document.getElementById('rd_hist').value;if(await saveReportData(rd))render();}
