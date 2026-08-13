@@ -1836,10 +1836,15 @@ function renderTabs(){
   document.getElementById('tabs').innerHTML=html;
 }
 function setTab(t){activeTab=t;render();}
+let _rnr3Leads=[];
+function openRnr3(){openLeadList('3+ RNR · this month',_rnr3Leads||[]);}
 function renderKPIs(leads){
   const c=s=>leads.filter(l=>l.stage===s).length;
   const items=[['New','var(--new)',c('new')],['Assigned','var(--assigned)',c('assigned')],['Qualified','var(--qualified)',c('qualified')],['Booked','var(--booked)',c('booked')],['Lost','var(--lost)',c('lost')],['Not qualified','var(--nq)',c('not_qualified')]];
-  document.getElementById('kpis').innerHTML=items.map(([l,col,n])=>`<div class="kpi"><div class="lab"><i style="background:${col}"></i>${l}</div><div class="val">${n}</div></div>`).join('');
+  const mo=iso(today()).slice(0,7);
+  _rnr3Leads=leads.filter(l=>l.source==='walkin'&&(l.createdAt||'').slice(0,7)===mo&&rnrCount(l)>=3);
+  const rnrTile=`<div class="kpi" style="cursor:pointer" title="Walk-ins captured this month with 3 or more ring-no-response attempts — tap to open" onclick="openRnr3()"><div class="lab"><i style="background:#B23B3B"></i>3+ RNR (mo.)</div><div class="val">${_rnr3Leads.length}</div></div>`;
+  document.getElementById('kpis').innerHTML=items.map(([l,col,n])=>`<div class="kpi"><div class="lab"><i style="background:${col}"></i>${l}</div><div class="val">${n}</div></div>`).join('')+rnrTile;
 }
 function cardHTML(l){
   const st=STAGES[l.stage];let dueHTML='';
@@ -3291,6 +3296,8 @@ async function rbSave(){const name=(rbNameVal||'').trim();if(!name){alert('Name 
 function rbLoad(i){const r=rbReports()[i];if(!r)return;rbFilters=r.filters?JSON.parse(JSON.stringify(r.filters)):[];rbMatch=r.match||'AND';reportCols=(r.cols&&r.cols.length)?r.cols.slice():RB_DEF_COLS.slice();reportGroupBy=r.groupBy||'';rbNameVal=r.name;rbRerender();}
 async function rbDelReport(i){const list=rbReports().slice();list.splice(i,1);if(await savePrefs(Object.assign({},myPrefs,{reports:list})))rbRerender();}
 function rbReset(){rbFilters=[];rbMatch='AND';rbNameVal='';reportCols=RB_DEF_COLS.slice();reportGroupBy='';rbRerender();}
+// Built-in preset: walk-ins captured this month with 3+ ring-no-response attempts.
+function rbPresetRNR3(){rbFilters=[{field:'source',values:['walkin'],value:''},{field:'captured',values:[],value:monthRange(0)},{field:'rnr',values:['3plus'],value:''}];rbMatch='AND';reportCols=RB_DEF_COLS.slice();if(!reportCols.includes('rnr'))reportCols.push('rnr');reportGroupBy='';rbNameVal='3+ RNR this month';rbRerender();}
 function rbMonthOn(offset){const f=rbFilters.find(x=>x.field==='captured');return !!f&&f.value===monthRange(offset);}
 function rbSetMonth(offset){let f=rbFilters.find(x=>x.field==='captured');if(f&&f.value===monthRange(offset)){/* toggle off */rbFilters=rbFilters.filter(x=>x!==f);}else{if(!f){f={field:'captured',values:[],value:''};rbFilters.push(f);const ck=RB_F2C['captured'];if(ck&&!reportCols.includes(ck))reportCols.push(ck);}f.value=monthRange(offset);}rbRerender();}
 function reportBuilderHTML(){
@@ -3302,6 +3309,7 @@ function reportBuilderHTML(){
     <div class="rb-builder">
       <div class="rb-cfg-row"><span class="rb-cfg-l">Match</span><div class="seg"><button class="${rbMatch==='AND'?'on':''}" onclick="rbSetMatch('AND')">ALL · and</button><button class="${rbMatch==='OR'?'on':''}" onclick="rbSetMatch('OR')">ANY · or</button></div></div>
       <div class="rb-cfg-row" style="margin-top:11px"><span class="rb-cfg-l">Quick period</span><div class="rb-colchips"><button class="sfchip ${rbMonthOn(0)?'on':''}" onclick="rbSetMonth(0)">This month</button><button class="sfchip ${rbMonthOn(-1)?'on':''}" onclick="rbSetMonth(-1)">Last month</button></div></div>
+      <div class="rb-cfg-row" style="margin-top:11px"><span class="rb-cfg-l">Quick reports</span><div class="rb-colchips"><button class="sfchip" onclick="rbPresetRNR3()">☎ 3+ RNR this month</button></div></div>
       <div class="rb-cfg-row" style="margin-top:11px"><span class="rb-cfg-l">Filter by</span><div class="rb-colchips">${fieldChips}</div></div>
       <div class="rb-active">${active||'<div class="rb-empty">Tap a field above to start.</div>'}</div>
     </div>
