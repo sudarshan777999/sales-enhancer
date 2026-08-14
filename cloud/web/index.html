@@ -195,6 +195,7 @@
   .vch{display:block;width:100%;text-align:left;border:none;border-radius:6px;padding:3px 6px;margin-bottom:3px;font-size:11.5px;font-weight:600;cursor:pointer;background:#E8F0FA;color:#25506F;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .vch.over{background:#FBE3E1;color:#A03027;}
   .vch.now{background:#FFF1D6;color:#8A5A00;}
+  .vch.kept{background:#CFE3D4;color:#245C36;}
   @media(max-width:640px){.vcal-d{min-height:58px;padding:3px 4px}.vch{font-size:10px;padding:2px 4px}.vcal-grid{gap:3px}}
   .fu-row{display:flex;align-items:center;gap:14px;padding:12px 18px;border-top:1px solid var(--line2);cursor:pointer;}
   .fu-row:hover{background:#F8FAFC;}
@@ -940,7 +941,7 @@ function projName(id){return projById[id]||null;}
 function projId(name){return projByName[name]||null;}
 function memberName(id){const u=user(id);return u?u.name:'';}
 function titleFor(m){const p=projName(m.project_id);if(m.role==='sales_head')return 'Sales Head';if(m.role==='project_head')return 'Project Head'+(p?' · '+p:'');if(m.role==='reception')return 'Receptionist';return 'Salesperson'+(p?' · '+p:'');}
-function leadFromRow(r){return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',source:r.source,srcDetail:r.src_detail||'',walkinSource:r.walkin_source||'',cpName:r.cp_name||'',location:r.location||'',company:r.company_name||'',project:projName(r.project_id),budget:r.budget||'',notes:r.notes||'',stage:r.stage,ownerId:r.owner_id||null,qualified:r.qualified,nqReason:r.nq_reason||'',disqualifiedBy:r.disqualified_by||'',lostReason:r.lost_reason||'',temp:r.temp||null,nextFollowUp:r.next_follow_up||null,plannedVisit:r.planned_visit||null,assignedAt:r.assigned_at||null,createdAt:r.created_at,assessment:null,booking:r.booking||null,walkinPhase:r.walkin_phase||'',dealStatus:r.deal_status||'',metProjectHead:!!r.met_project_head,phMeetingDate:r.ph_meeting_date||'',labels:Array.isArray(r.labels)?r.labels:[],coOwners:Array.isArray(r.co_owners)?r.co_owners:[],priceOffered:r.price_offered||'',blocks:Array.isArray(r.blocks)?r.blocks:[],competitors:r.competitors||'',referralName:r.referral_name||'',referralLeadId:r.referral_lead_id||null,wwSuggested:!!r.wonderwall_suggested,wwVisited:!!r.wonderwall_visited,lostTo:r.lost_to||'',lastQuote:r.last_quote||null,pendingRevisit:!!r.pending_revisit,mergedInto:r.merged_into||null,viaGre:!!r.via_gre,createdBy:r.created_by||null,matchCode:r.match_code||'',revisits:[],log:[]};}
+function leadFromRow(r){return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',source:r.source,srcDetail:r.src_detail||'',walkinSource:r.walkin_source||'',cpName:r.cp_name||'',location:r.location||'',company:r.company_name||'',project:projName(r.project_id),budget:r.budget||'',notes:r.notes||'',stage:r.stage,ownerId:r.owner_id||null,qualified:r.qualified,nqReason:r.nq_reason||'',disqualifiedBy:r.disqualified_by||'',lostReason:r.lost_reason||'',temp:r.temp||null,nextFollowUp:r.next_follow_up||null,plannedVisit:r.planned_visit||null,visitPlans:Array.isArray(r.visit_plans)?r.visit_plans:[],assignedAt:r.assigned_at||null,createdAt:r.created_at,assessment:null,booking:r.booking||null,walkinPhase:r.walkin_phase||'',dealStatus:r.deal_status||'',metProjectHead:!!r.met_project_head,phMeetingDate:r.ph_meeting_date||'',labels:Array.isArray(r.labels)?r.labels:[],coOwners:Array.isArray(r.co_owners)?r.co_owners:[],priceOffered:r.price_offered||'',blocks:Array.isArray(r.blocks)?r.blocks:[],competitors:r.competitors||'',referralName:r.referral_name||'',referralLeadId:r.referral_lead_id||null,wwSuggested:!!r.wonderwall_suggested,wwVisited:!!r.wonderwall_visited,lostTo:r.lost_to||'',lastQuote:r.last_quote||null,pendingRevisit:!!r.pending_revisit,mergedInto:r.merged_into||null,viaGre:!!r.via_gre,createdBy:r.created_by||null,matchCode:r.match_code||'',revisits:[],log:[]};}
 
 // Fetch ALL rows for a query, paging past Supabase's 1000-row cap.
 // makeQuery must return a FRESH query builder each call (filters/order applied, no .range()).
@@ -1939,6 +1940,37 @@ function followupsHTML(leads){
 /* ============ scheduled visits (planned revisits) ============ */
 let visitRange=7, visitMonth='', _visitDays={}, _visitSets={};
 function visitsOf(leads){return leads.filter(l=>l.plannedVisit&&isOpenLead(l)).sort((a,b)=>parseD(a.plannedVisit)-parseD(b.plannedVisit));}
+function visitPlansOf(l){return Array.isArray(l.visitPlans)?l.visitPlans:[];}
+// Every planned visit as a calendar entry. Kept visits sit on the day they actually happened.
+function visitEntries(leads){
+  const t=iso(today());const out=[];
+  leads.forEach(l=>{
+    const plans=visitPlansOf(l);
+    plans.forEach(p=>{
+      if(p.done)out.push({l:l,d:p.done,kind:'kept',planned:p.d});
+      else out.push({l:l,d:p.d,kind:p.d<t?'missed':'pending',planned:p.d});
+    });
+    // Leads planned before visit_plans existed still have only the single date.
+    if(l.plannedVisit&&!plans.some(p=>!p.done))out.push({l:l,d:l.plannedVisit,kind:l.plannedVisit<t?'missed':'pending',planned:l.plannedVisit});
+  });
+  return out.sort((a,b)=>(a.d<b.d?-1:a.d>b.d?1:0));
+}
+// Kept vs missed for a set of leads, counting plans whose PLANNED date falls in [from,to].
+function visitEff(leads,from,to){
+  const t=iso(today());let planned=0,kept=0,missed=0,upcoming=0;
+  leads.forEach(l=>{
+    const plans=visitPlansOf(l);
+    const rows=plans.slice();
+    if(l.plannedVisit&&!plans.some(p=>!p.done))rows.push({d:l.plannedVisit,done:null});
+    rows.forEach(p=>{
+      if(from&&p.d<from)return; if(to&&p.d>to)return;
+      planned++;
+      if(p.done)kept++; else if(p.d<t)missed++; else upcoming++;
+    });
+  });
+  const decided=kept+missed;
+  return {planned:planned,kept:kept,missed:missed,upcoming:upcoming,rate:decided?Math.round(kept/decided*100):null};
+}
 function setVisitRange(n){visitRange=n;render();}
 function visitShiftMonth(d){const p=(visitMonth||iso(today()).slice(0,7)).split('-');visitMonth=iso(new Date(Number(p[0]),Number(p[1])-1+d,1)).slice(0,7);render();}
 function visitThisMonth(){visitMonth='';render();}
@@ -1953,69 +1985,92 @@ function visitRow(l){
     <div class="who"><b>${escapeHtml(l.name)}</b><br><span>${tag}${escapeHtml(userName(l.ownerId))} · ${escapeHtml(l.project||'—')}${(l.walkinSource==='CP'&&l.cpName)?' · CP '+escapeHtml(l.cpName):''}</span></div>
     <div class="note">${last?escapeHtml(last.t):''}</div></div>`;
 }
-function visitCalendarHTML(vs){
+function visitCalendarHTML(ents){
   const mo=visitMonth||iso(today()).slice(0,7);
   const p=mo.split('-');const y=Number(p[0]),m=Number(p[1])-1;
   const first=new Date(y,m,1), lastDay=new Date(y,m+1,0).getDate();
   const start=new Date(y,m,1-first.getDay());
   const cellCount=Math.ceil((first.getDay()+lastDay)/7)*7;
-  _visitDays={};vs.forEach(l=>{(_visitDays[l.plannedVisit]=_visitDays[l.plannedVisit]||[]).push(l);});
+  const byDay={};ents.forEach(e=>{(byDay[e.d]=byDay[e.d]||[]).push(e);});
+  _visitDays={};Object.keys(byDay).forEach(k=>{_visitDays[k]=byDay[k].map(e=>e.l);});
   const t=iso(today());
   const dows=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>`<div class="vcal-dow">${d}</div>`).join('');
+  const cls=e=>e.kind==='kept'?'kept':e.kind==='missed'?'over':e.d===t?'now':'';
+  const tip=e=>e.kind==='kept'?(escapeHtml(e.l.name)+' · visit happened'+(e.planned&&e.planned!==e.d?' (was planned '+fmtDate(e.planned)+')':'')):e.kind==='missed'?(escapeHtml(e.l.name)+' · planned visit missed'):(escapeHtml(e.l.name)+' · visit planned');
   let cells='';
   for(let i=0;i<cellCount;i++){
     const dt=new Date(start.getFullYear(),start.getMonth(),start.getDate()+i);
-    const ds=iso(dt);const out=dt.getMonth()!==m;const arr=_visitDays[ds]||[];
-    const chips=arr.slice(0,3).map(l=>`<button class="vch ${ds<t?'over':ds===t?'now':''}" onclick="event.stopPropagation();openDrawer('${l.id}')" title="${escapeHtml(l.name)} · ${escapeHtml(userName(l.ownerId))}">${escapeHtml(l.name)}</button>`).join('')
+    const ds=iso(dt);const out=dt.getMonth()!==m;const arr=byDay[ds]||[];
+    const chips=arr.slice(0,3).map(e=>`<button class="vch ${cls(e)}" onclick="event.stopPropagation();openDrawer('${e.l.id}')" title="${tip(e)} · ${escapeHtml(userName(e.l.ownerId))}">${e.kind==='kept'?'✓ ':''}${escapeHtml(e.l.name)}</button>`).join('')
       +(arr.length>3?`<button class="vch" onclick="event.stopPropagation();openVisitDay('${ds}')">+${arr.length-3} more</button>`:'');
     cells+=`<div class="vcal-d ${out?'out':''} ${arr.length?'has':''} ${ds===t?'now':''}"><div class="dn">${dt.getDate()}</div>${chips}</div>`;
   }
   const label=first.toLocaleDateString('en-IN',{month:'long',year:'numeric'});
+  const legend=`<span style="margin-left:auto;display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--soft);align-items:center">
+    <span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#CFE3D4;border:1px solid #7FB08D"></i> happened</span>
+    <span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#E8F0FA;border:1px solid #A9C4DE"></i> planned</span>
+    <span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#FBE3E1;border:1px solid #E0A9A2"></i> missed</span></span>`;
   return `<div class="vcal"><div class="vcal-h">
       <button class="vcal-nav" onclick="visitShiftMonth(-1)" title="Previous month">‹</button>
       <b>${label}</b>
       <button class="vcal-nav" onclick="visitShiftMonth(1)" title="Next month">›</button>
       ${visitMonth?`<button class="btn ghost" style="padding:4px 10px;font-size:12.5px" onclick="visitThisMonth()">Today</button>`:''}
-      <span style="margin-left:auto;font-size:12.5px;color:var(--soft)">Tap a name to open that walk-in</span>
+      ${legend}
     </div><div class="vcal-grid">${dows}${cells}</div></div>`;
 }
-function visitTeamHTML(vs){
+function visitTeamHTML(leads){
   const u=currentUser();if(!u||!(u.role==='sales_head'||u.role==='project_head'))return '';
-  const t=iso(today()),d7=addDays(7),d15=addDays(15);
-  const by={};vs.forEach(l=>{const k=l.ownerId||'—';(by[k]=by[k]||[]).push(l);});
-  const rows=Object.entries(by).sort((a,b)=>b[1].length-a[1].length).map(([id,arr])=>{
-    const ov=arr.filter(l=>l.plannedVisit<t).length;
-    const td=arr.filter(l=>l.plannedVisit===t).length;
-    const c7=arr.filter(l=>l.plannedVisit>=t&&l.plannedVisit<=d7).length;
-    const c15=arr.filter(l=>l.plannedVisit>=t&&l.plannedVisit<=d15).length;
+  const t=iso(today()),d7=addDays(7);
+  const by={};leads.forEach(l=>{if(visitPlansOf(l).length||l.plannedVisit){const k=l.ownerId||'—';(by[k]=by[k]||[]).push(l);}});
+  const rows=Object.entries(by).map(([id,arr])=>{
+    const e=visitEff(arr);
+    const soon=arr.filter(l=>l.plannedVisit&&l.plannedVisit>=t&&l.plannedVisit<=d7).length;
     _visitSets['own_'+id]=arr;
-    return `<tr><td><b class="mono">${escapeHtml(id==='—'?'Unassigned':userName(id))}</b></td><td class="mono" style="color:${ov?'var(--over)':'inherit'}">${ov}</td><td class="mono">${td}</td><td class="mono"><b>${c7}</b></td><td class="mono">${c15}</td><td><button class="btn ghost" style="padding:3px 9px;font-size:12px" onclick="openVisitSet('own_${id}','Planned visits · ${escapeHtml(id==='—'?'Unassigned':userName(id))}')">${arr.length} →</button></td></tr>`;
-  }).join('');
+    const rateCol=e.rate==null?'var(--soft)':e.rate>=70?'#2E7D32':e.rate>=40?'#B26A00':'var(--over)';
+    return {id:id,e:e,soon:soon,html:`<tr><td><b class="mono">${escapeHtml(id==='—'?'Unassigned':userName(id))}</b></td>
+      <td class="mono">${e.planned}</td><td class="mono" style="color:#2E7D32">${e.kept}</td>
+      <td class="mono" style="color:${e.missed?'var(--over)':'inherit'}">${e.missed}</td>
+      <td class="mono">${e.upcoming}</td><td class="mono"><b>${soon}</b></td>
+      <td class="mono"><b style="color:${rateCol}">${e.rate==null?'—':e.rate+'%'}</b></td>
+      <td><button class="btn ghost" style="padding:3px 9px;font-size:12px" onclick="openVisitSet('own_${id}','Visits · ${escapeHtml(id==='—'?'Unassigned':userName(id))}')">open</button></td></tr>`};
+  }).sort((a,b)=>(b.e.rate==null?-1:b.e.rate)-(a.e.rate==null?-1:a.e.rate)).map(r=>r.html).join('');
   if(!rows)return '';
-  return `<div class="panel"><h3>Planned visits by salesperson</h3><table style="box-shadow:none"><thead><tr><th>Salesperson</th><th>Missed</th><th>Today</th><th>Next 7 days</th><th>Next 15 days</th><th>All</th></tr></thead><tbody>${rows}</tbody></table><div class="ai-tag" style="margin-top:10px">“Missed” = the planned date has passed and no revisit was logged. Counts follow the filters above.</div></div>`;
+  const tot=visitEff(leads);
+  return `<div class="panel"><h3>Visit efficiency by salesperson</h3><div style="overflow-x:auto"><table style="box-shadow:none"><thead><tr><th>Salesperson</th><th>Planned</th><th>Happened</th><th>Missed</th><th>Upcoming</th><th>Next 7 days</th><th>Kept rate</th><th></th></tr></thead><tbody>${rows}<tr style="background:var(--canvas)"><td><b>Team</b></td><td class="mono"><b>${tot.planned}</b></td><td class="mono"><b>${tot.kept}</b></td><td class="mono"><b>${tot.missed}</b></td><td class="mono"><b>${tot.upcoming}</b></td><td></td><td class="mono"><b>${tot.rate==null?'—':tot.rate+'%'}</b></td><td></td></tr></tbody></table></div><div class="ai-tag" style="margin-top:10px"><b>Kept rate</b> = visits that happened ÷ (happened + missed). Upcoming visits aren't counted until their date passes. Counts follow the filters above.</div></div>`;
 }
 function visitsHTML(leads){
   const vs=visitsOf(leads);
-  const t=iso(today()),d7=addDays(7),d15=addDays(15),end=addDays(visitRange);
+  const ents=visitEntries(leads);
+  const t=iso(today()),d7=addDays(7),d15=addDays(15),end=addDays(visitRange),back=addDays(-visitRange);
   const over=vs.filter(l=>l.plannedVisit<t);
   const tod=vs.filter(l=>l.plannedVisit===t);
   const n7=vs.filter(l=>l.plannedVisit>=t&&l.plannedVisit<=d7);
   const n15=vs.filter(l=>l.plannedVisit>=t&&l.plannedVisit<=d15);
   const inRange=vs.filter(l=>l.plannedVisit>=t&&l.plannedVisit<=end);
-  _visitSets={over:over,today:tod,n7:n7,n15:n15};
+  const keptEnts=ents.filter(e=>e.kind==='kept');
+  const keptRecent=keptEnts.filter(e=>e.d>=back&&e.d<=t).sort((a,b)=>(a.d<b.d?1:-1));
+  const eff=visitEff(leads);
+  _visitSets={over:over,today:tod,n7:n7,n15:n15,kept:keptEnts.map(e=>e.l)};
   const card=(k,v,key,title,col)=>`<div class="stat" style="cursor:pointer" onclick="openVisitSet('${key}','${title}')"><div class="k">${k}</div><div class="v"${col?` style="color:${col}"`:''}>${v}</div></div>`;
+  const rateCol=eff.rate==null?'':eff.rate>=70?'#2E7D32':eff.rate>=40?'#B26A00':'var(--over)';
   const stats=`<div class="stat-grid">
     ${card('Missed visits',over.length,'over','Missed planned visits',over.length?'var(--over)':'')}
     ${card('Today',tod.length,'today','Visits planned today')}
     ${card('Next 7 days',n7.length,'n7','Visits planned · next 7 days')}
     ${card('Next 15 days',n15.length,'n15','Visits planned · next 15 days')}
+    ${card('Visits happened',eff.kept,'kept','Planned visits that happened','#2E7D32')}
+    <div class="stat" title="Visits that happened ÷ (happened + missed)"><div class="k">Kept rate</div><div class="v"${rateCol?` style="color:${rateCol}"`:''}>${eff.rate==null?'—':eff.rate+'%'}</div></div>
   </div>`;
-  const rangeChips=[[7,'Next 7 days'],[15,'Next 15 days'],[30,'Next 30 days']].map(([n,lab])=>`<button class="sfchip ${visitRange===n?'on':''}" onclick="setVisitRange(${n})">${lab}</button>`).join('');
+  const rangeChips=[[7,'7 days'],[15,'15 days'],[30,'30 days']].map(([n,lab])=>`<button class="sfchip ${visitRange===n?'on':''}" onclick="setVisitRange(${n})">${lab}</button>`).join('');
   const agenda=(inRange.length?inRange.map(visitRow).join(''):'<div class="fu-empty">No visits planned in this window.</div>');
   const missed=over.length?`<div class="fu-sec"><h3>Missed — the date passed, no revisit logged<span class="b">${over.length}</span></h3>${over.map(visitRow).join('')}</div>`:'';
-  const list=`<div class="fu-wrap">${missed}<div class="fu-sec"><h3>Planned · next ${visitRange} days<span class="b">${inRange.length}</span></h3>${agenda}</div></div>`;
-  const help=`<div class="ai-tag" style="margin-bottom:12px">Set a date on a lead under <b>Add an update → 📅Next visit planned on</b>. It clears itself once you log the revisit.</div>`;
-  return filterBanner()+help+stats+`<div class="rb-cfg-row" style="margin:12px 0"><span class="rb-cfg-l">Show</span><div class="rb-colchips">${rangeChips}</div></div>`+visitCalendarHTML(vs)+list+visitTeamHTML(vs);
+  const happenedRow=e=>`<div class="fu-row" onclick="openDrawer('${e.l.id}')"><div class="date">${fmtDate(e.d)}<small>${parseD(e.d).toLocaleDateString('en-IN',{weekday:'short'})}</small></div>
+    <div class="who"><b>${escapeHtml(e.l.name)}</b><br><span><span class="tchip" style="background:#CFE3D4;color:#245C36">✓ visited</span> ${escapeHtml(userName(e.l.ownerId))} · ${escapeHtml(e.l.project||'—')}</span></div>
+    <div class="note">${(e.planned&&e.planned!==e.d)?('planned for '+fmtDate(e.planned)):'on the planned day'}</div></div>`;
+  const happened=keptRecent.length?`<div class="fu-sec"><h3>Happened · last ${visitRange} days<span class="b">${keptRecent.length}</span></h3>${keptRecent.map(happenedRow).join('')}</div>`:'';
+  const list=`<div class="fu-wrap">${missed}<div class="fu-sec"><h3>Planned · next ${visitRange} days<span class="b">${inRange.length}</span></h3>${agenda}</div>${happened}</div>`;
+  const help=`<div class="ai-tag" style="margin-bottom:12px">Set a date on a lead under <b>Add an update → 📅Next visit planned on</b>. Tick <b>Log as a revisit</b> when they turn up — the visit is kept on record as <b>happened</b>, not erased.</div>`;
+  return filterBanner()+help+stats+`<div class="rb-cfg-row" style="margin:12px 0"><span class="rb-cfg-l">Window</span><div class="rb-colchips">${rangeChips}</div></div>`+visitCalendarHTML(ents)+list+visitTeamHTML(leads);
 }
 function tableHTML(leads){
   const rows=leads.slice().sort((a,b)=>parseD(b.createdAt)-parseD(a.createdAt)).map(l=>{const st=STAGES[l.stage];
@@ -2375,12 +2430,26 @@ async function saveUpdate(id){
   const pvChanged=(pvDate||'')!==(l.plannedVisit||'');
   if(!note&&!fuOn&&!rvOn&&!pvChanged){alert('Type an update, or tick follow-up / revisit / planned visit.');return;}
   if(fuOn&&fuDate){if(!await updateLead(id,{next_follow_up:fuDate}))return;}
-  // Planned visit: set/change it, or clear it when unticked. Logging the revisit also clears it (the visit happened).
+  // Planned visits. visit_plans keeps the durable history (kept vs missed); planned_visit
+  // mirrors the current pending one so the calendar, filters and alerts keep working.
+  let plans=Array.isArray(l.visitPlans)?JSON.parse(JSON.stringify(l.visitPlans)):[];
+  // Leads planned before visit_plans existed: seed the array from the old single date.
+  if(l.plannedVisit&&!plans.some(p=>!p.done))plans.push({d:l.plannedVisit,by:l.ownerId||session,at:l.plannedVisit,done:null});
+  let plansTouched=false;
   if(pvChanged){
-    if(!await updateLead(id,{planned_visit:pvDate||null}))return;
-    await addActivityRow(id,{kind:'system',body:pvDate?('Next visit planned for '+fmtDate(pvDate)):'Planned visit cleared'});
-  } else if(rvOn&&l.plannedVisit){
-    if(!await updateLead(id,{planned_visit:null}))return;
+    const pend=plans.filter(p=>!p.done);
+    if(pvDate){ if(pend.length)pend[pend.length-1].d=pvDate; else plans.push({d:pvDate,by:session,at:iso(today()),done:null}); }
+    else plans=plans.filter(p=>p.done);
+    plansTouched=true;
+  }
+  if(rvOn){
+    const pend=plans.filter(p=>!p.done).sort((a,b)=>(a.d<b.d?-1:1));
+    if(pend.length){pend[0].done=rvDate||iso(today());plansTouched=true;}
+  }
+  if(plansTouched){
+    const nextPend=plans.filter(p=>!p.done).sort((a,b)=>(a.d<b.d?-1:1))[0];
+    if(!await updateLead(id,{visit_plans:plans,planned_visit:nextPend?nextPend.d:null}))return;
+    if(pvChanged)await addActivityRow(id,{kind:'system',body:pvDate?('Next visit planned for '+fmtDate(pvDate)):'Planned visit cleared'});
   }
   if(rvOn){
     const visitNo=(l.source==='walkin'?1:0)+(l.revisits||[]).length+1;
@@ -3333,6 +3402,9 @@ const REPORT_COLS=[
   {k:'revisits',label:'Revisits',get:l=>String((l.revisits||[]).length)},
   {k:'rnr',label:'RNR',get:l=>String(rnrCount(l))},
   {k:'pvisit',label:'Visit planned',get:l=>l.plannedVisit||''},
+  {k:'vplanned',label:'Visits planned',get:l=>String(visitEff([l]).planned)},
+  {k:'vkept',label:'Visits happened',get:l=>String(visitEff([l]).kept)},
+  {k:'vmissed',label:'Visits missed',get:l=>String(visitEff([l]).missed)},
   {k:'metph',label:'Met PH',get:l=>l.metProjectHead?'Yes':'No'},
   {k:'budget',label:'Budget',get:l=>l.budget||''},
   {k:'location',label:'Location',get:l=>l.location||''},
@@ -3519,6 +3591,16 @@ function reportHTML(){
   const dsTot=DEAL_STATUSES.map(s=>`<td class="mono"><b>${inMonth.filter(l=>(l.dealStatus||'')===s).length}</b></td>`).join('');
   const dsTotAll=inMonth.filter(l=>DEAL_STATUSES.includes(l.dealStatus||'')).length;
   const dsSlide=slide('Deal Status Summary',`<div style="overflow-x:auto"><table class="rtable"><thead><tr><th>Source</th>${DEAL_STATUSES.map(s=>`<th>${s}</th>`).join('')}<th>Total</th></tr></thead><tbody>${dsBody}<tr style="background:#F3E9D2"><td><b>Total</b></td>${dsTot}<td class="mono"><b>${dsTotAll}</b></td></tr></tbody></table></div><div style="margin-top:12px;color:#5a4a2a;font-size:13px"><b>First Contact Done</b> and <b>Prospect</b> are the open qualified pipeline; Closed Won / Closed Lost are decided.</div>`);
+  // Visit efficiency — planned revisits vs the ones that actually happened, this month
+  const veFrom=reportMonth+'-01', veTo=reportMonth+'-31';
+  const veBy={};all.forEach(l=>{const k=l.ownerId||'—';(veBy[k]=veBy[k]||[]).push(l);});
+  const veRows=Object.entries(veBy).map(function(en){return {id:en[0],e:visitEff(en[1],veFrom,veTo)};})
+    .filter(function(x){return x.e.planned>0;})
+    .sort(function(a,b){return (b.e.rate==null?-1:b.e.rate)-(a.e.rate==null?-1:a.e.rate);});
+  const veTot=visitEff(all,veFrom,veTo);
+  const veSlide=veRows.length
+    ? slide('Visit Efficiency',`<table class="rtable"><thead><tr><th>Salesperson</th><th>Visits planned</th><th>Happened</th><th>Missed</th><th>Still upcoming</th><th>Kept rate</th></tr></thead><tbody>${veRows.map(function(r){return `<tr><td>${r.id==='—'?'Unassigned':userName(r.id)}</td><td class="mono">${r.e.planned}</td><td class="mono">${r.e.kept}</td><td class="mono">${r.e.missed}</td><td class="mono">${r.e.upcoming}</td><td class="mono"><b>${r.e.rate==null?'—':r.e.rate+'%'}</b></td></tr>`;}).join('')}<tr style="background:#F3E9D2"><td><b>Total</b></td><td class="mono"><b>${veTot.planned}</b></td><td class="mono"><b>${veTot.kept}</b></td><td class="mono"><b>${veTot.missed}</b></td><td class="mono"><b>${veTot.upcoming}</b></td><td class="mono"><b>${veTot.rate==null?'—':veTot.rate+'%'}</b></td></tr></tbody></table><div style="margin-top:12px;color:#5a4a2a;font-size:13px">Counts revisits <b>planned for ${rMonthLabel(reportMonth)}</b>. <b>Kept rate</b> = happened ÷ (happened + missed); visits still upcoming are excluded.</div>`)
+    : slide('Visit Efficiency',`<div style="color:#9c8a63">No revisits were planned for this month.</div>`);
   // NQ & Closed-Lost categories
   const nqSlide=crossReasonSlide('NQ — Categories',inMonth.filter(l=>l.stage==='not_qualified'),l=>l.nqReason,cats,slide);
   const lostSlide=crossReasonSlide('Closed-Lost — Categories',inMonth.filter(l=>l.stage==='lost'),l=>l.lostReason,cats,slide);
@@ -3535,7 +3617,7 @@ function reportHTML(){
     const bars=histRows.map(r=>`<div class="rbar-row"><div class="rl">${r[0]}</div><div class="rt"><div class="rf" style="width:${Math.round(numOf(r[3])/umax*100)}%;background:#C9B27A;color:#4a3a1a">${r[3]||''}</div></div></div>`).join('');
     histSlide=slide('Historic Sales Summary',`<table class="rtable"><thead><tr><th>Month</th><th>3.5 BHK (₹)</th><th>3 BHK (₹)</th><th>Units sold</th></tr></thead><tbody>${body}</tbody></table><div style="margin-top:14px">${bars}</div>`);
   } else histSlide=slide('Historic Sales Summary',`<div style="color:#9c8a63">Add the historic realization trend via <b>Edit external data</b>. Format per line: <b>Month, 3.5BHK, 3BHK, Units</b></div>`);
-  return toolbar+editor+titleSlide+perfSlide+histSlide+srcSlide+cpSlide+statSlide+dsSlide+nqSlide+lostSlide+lostPieSlide+clSlide;
+  return toolbar+editor+titleSlide+perfSlide+histSlide+srcSlide+cpSlide+statSlide+dsSlide+veSlide+nqSlide+lostSlide+lostPieSlide+clSlide;
 }
 function toggleReportEditor(){const e=document.getElementById('reportEditor');if(e)e.style.display=e.style.display==='none'?'':'none';}
 async function saveReport(){const rd=Object.assign({},db.reportData||{});rd.performanceText=document.getElementById('rd_perf').value;rd.historicText=document.getElementById('rd_hist').value;if(await saveReportData(rd))render();}
