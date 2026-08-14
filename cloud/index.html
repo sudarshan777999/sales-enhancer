@@ -730,7 +730,7 @@
     <nav class="sidenav" id="tabs"></nav>
     <div class="content">
       <div class="perm-note" id="permNote"></div>
-      <div class="band"><div class="kpis" id="kpis"></div></div>
+      <div class="band" id="kpiBand"><div class="kpis" id="kpis"></div></div>
       <div class="band" id="myTarget"></div>
       <div class="band" id="savedBar"></div>
       <main id="main"></main>
@@ -1861,6 +1861,10 @@ function setTab(t){activeTab=t;render();}
 let _rnr3Leads=[];
 function openRnr3(){openLeadList('3+ RNR · this month',_rnr3Leads||[]);}
 function renderKPIs(leads){
+  // The Visits tab has its own visit counters — the pipeline stage tiles are noise there.
+  const band=document.getElementById('kpiBand');
+  if(band)band.style.display=(activeTab==='visits')?'none':'';
+  if(activeTab==='visits')return;
   const c=s=>leads.filter(l=>l.stage===s).length;
   const items=[['New','var(--new)',c('new')],['Assigned','var(--assigned)',c('assigned')],['Qualified','var(--qualified)',c('qualified')],['Booked','var(--booked)',c('booked')],['Lost','var(--lost)',c('lost')],['Not qualified','var(--nq)',c('not_qualified')]];
   const mo=iso(today()).slice(0,7);
