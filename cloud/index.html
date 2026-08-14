@@ -3555,6 +3555,12 @@ function dealCoach(l){
   if(l.stage==='qualified'&&l.nextFollowUp){const d=dueState(l.nextFollowUp);
     if(d.cls==='over')tips.push({pri:96,label:'Follow up now',why:`The call-back was due ${-d.n} day${-d.n===1?'':'s'} ago.`,act:'follow'});
     else if(d.cls==='today')tips.push({pri:86,label:'Follow up today',why:'The call-back is scheduled for today.',act:'follow'});}
+  // A planned revisit outranks almost everything — the customer is turning up.
+  if(l.plannedVisit){const v=dueState(l.plannedVisit);
+    if(v.cls==='today')tips.push({pri:99,label:'Visit today — be ready',why:'The customer said they would visit today. Confirm and prepare.',act:''});
+    else if(v.cls==='over')tips.push({pri:95,label:'Visit missed — reschedule',why:`The planned visit was ${-v.n} day${-v.n===1?'':'s'} ago and no revisit was logged.`,act:'follow'});
+    else if(v.n===1)tips.push({pri:88,label:'Visit tomorrow — confirm it',why:'Call to confirm the visit planned for tomorrow.',act:''});
+    else if(v.n<=3)tips.push({pri:76,label:`Visit in ${v.n} days`,why:`A visit is planned for ${fmtDate(l.plannedVisit)} — keep it warm.`,act:''});}
   {const s=slaState(l);if(s){
     if(s.over)tips.push({pri:92,label:'Qualify or disqualify',why:`Decision overdue by ${-s.left} day${-s.left===1?'':'s'}.`,act:'qualify'});
     else if(s.left<=2)tips.push({pri:74,label:'Qualify or disqualify',why:`Decide within ${s.left} day${s.left===1?'':'s'}.`,act:'qualify'});}}
@@ -3693,7 +3699,13 @@ function waCopy(id){
 function neglectedLeads(memberId){return db.leads.filter(l=>!l.mergedInto&&l.ownerId===memberId&&isOpenLead(l)&&(
   (l.stage==='qualified'&&l.nextFollowUp&&dueState(l.nextFollowUp).cls==='over')||
   (function(){const s=slaState(l);return !!(s&&s.over);})()||
+  (!!l.plannedVisit&&l.plannedVisit<iso(today()))||
   daysUntouched(l)>=10));}
+// Planned visits whose date passed with no revisit logged. Scoped by can('view'), so a
+// salesperson sees their own, a project head their project, and the sales head everyone.
+function missedVisits(){const t=iso(today());
+  return db.leads.filter(l=>!l.mergedInto&&l.plannedVisit&&l.plannedVisit<t&&isOpenLead(l)&&can('view',l))
+    .sort((a,b)=>parseD(a.plannedVisit)-parseD(b.plannedVisit));}
 function escalationList(){
   const u=currentUser();if(!u||(u.role!=='sales_head'&&u.role!=='project_head'))return [];
   const reps=salespeople(u.role==='project_head'?u.project:null);
@@ -3846,8 +3858,9 @@ function notifyItems(){
   const myTasks=(db.tasks||[]).filter(t=>t.status==='open'&&t.assigned_to===session);
   const doneTasks=(db.tasks||[]).filter(t=>t.status==='done'&&t.assigned_by===session&&t.done_at&&(today()-parseD((t.done_at||'').slice(0,10)))/86400000<=7);
   const escalations=(u&&(u.role==='sales_head'||u.role==='project_head'))?escalationList():[];
-  const total=stale.length+overdue.length+incoming.length+pendingT.length+declinedT.length+interests.length+pendingPricing.length+pricedForMe.length+myTasks.length+doneTasks.length+escalations.length;
-  return {stale,overdue,incoming,pendingT,declinedT,interests,pendingPricing,pricedForMe,myTasks,doneTasks,escalations,total};
+  const missedV=missedVisits();
+  const total=stale.length+overdue.length+incoming.length+pendingT.length+declinedT.length+interests.length+pendingPricing.length+pricedForMe.length+myTasks.length+doneTasks.length+escalations.length+missedV.length;
+  return {stale,overdue,incoming,pendingT,declinedT,interests,pendingPricing,pricedForMe,myTasks,doneTasks,escalations,missedV,total};
 }
 let dismissedNotif=null;
 function dismKey(){return 'bm_dismissed_notif_'+(session||'x');}
@@ -3860,6 +3873,7 @@ function notifyKeyList(){const it=notifyItems();const ks=[];
   it.declinedT.forEach(t=>ks.push('dt_'+t.id));it.interests.forEach(c=>ks.push('ci_'+c.id));
   it.stale.forEach(l=>ks.push('st_'+l.id));it.overdue.forEach(l=>ks.push('ov_'+l.id));
   (it.escalations||[]).forEach(e=>ks.push('esc_'+e.memberId));
+  (it.missedV||[]).forEach(l=>ks.push('mv_'+l.id));
   return ks;}
 function refreshNotifyBadge(){const b=document.getElementById('notifyBadge');if(!b)return;
   const dm=ensureDismissed();const ks=notifyKeyList();const cur=new Set(ks);
@@ -3874,10 +3888,11 @@ function renderNotify(){const p=document.getElementById('notifyPanel');const it=
   const nx=k=>`<button class="nx" title="Dismiss" onclick="event.stopPropagation();dismissNotif('${k}')">×</button>`;
   const canOpen=id=>db.leads.some(l=>l.id===id);
   const row=(l,txt,col,key)=>`<div class="nrow" onclick="closeNotify();openDrawer('${l.id}')"><div class="ndot" style="background:${col}"></div><div class="nmeta"><b>${l.name}</b><span>${l.project||''} · ${l.ownerId?userName(l.ownerId):'unassigned'} — ${txt}</span></div>${nx(key)}</div>`;
-  const myTasks=it.myTasks.filter(t=>keep('tk_'+t.id)),incoming=it.incoming.filter(t=>keep('in_'+t.id)),pendingPricing=it.pendingPricing.filter(r=>keep('pp_'+r.id)),pricedForMe=it.pricedForMe.filter(r=>keep('pf_'+r.id)),doneTasks=it.doneTasks.filter(t=>keep('tkd_'+t.id)),pendingT=it.pendingT.filter(t=>keep('pt_'+t.id)),declinedT=it.declinedT.filter(t=>keep('dt_'+t.id)),interests=it.interests.filter(c=>keep('ci_'+c.id)),stale=it.stale.filter(l=>keep('st_'+l.id)),overdue=it.overdue.filter(l=>keep('ov_'+l.id)),escalations=(it.escalations||[]).filter(e=>keep('esc_'+e.memberId));
-  const total=myTasks.length+incoming.length+pendingPricing.length+pricedForMe.length+doneTasks.length+pendingT.length+declinedT.length+interests.length+stale.length+overdue.length+escalations.length;
+  const myTasks=it.myTasks.filter(t=>keep('tk_'+t.id)),incoming=it.incoming.filter(t=>keep('in_'+t.id)),pendingPricing=it.pendingPricing.filter(r=>keep('pp_'+r.id)),pricedForMe=it.pricedForMe.filter(r=>keep('pf_'+r.id)),doneTasks=it.doneTasks.filter(t=>keep('tkd_'+t.id)),pendingT=it.pendingT.filter(t=>keep('pt_'+t.id)),declinedT=it.declinedT.filter(t=>keep('dt_'+t.id)),interests=it.interests.filter(c=>keep('ci_'+c.id)),stale=it.stale.filter(l=>keep('st_'+l.id)),overdue=it.overdue.filter(l=>keep('ov_'+l.id)),escalations=(it.escalations||[]).filter(e=>keep('esc_'+e.memberId)),missedV=(it.missedV||[]).filter(l=>keep('mv_'+l.id));
+  const total=myTasks.length+incoming.length+pendingPricing.length+pricedForMe.length+doneTasks.length+pendingT.length+declinedT.length+interests.length+stale.length+overdue.length+escalations.length+missedV.length;
   let html=`<div class="nhead">Alerts${total?`<button class="nclear" onclick="clearAllNotif()">Clear all</button>`:''}</div>`;
-  if(escalations.length)html+=`<div class="nsec">🧭 Deal Coach · salespeople needing attention</div>`+escalations.map(e=>`<div class="nrow" onclick="closeNotify();openNeglected('${e.memberId}')"><div class="ndot" style="background:#C0433A"></div><div class="nmeta"><b>${userName(e.memberId)}</b><span>${e.count} leads slipping (overdue, undecided or gone cold) — coach them</span></div>${nx('esc_'+e.memberId)}</div>`).join('');
+  if(missedV.length)html+=`<div class="nsec">📅 Missed visits · planned date passed, no revisit logged</div>`+missedV.map(l=>{const n=-dueState(l.plannedVisit).n;return `<div class="nrow" onclick="closeNotify();openDrawer('${l.id}')"><div class="ndot" style="background:#C0433A"></div><div class="nmeta"><b>${escapeHtml(l.name)}</b><span>${escapeHtml(l.project||'')} · ${l.ownerId?escapeHtml(userName(l.ownerId)):'unassigned'} — visit was planned ${fmtDate(l.plannedVisit)} (${n} day${n===1?'':'s'} ago)</span></div>${nx('mv_'+l.id)}</div>`;}).join('');
+  if(escalations.length)html+=`<div class="nsec">🧭 Deal Coach · salespeople needing attention</div>`+escalations.map(e=>`<div class="nrow" onclick="closeNotify();openNeglected('${e.memberId}')"><div class="ndot" style="background:#C0433A"></div><div class="nmeta"><b>${userName(e.memberId)}</b><span>${e.count} leads slipping (overdue, undecided, missed visits or gone cold) — coach them</span></div>${nx('esc_'+e.memberId)}</div>`).join('');
   if(incoming.length)html+=`<div class="nsec">Handoffs waiting for you</div>`+incoming.map(t=>`<div class="nrow"><div class="ndot" style="background:#4A6FA5"></div><div class="nmeta" style="flex:1"><b>${t.lead_name||'A lead'}</b><span>${userName(t.from_member)} wants to hand this to you${t.note?' — '+t.note:''}</span><div style="margin-top:7px;display:flex;gap:8px"><button class="btn" style="padding:5px 11px" onclick="acceptTransfer('${t.id}')">Accept</button><button class="btn ghost" style="padding:5px 11px" onclick="declineTransfer('${t.id}')">Decline</button></div></div>${nx('in_'+t.id)}</div>`).join('');
   if(myTasks.length)html+=`<div class="nsec">Tasks assigned to you</div>`+myTasks.map(t=>`<div class="nrow" onclick="closeNotify();openDrawer('${t.lead_id}')"><div class="ndot" style="background:#C0524A"></div><div class="nmeta"><b>${t.lead_name||''}</b><span>${userName(t.assigned_by)}: ${escapeHtml(t.body)}</span></div>${nx('tk_'+t.id)}</div>`).join('');
   if(pendingPricing.length)html+=`<div class="nsec">Pricing approvals to set</div>`+pendingPricing.map(r=>`<div class="nrow" onclick="closeNotify();openPricing('respond','${r.id}')"><div class="ndot" style="background:#2C9C9A"></div><div class="nmeta"><b>${r.lead_name||''}</b><span>${userName(r.requested_by)} needs prices for ${(r.units||[]).map(x=>x.unit).join(', ')}</span></div>${nx('pp_'+r.id)}</div>`).join('');
