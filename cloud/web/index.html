@@ -671,6 +671,7 @@
   .rcv-who b{display:block;font-family:'Space Grotesk';font-size:14.5px;}
   .rcv-who span{display:block;color:var(--soft);font-size:12.5px;margin-top:1px;}
   .rcv-wait{color:var(--soft);font-size:12.5px;white-space:nowrap;}
+  .rcv-late{color:#A03027;font-weight:600;}
   .rcv-none{color:var(--soft);font-size:13px;padding:6px 0 2px;}
   .rc-log{max-width:620px;margin:16px auto 0;padding:0 16px;}
   .rc-log-h{font-family:'Space Grotesk';font-weight:600;font-size:13px;color:var(--soft);margin-bottom:8px;}
@@ -1691,10 +1692,12 @@ async function createLabelFor(id){const name=(document.getElementById('lbl_new_'
 
 /* ============ receptionist (front desk) ============ */
 let rcSession=[], rcLastOwner='', rcVisitsDone=[];
-// Planned visits the front desk should expect: today, tomorrow, day after.
+// How many days back the front desk can still confirm a visit that was expected earlier.
+const RC_BACK_DAYS=3;
+// Planned visits the front desk deals with: the last few days (late arrivals), today, tomorrow, day after.
 function rcExpected(){
-  const t=iso(today()),d1=addDays(1),d2=addDays(2);
-  return (db.leads||[]).filter(l=>!l.mergedInto&&l.plannedVisit&&(l.plannedVisit===t||l.plannedVisit===d1||l.plannedVisit===d2))
+  const from=addDays(-RC_BACK_DAYS),to=addDays(2);
+  return (db.leads||[]).filter(l=>!l.mergedInto&&l.plannedVisit&&l.plannedVisit>=from&&l.plannedVisit<=to)
     .sort((a,b)=>(a.plannedVisit<b.plannedVisit?-1:a.plannedVisit>b.plannedVisit?1:a.name.localeCompare(b.name)));
 }
 async function rcMarkVisit(id){
@@ -1709,18 +1712,25 @@ async function rcMarkVisit(id){
 function rcVisitsHTML(){
   const t=iso(today()),d1=addDays(1),d2=addDays(2);
   const all=rcExpected();
+  const row=(l,late)=>`<div class="rcv-row">
+      <div class="rcv-who"><b>${escapeHtml(l.name)}</b><span>${late?`<span class="rcv-late">was expected ${fmtDate(l.plannedVisit)}</span> · `:''}${l.ownerId?escapeHtml(userName(l.ownerId)):'unassigned'}${l.project?' · '+escapeHtml(l.project):''}</span></div>
+      <button class="btn" id="rcv_${l.id}" style="white-space:nowrap;padding:6px 12px" onclick="rcMarkVisit('${l.id}')">✓ Visit happened</button>
+    </div>`;
+  // Still-pending visits from the last few days — the customer may turn up late.
+  const lateArr=all.filter(l=>l.plannedVisit<t);
+  const lateSec=lateArr.length?`<div class="rcv-sec"><h4>Expected earlier · still not confirmed<span class="rcv-n">${lateArr.length}</span></h4>${lateArr.map(l=>row(l,true)).join('')}</div>`:'';
   const label=d=>d===t?'Today':d===d1?'Tomorrow':'Day after';
   const sec=(d)=>{const arr=all.filter(l=>l.plannedVisit===d);
     if(!arr.length)return `<div class="rcv-sec"><h4>${label(d)} · ${fmtDate(d)}<span class="rcv-n">0</span></h4><div class="rcv-none">No visits expected.</div></div>`;
-    return `<div class="rcv-sec"><h4>${label(d)} · ${fmtDate(d)}<span class="rcv-n">${arr.length}</span></h4>`+arr.map(l=>`<div class="rcv-row">
+    return `<div class="rcv-sec"><h4>${label(d)} · ${fmtDate(d)}<span class="rcv-n">${arr.length}</span></h4>`+arr.map(l=>d===t?row(l,false):`<div class="rcv-row">
       <div class="rcv-who"><b>${escapeHtml(l.name)}</b><span>${l.ownerId?escapeHtml(userName(l.ownerId)):'unassigned'}${l.project?' · '+escapeHtml(l.project):''}</span></div>
-      ${d===t?`<button class="btn" id="rcv_${l.id}" style="white-space:nowrap;padding:6px 12px" onclick="rcMarkVisit('${l.id}')">✓ Visit happened</button>`:`<span class="rcv-wait">expected</span>`}
+      <span class="rcv-wait">expected</span>
     </div>`).join('')+`</div>`;};
   const done=rcVisitsDone.length?`<div class="rcv-sec"><h4>Confirmed today<span class="rcv-n">${rcVisitsDone.length}</span></h4>${rcVisitsDone.map(x=>`<div class="rcv-row"><div class="rcv-who"><b>${escapeHtml(x.name)}</b><span>✓ visit confirmed · ${escapeHtml(x.owner)}</span></div></div>`).join('')}</div>`:'';
   return `<div class="rc-card rcv-card">
     <h2>Visits expected</h2>
-    <div class="rc-sub">Customers who told their salesperson they'd come. When one arrives, press <b>✓ Visit happened</b> — it updates the salesperson's calendar and report straight away.</div>
-    ${sec(t)}${sec(d1)}${sec(d2)}${done}</div>`;
+    <div class="rc-sub">Customers who told their salesperson they'd come. When one arrives, press <b>✓ Visit happened</b> — it updates the salesperson's calendar and report straight away. Visits from the last ${RC_BACK_DAYS} days can still be confirmed if the customer turned up late.</div>
+    ${lateSec}${sec(t)}${sec(d1)}${sec(d2)}${done}</div>`;
 }
 const RC_SUBSOURCES=['Hoarding','Digital','Referral'];
 function renderReception(){
