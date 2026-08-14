@@ -827,6 +827,15 @@
   </div>
 </div>
 
+<!-- WhatsApp message picker for one walk-in -->
+<div class="modal-scrim" id="msgPickScrim">
+  <div class="modal">
+    <div class="modal-h"><h2 id="msgPickTitle">WhatsApp</h2></div>
+    <div class="modal-b" style="display:block" id="msgPickBody"></div>
+    <div class="modal-f"><button class="btn ghost" onclick="closeMsgPicker()">Close</button></div>
+  </div>
+</div>
+
 <!-- WhatsApp drip templates (heads) -->
 <div class="modal-scrim" id="msgScrim">
   <div class="modal">
@@ -2123,7 +2132,7 @@ function visitTeamHTML(leads){
   }).sort((a,b)=>(b.e.rate==null?-1:b.e.rate)-(a.e.rate==null?-1:a.e.rate)).map(r=>r.html).join('');
   if(!rows)return '';
   const tot=visitEff(leads);
-  return `<div class="panel"><h3>Visit efficiency by salesperson</h3><div style="overflow-x:auto"><table style="box-shadow:none"><thead><tr><th>Salesperson</th><th>Planned</th><th>Happened</th><th>Missed</th><th>Upcoming</th><th>Next 7 days</th><th>Kept rate</th><th></th></tr></thead><tbody>${rows}<tr style="background:var(--canvas)"><td><b>Team</b></td><td class="mono"><b>${tot.planned}</b></td><td class="mono"><b>${tot.kept}</b></td><td class="mono"><b>${tot.missed}</b></td><td class="mono"><b>${tot.upcoming}</b></td><td></td><td class="mono"><b>${tot.rate==null?'—':tot.rate+'%'}</b></td><td></td></tr></tbody></table></div><div class="ai-tag" style="margin-top:10px"><b>Kept rate</b> = visits that happened ÷ (happened + missed). Upcoming visits aren't counted until their date passes. Counts follow the filters above.</div></div>`;
+  return `<div class="panel"><h3>Visit efficiency by salesperson</h3><div style="overflow-x:auto"><table style="box-shadow:none"><thead><tr><th>Salesperson</th><th>Planned</th><th>Happened</th><th>Missed</th><th>Upcoming</th><th>Next 7 days</th><th>Kept rate</th><th></th></tr></thead><tbody>${rows}<tr style="background:var(--canvas)"><td><b>Team</b></td><td class="mono"><b>${tot.planned}</b></td><td class="mono"><b>${tot.kept}</b></td><td class="mono"><b>${tot.missed}</b></td><td class="mono"><b>${tot.upcoming}</b></td><td></td><td class="mono"><b>${tot.rate==null?'—':tot.rate+'%'}</b></td><td></td></tr></tbody></table></div><div style="font-size:11.5px;color:var(--soft);line-height:1.55;margin-top:10px"><b>Kept rate</b> = visits that happened ÷ (happened + missed). Upcoming visits aren't counted until their date passes. Counts follow the filters above.</div></div>`;
 }
 function visitsHTML(leads){
   const vs=visitsOf(leads);
@@ -2156,7 +2165,7 @@ function visitsHTML(leads){
     <div class="note">${(e.planned&&e.planned!==e.d)?('planned for '+fmtDate(e.planned)):'on the planned day'}</div></div>`;
   const happened=keptRecent.length?`<div class="fu-sec"><h3>Happened · last ${visitRange} days<span class="b">${keptRecent.length}</span></h3>${keptRecent.map(happenedRow).join('')}</div>`:'';
   const list=`<div class="fu-wrap">${missed}<div class="fu-sec"><h3>Planned · next ${visitRange} days<span class="b">${inRange.length}</span></h3>${agenda}</div>${happened}</div>`;
-  const help=`<div class="ai-tag" style="margin-bottom:12px">Set a date on a lead under <b>Add an update → 📅Next visit planned on</b>. Tick <b>Log as a revisit</b> when they turn up — the visit is kept on record as <b>happened</b>, not erased.</div>`;
+  const help=`<div style="font-size:11.5px;color:var(--soft);line-height:1.55;margin-bottom:12px">Set a date on a lead under <b>Add an update → 📅 Next visit planned on</b>. Tick <b>Log as a revisit</b> when they turn up — the visit is kept on record as <b>happened</b>, not erased.</div>`;
   return filterBanner()+help+stats+`<div class="rb-cfg-row" style="margin:12px 0"><span class="rb-cfg-l">Window</span><div class="rb-colchips">${rangeChips}</div></div>`+visitCalendarHTML(ents)+list+visitTeamHTML(leads);
 }
 function tableHTML(leads){
@@ -2314,7 +2323,7 @@ function renderDrawer(){
         <div class="det-body">${facts.map(([k,v,m])=>`<div class="fact"><div class="k">${k}</div><div class="v ${m?'mono':''}">${v}</div></div>`).join('')}</div></div>
       <div class="dr-cols">
         <div class="dr-left">
-          <div class="dr-fixed">${dealCoachBlock(l)}${pinnedDealBlocks(l)}${updateBlock(l)}${msgBlock(l)}</div>
+          <div class="dr-fixed">${dealCoachBlock(l)}${pinnedDealBlocks(l)}${updateBlock(l)}</div>
           ${revisitMergeBlock(l)}
           ${taskBlock(l)}
           ${waNudgeBlock(l)}
@@ -3978,7 +3987,9 @@ function msgMerge(body,l){
     .trim();
 }
 function msgWaHref(l,text){const ph=waPhone(l);return ph?('https://wa.me/'+ph+'?text='+encodeURIComponent(text)):'';}
-function msgAgo(ds){if(!ds)return '';const n=Math.round((today()-parseD(ds))/864e5);return n<=0?'today':n===1?'yesterday':n+' days ago';}
+function msgAgo(ds){if(!ds)return '';const n=Math.round((today()-parseD(ds))/864e5);
+  if(!isFinite(n))return 'earlier';                 // never render "NaN days ago" to a user
+  return n<=0?'today':n===1?'yesterday':n+' days ago';}
 /* ---- sending ---- */
 function msgCopyText(t){
   try{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t);return true;}}catch(e){}
@@ -4002,36 +4013,42 @@ async function msgSendWA(leadId,tplId){
   if(!href){alert('No phone number on this walk-in — use Copy instead, then paste it into WhatsApp.');return;}
   window.open(href,'_blank');            // open FIRST — popup blockers need this inside the click
   await msgRecord(p.l,p.tpl);
+  if(msgPickLead)renderMsgPicker();      // keep the open window in step
 }
 async function msgCopyAndMark(leadId,tplId){
   const p=msgPair(leadId,tplId);if(!p)return;
   const ok=msgCopyText(msgMerge(p.tpl.body,p.l));   // copy first, inside the gesture
   if(!ok){alert('Could not copy automatically — select the text and copy it manually.');return;}
   await msgRecord(p.l,p.tpl);
+  if(msgPickLead)renderMsgPicker();      // keep the open window in step
 }
 /* ---- compact action in the drawer header, right under the name ---- */
 function msgTopBar(l){
   if(!can('edit',l))return '';
   if(msgState(l)==='stop')return '';
   const due=msgDue(l);const ph=waPhone(l);
-  if(!due)return `<button class="mtop-link" onclick="msgJump()" title="Pick a WhatsApp message">💬 WhatsApp</button>`;
+  if(!due)return `<button class="mtop-link" onclick="openMsgPicker('${l.id}')" title="Pick a WhatsApp message">💬 WhatsApp</button>`;
   return `<span class="mtop">💬 <b>${escapeHtml(due.name)}</b> due
     <button class="mtop-btn" onclick="msgCopyAndMark('${l.id}','${due.id}')">⧉ Copy</button>
     ${ph?`<button class="mtop-btn go" onclick="msgSendWA('${l.id}','${due.id}')">Send</button>`:''}
-    <button class="mtop-link" onclick="msgJump()" title="See all messages">all</button></span>`;
+    <button class="mtop-link" onclick="openMsgPicker('${l.id}')" title="See all messages">all</button></span>`;
 }
-function msgJump(){
-  const el=document.getElementById('msgPicker');if(!el)return;
-  el.scrollIntoView({behavior:'smooth',block:'center'});
-  el.style.transition='box-shadow .25s';el.style.boxShadow='0 0 0 3px #C0524A55';
-  setTimeout(()=>{el.style.boxShadow='';},1400);
+/* ---- the message picker, in its own window ---- */
+let msgPickLead=null;
+function openMsgPicker(id){msgPickLead=id;document.getElementById('msgPickScrim').classList.add('on');renderMsgPicker();}
+function closeMsgPicker(){msgPickLead=null;document.getElementById('msgPickScrim').classList.remove('on');}
+function renderMsgPicker(){
+  const b=document.getElementById('msgPickBody');if(!b)return;
+  const l=db.leads.find(x=>x.id===msgPickLead);
+  if(!l){closeMsgPicker();return;}
+  const t=document.getElementById('msgPickTitle');if(t)t.textContent='WhatsApp — '+l.name;
+  b.innerHTML=msgPickerHTML(l);
 }
-/* ---- the lead drawer picker ---- */
-function msgBlock(l){
+function msgPickerHTML(l){
   if(!can('edit',l))return '';
   const due=msgDue(l);const sent=msgSentMap(l);const st=msgState(l);
   const ph=waPhone(l);
-  if(st==='stop')return `<div class="block"><label>WhatsApp follow-up</label><div class="locked-note">This walk-in is closed — the drip is stopped and no messages are suggested.</div></div>`;
+  if(st==='stop')return `<div class="locked-note">This walk-in is closed — the drip is stopped and no messages are suggested.</div>`;
   const rows=msgTemplates().map(t=>{
     const isDue=due&&due.id===t.id;
     const when=t.when?`<span class="mchip st">${t.when}</span>`:(t.day!=null?`<span class="mchip">day ${t.day}</span>`:`<span class="mchip any">any time</span>`);
@@ -4044,10 +4061,10 @@ function msgBlock(l){
         ${ph?`<button class="act" onclick="msgSendWA('${l.id}','${t.id}')">Open in WhatsApp</button>`:''}
       </div></div>`;
   }).join('');
-  const hint=ph?'':'<div class="ai-tag" style="margin-bottom:8px">No phone number on this walk-in — <b>Copy message</b>, then paste it into WhatsApp yourself. It is still recorded as sent.</div>';
-  return `<div class="block" id="msgPicker" style="border-radius:12px"><label>WhatsApp follow-up ${due?`<span class="pill over" style="margin-left:8px">${escapeHtml(due.name)} due</span>`:''}</label>
-    ${hint}<div class="mlist">${rows}</div>
-    <div class="ai-tag" style="margin-top:8px">The app picks the message; you send it. Any message can be sent at any time — the suggestion never blocks you.</div></div>`;
+  const note='font-size:11.5px;color:var(--soft);line-height:1.55;margin-bottom:10px';
+  const hint=ph?'':`<div style="${note}">No phone number on this walk-in — <b>Copy message</b>, then paste it into WhatsApp yourself. It is still recorded as sent.</div>`;
+  const head=due?`<div style="${note}">Suggested next: <b>${escapeHtml(due.name)}</b>. Any message can be sent at any time — the suggestion never blocks you.</div>`:'';
+  return head+hint+`<div class="mlist">${rows}</div>`;
 }
 /* ---- the morning queue, shown inside Today's plays ---- */
 function msgQueue(){
