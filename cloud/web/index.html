@@ -3898,13 +3898,20 @@ function playsHTML(){
   let esc='';
   if(isHead){const flags=escalationList();
     if(flags.length)esc=`<div class="filter-banner" style="background:#FBE9E7;color:#A03027;border:0;margin-bottom:12px">⚠ Coach these salespeople — leads slipping: `+flags.map(f=>`<button class="fb-bulk" style="background:#fff;color:#A03027" onclick="openNeglected('${f.memberId}')">${escapeHtml(userName(f.memberId))} · ${f.count}</button>`).join(' ')+`</div>`;}
+  // A ready-made WhatsApp message rides along on the row when one is due. It never
+  // adds, removes or reorders a play — the coach decides what appears, messaging follows.
+  const msgFor=l=>{const m=msgDue(l);if(!m||!can('edit',l))return '';const ph=waPhone(l);
+    return `<div style="display:flex;gap:6px;align-items:center;flex-none" onclick="event.stopPropagation()">
+      <button class="act" style="white-space:nowrap" title="${escapeHtml(msgMerge(m.body,l))}" onclick="msgCopyAndMark('${l.id}','${m.id}')">💬 ${escapeHtml(m.name)}</button>
+      ${ph?`<button class="btn" style="padding:5px 10px" onclick="msgSendWA('${l.id}','${m.id}')">Send</button>`:''}</div>`;};
   const list=rows.length?rows.map(({l,t})=>`<div class="play-row" onclick="openDrawer('${l.id}')" style="display:flex;gap:12px;align-items:flex-start;padding:12px 4px;border-top:1px solid var(--line);cursor:pointer">
      <div style="width:9px;height:9px;border-radius:50%;background:${dotFor(t.cls)};margin-top:5px;flex:none"></div>
      <div style="flex:1;min-width:0"><div style="font-family:'Space Grotesk';font-weight:600">${escapeHtml(l.name)} <span class="stg" style="background:${STAGES[l.stage].color}22;color:${STAGES[l.stage].color};font-size:11px">${STAGES[l.stage].label}</span></div>
        <div style="font-size:13px;margin-top:2px"><b>${t.label}</b> <span style="color:var(--soft)">— ${t.why}</span></div></div>
+     ${msgFor(l)}
      ${isHead?`<div style="color:var(--soft);font-size:12px;white-space:nowrap;text-align:right">${l.ownerId?escapeHtml(userName(l.ownerId)):'Unassigned'}<br>${l.project||'—'}</div>`:''}
    </div>`).join(''):'<div style="padding:26px;text-align:center;color:var(--soft)">Nothing needs attention right now. 🎉</div>';
-  return `<div class="panel">${esc}<h3>🧭 Today's plays — ${rows.length} ranked by urgency</h3>${list}</div>`+msgQueueHTML();
+  return `<div class="panel">${esc}<h3>🧭 Today's plays — ${rows.length} ranked by urgency</h3>${list}</div>`;
 }
 /* ============ WhatsApp smart drip ============ *
  * Click-to-send: the app decides WHO is due, WHICH message and WITH WHAT TEXT,
@@ -4077,30 +4084,6 @@ function msgPickerHTML(l){
   const head=due?`<div style="${note}">Suggested next: <b>${escapeHtml(due.name)}</b>. Any message can be sent at any time — the suggestion never blocks you.</div>`:'';
   return head+hint+`<div class="mlist">${rows}</div>`
     +`<div style="margin-top:12px;text-align:center"><button class="mtop-link" onclick="closeMsgPicker();openMsgManager()">＋ Create your own message</button></div>`;
-}
-/* ---- the morning queue, shown inside Today's plays ---- */
-function msgQueue(){
-  return visible().map(l=>({l:l,step:msgDue(l)})).filter(x=>x.step)
-    .sort((a,b)=>(b.step.day||0)-(a.step.day||0));
-}
-function msgQueueHTML(){
-  const q=msgQueue();if(!q.length)return '';
-  const cap=12;const shown=q.slice(0,cap);
-  const rows=shown.map(({l,step})=>{
-    const ph=waPhone(l);
-    return `<div class="play-row" style="display:flex;gap:12px;align-items:center;padding:11px 4px;border-top:1px solid var(--line)">
-      <div style="flex:1;min-width:0">
-        <div style="font-family:'Space Grotesk';font-weight:600;cursor:pointer" onclick="openDrawer('${l.id}')">${escapeHtml(l.name)} <span class="mchip">${escapeHtml(step.name)}</span></div>
-        <div style="font-size:12.5px;color:var(--soft);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(msgMerge(step.body,l))}</div>
-      </div>
-      <button class="act" style="flex:none" onclick="msgCopyAndMark('${l.id}','${step.id}')">⧉ Copy</button>
-      ${ph?`<button class="btn" style="flex:none;padding:5px 11px" onclick="msgSendWA('${l.id}','${step.id}')">Send</button>`:''}
-    </div>`;
-  }).join('');
-  const more=q.length>cap?`<div style="padding:9px 4px;color:var(--soft);font-size:12.5px">…and ${q.length-cap} more.</div>`:'';
-  return `<div class="panel"><h3>💬 WhatsApp follow-ups due — ${q.length}</h3>
-    <div class="ai-tag" style="margin-bottom:4px">Already written and waiting. Copy and paste into WhatsApp (or Send directly where a number exists). Nothing goes out on its own.</div>
-    ${rows}${more}</div>`;
 }
 /* ---- message manager + wizard ---- */
 /* Everyone can build their own messages; heads also edit the shared company set. */
