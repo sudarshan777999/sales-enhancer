@@ -661,6 +661,18 @@
   .rc-row .rc-field{flex:1;min-width:0;}
   .rc-submit{width:100%;justify-content:center;margin-top:6px;font-size:15px;padding:12px;}
   .rc-warn{background:#FBE9E7;border:1px solid #f3c6bf;color:#A03027;border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:14px;}
+  /* WhatsApp drip */
+  .mlist{display:flex;flex-direction:column;gap:8px;}
+  .mrow{border:1px solid var(--line);border-radius:11px;padding:10px 12px;background:var(--surface);}
+  .mrow.due{border-color:#C0524A;box-shadow:inset 0 0 0 1px #C0524A22;}
+  .mrow-h{font-family:'Space Grotesk';font-weight:600;font-size:13.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .mrow-b{color:var(--soft);font-size:12.5px;line-height:1.5;margin:6px 0 9px;white-space:pre-wrap;}
+  .mrow-a{display:flex;gap:7px;flex-wrap:wrap;}
+  .mchip{font-family:'Space Grotesk';font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:20px;background:#E8F0FA;color:#25506F;text-transform:uppercase;letter-spacing:.04em;}
+  .mchip.st{background:#EDE7F6;color:#5E35B1;}
+  .mchip.any{background:var(--canvas);color:var(--soft);}
+  .mchip.ok{background:#CFE3D4;color:#245C36;}
+  .mchip.now{background:#FBE3E1;color:#A03027;}
   /* front-desk "visits expected" panel */
   .rcv-card{margin-bottom:16px;}
   .rcv-sec{margin-top:14px;}
@@ -804,6 +816,15 @@
     <div class="modal-h"><h2>Channel Partners</h2></div>
     <div class="modal-b" style="display:block" id="cpBody"></div>
     <div class="modal-f"><button class="btn ghost" onclick="closeCpManager()">Close</button></div>
+  </div>
+</div>
+
+<!-- WhatsApp drip templates (heads) -->
+<div class="modal-scrim" id="msgScrim">
+  <div class="modal">
+    <div class="modal-h"><h2>WhatsApp messages</h2></div>
+    <div class="modal-b" style="display:block" id="msgBody"></div>
+    <div class="modal-f"><button class="btn ghost" onclick="closeMsgManager()">Close</button></div>
   </div>
 </div>
 
@@ -953,7 +974,7 @@ function projName(id){return projById[id]||null;}
 function projId(name){return projByName[name]||null;}
 function memberName(id){const u=user(id);return u?u.name:'';}
 function titleFor(m){const p=projName(m.project_id);if(m.role==='sales_head')return 'Sales Head';if(m.role==='project_head')return 'Project Head'+(p?' · '+p:'');if(m.role==='reception')return 'Receptionist';return 'Salesperson'+(p?' · '+p:'');}
-function leadFromRow(r){return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',source:r.source,srcDetail:r.src_detail||'',walkinSource:r.walkin_source||'',cpName:r.cp_name||'',location:r.location||'',company:r.company_name||'',project:projName(r.project_id),budget:r.budget||'',notes:r.notes||'',stage:r.stage,ownerId:r.owner_id||null,qualified:r.qualified,nqReason:r.nq_reason||'',disqualifiedBy:r.disqualified_by||'',lostReason:r.lost_reason||'',temp:r.temp||null,nextFollowUp:r.next_follow_up||null,plannedVisit:r.planned_visit||null,visitPlans:Array.isArray(r.visit_plans)?r.visit_plans:[],assignedAt:r.assigned_at||null,createdAt:r.created_at,assessment:null,booking:r.booking||null,walkinPhase:r.walkin_phase||'',dealStatus:r.deal_status||'',metProjectHead:!!r.met_project_head,phMeetingDate:r.ph_meeting_date||'',labels:Array.isArray(r.labels)?r.labels:[],coOwners:Array.isArray(r.co_owners)?r.co_owners:[],priceOffered:r.price_offered||'',blocks:Array.isArray(r.blocks)?r.blocks:[],competitors:r.competitors||'',referralName:r.referral_name||'',referralLeadId:r.referral_lead_id||null,wwSuggested:!!r.wonderwall_suggested,wwVisited:!!r.wonderwall_visited,lostTo:r.lost_to||'',lastQuote:r.last_quote||null,pendingRevisit:!!r.pending_revisit,mergedInto:r.merged_into||null,viaGre:!!r.via_gre,createdBy:r.created_by||null,matchCode:r.match_code||'',revisits:[],log:[]};}
+function leadFromRow(r){return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',source:r.source,srcDetail:r.src_detail||'',walkinSource:r.walkin_source||'',cpName:r.cp_name||'',location:r.location||'',company:r.company_name||'',project:projName(r.project_id),budget:r.budget||'',notes:r.notes||'',stage:r.stage,ownerId:r.owner_id||null,qualified:r.qualified,nqReason:r.nq_reason||'',disqualifiedBy:r.disqualified_by||'',lostReason:r.lost_reason||'',temp:r.temp||null,nextFollowUp:r.next_follow_up||null,plannedVisit:r.planned_visit||null,visitPlans:Array.isArray(r.visit_plans)?r.visit_plans:[],msgSent:(r.msg_sent&&typeof r.msg_sent==='object')?r.msg_sent:{},assignedAt:r.assigned_at||null,createdAt:r.created_at,assessment:null,booking:r.booking||null,walkinPhase:r.walkin_phase||'',dealStatus:r.deal_status||'',metProjectHead:!!r.met_project_head,phMeetingDate:r.ph_meeting_date||'',labels:Array.isArray(r.labels)?r.labels:[],coOwners:Array.isArray(r.co_owners)?r.co_owners:[],priceOffered:r.price_offered||'',blocks:Array.isArray(r.blocks)?r.blocks:[],competitors:r.competitors||'',referralName:r.referral_name||'',referralLeadId:r.referral_lead_id||null,wwSuggested:!!r.wonderwall_suggested,wwVisited:!!r.wonderwall_visited,lostTo:r.lost_to||'',lastQuote:r.last_quote||null,pendingRevisit:!!r.pending_revisit,mergedInto:r.merged_into||null,viaGre:!!r.via_gre,createdBy:r.created_by||null,matchCode:r.match_code||'',revisits:[],log:[]};}
 
 // Fetch ALL rows for a query, paging past Supabase's 1000-row cap.
 // makeQuery must return a FRESH query builder each call (filters/order applied, no .range()).
@@ -1815,6 +1836,7 @@ function render(){
     ${u.role==='sales_head'?`<button class="signout" onclick="openSchemes()" title="Payment schemes">Schemes</button>`:''}
     ${u.role==='sales_head'?`<button class="signout" onclick="openTeam()" title="Manage team">Team</button>`:''}
     ${(u.role==='sales_head'||u.role==='project_head')?`<button class="signout" onclick="openCpManager()" title="Manage channel partners">CPs</button>`:''}
+    ${(u.role==='sales_head'||u.role==='project_head')?`<button class="signout" onclick="openMsgManager()" title="Edit the WhatsApp follow-up messages">Messages</button>`:''}
     ${u.role==='sales_head'?`<button class="signout" onclick="downloadBackup(this)" title="Download a full backup of all your data">⬇︎ Backup</button>`:''}
     <button class="signout" onclick="signOut()">Sign out</button>`;
   const bb=document.getElementById('bulkBtn');if(bb)bb.style.display=(u.role==='sales_head')?'':'none';
@@ -2284,7 +2306,7 @@ function renderDrawer(){
         <div class="det-body">${facts.map(([k,v,m])=>`<div class="fact"><div class="k">${k}</div><div class="v ${m?'mono':''}">${v}</div></div>`).join('')}</div></div>
       <div class="dr-cols">
         <div class="dr-left">
-          <div class="dr-fixed">${dealCoachBlock(l)}${pinnedDealBlocks(l)}${updateBlock(l)}</div>
+          <div class="dr-fixed">${dealCoachBlock(l)}${pinnedDealBlocks(l)}${updateBlock(l)}${msgBlock(l)}</div>
           ${revisitMergeBlock(l)}
           ${taskBlock(l)}
           ${waNudgeBlock(l)}
@@ -3865,7 +3887,270 @@ function playsHTML(){
        <div style="font-size:13px;margin-top:2px"><b>${t.label}</b> <span style="color:var(--soft)">— ${t.why}</span></div></div>
      ${isHead?`<div style="color:var(--soft);font-size:12px;white-space:nowrap;text-align:right">${l.ownerId?escapeHtml(userName(l.ownerId)):'Unassigned'}<br>${l.project||'—'}</div>`:''}
    </div>`).join(''):'<div style="padding:26px;text-align:center;color:var(--soft)">Nothing needs attention right now. 🎉</div>';
-  return `<div class="panel">${esc}<h3>🧭 Today's plays — ${rows.length} ranked by urgency</h3>${list}</div>`;
+  return `<div class="panel">${esc}<h3>🧭 Today's plays — ${rows.length} ranked by urgency</h3>${list}</div>`+msgQueueHTML();
+}
+/* ============ WhatsApp smart drip ============ *
+ * Click-to-send: the app decides WHO is due, WHICH message and WITH WHAT TEXT,
+ * then a human sends it. Nothing is transmitted automatically.
+ * The queue is not stored — it is msgDue() mapped over the open leads at render time.
+ */
+const MSG_STATES=[
+  ['visit','After a visit — fires once a revisit has been logged (including one confirmed at the front desk)'],
+  ['qualified','Qualified, but no price or block discussed yet'],
+  ['rnr','Two or more ring-no-response attempts'],
+  ['booked','The deal is won']
+];
+const MSG_DEFAULTS=[
+  {id:'d0',name:'First hello',day:0,when:null,body:"Hi {name}, this is {me} from {company}. Thank you for visiting {project}. It was good speaking with you — when would be a good time for a quick call to take this forward?"},
+  {id:'d2',name:'Details as promised',day:2,when:null,body:"Hi {name}, sharing the details for {project} as promised. Happy to answer anything — and if it helps, I can arrange a walkthrough of the sample flat this weekend."},
+  {id:'d5',name:'Revisit nudge',day:5,when:null,body:"Hi {name}, are you free this Saturday or Sunday to come by {project} again? It takes about 45 minutes and I can take you through the units and the pricing on site."},
+  {id:'d12',name:'Gentle revive',day:12,when:null,body:"Hi {name}, checking in on your search around {location}. A couple of good options have opened up at {project} in your range — shall I send them across?"},
+  {id:'s1',name:'After a visit',day:null,when:'visit',body:"Hi {name}, thank you for coming by {project}. Do share your thoughts whenever you're ready — happy to work out the numbers if it feels right."},
+  {id:'s2',name:'Options for you',day:null,when:'qualified',body:"Hi {name}, based on what you told me I've put together a couple of options at {project} that fit what you're looking for. Shall I send the details across?"},
+  {id:'s3',name:'Could not reach you',day:null,when:'rnr',body:"Hi {name}, I've tried calling a few times about {project}. Is WhatsApp easier? Happy to share the details and pricing here whenever you have a minute."},
+  {id:'s4',name:'After booking',day:null,when:'booked',body:"Congratulations {name}. Delighted we could close {project} together. I'll share the paperwork checklist shortly — and do keep me in mind for anything you or your friends need."},
+  {id:'m2',name:'Price / offer',day:null,when:null,body:"Hi {name}, there's a limited offer running at {project} right now. Worth a quick call today — shall I ring you at 5?"}
+];
+// null/empty means "use the defaults", so untouched companies keep getting improvements.
+function msgTemplates(){const t=(db.reportData||{}).msgTemplates;return (t&&t.length)?t:MSG_DEFAULTS;}
+function msgIsCustom(){const t=(db.reportData||{}).msgTemplates;return !!(t&&t.length);}
+function msgSentMap(l){return (l&&l.msgSent&&typeof l.msgSent==='object')?l.msgSent:{};}
+// "Has anything actually been put in front of them yet?"
+function msgProposed(l){return !!((l.priceOffered&&String(l.priceOffered).trim())||l.lastQuote||((l.blocks||[]).length));}
+// ORDER IS THE SPECIFICATION — most final first. Reordering changes what customers receive.
+function msgState(l){
+  if(l.stage==='lost'||l.stage==='not_qualified'||l.qualified===false)return 'stop';
+  if(l.stage==='booked')return 'booked';
+  if(rnrCount(l)>=2)return 'rnr';
+  if((l.revisits||[]).length)return 'visit';
+  if(l.qualified===true&&!msgProposed(l))return 'qualified';
+  return null;
+}
+function msgAge(l){if(!l||!l.createdAt)return null;return Math.floor((today()-parseD(l.createdAt))/864e5);}
+function msgDue(l){
+  if(!l||!l.createdAt||l.mergedInto)return null;
+  const age=msgAge(l);const sent=msgSentMap(l);
+  // 1. State beats calendar.
+  const st=msgState(l);
+  if(st==='stop')return null;
+  if(st){
+    const hit=msgTemplates().find(t=>t.when===st&&!sent[t.id]);
+    if(hit)return hit;
+    // Deviation from the source spec: once the "won" note has gone out we stop, rather
+    // than falling through — every scheduled step is a pre-sale nudge and would embarrass
+    // the rep in front of a customer who has already booked. Other states do fall through.
+    if(st==='booked')return null;
+  }
+  // 2. Otherwise the schedule.
+  const steps=msgTemplates().filter(t=>t.day!=null&&!t.when).sort((a,b)=>a.day-b.day);
+  let lastSentDay=-1;                                   // Guard A — never walk backwards
+  steps.forEach(s=>{if(sent[s.id])lastSentDay=Math.max(lastSentDay,s.day);});
+  let due=null;                                         // Guard B — furthest passed step wins
+  steps.forEach(s=>{if(s.day>lastSentDay&&age>=s.day&&!sent[s.id])due=s;});
+  return due;
+}
+/* ---- merge fields ---- */
+function msgFirstName(l){return (String(l.name||'').trim().split(/\s+/)[0])||'there';}
+function msgMergeMap(l){const u=currentUser();return {
+  name:msgFirstName(l),
+  fullname:l.name||'',
+  me:(u&&u.name)||'',
+  company:(db.company&&db.company.name)||'',
+  project:l.project||'the project',
+  location:l.location||'your preferred area',
+  budget:l.budget?('₹'+l.budget):'',
+  cp:l.cpName||''
+};}
+const MSG_TOKENS=['name','fullname','me','company','project','location','budget','cp'];
+function msgMerge(body,l){
+  const map=msgMergeMap(l);
+  return String(body||'')
+    .replace(/\{(\w+)\}/g,(_,k)=>map[k]!=null?map[k]:'')   // unknown token -> '' (never "undefined")
+    .replace(/[ \t]{2,}/g,' ')                              // collapse the gap it left behind
+    .trim();
+}
+function msgWaHref(l,text){const ph=waPhone(l);return ph?('https://wa.me/'+ph+'?text='+encodeURIComponent(text)):'';}
+function msgAgo(ds){if(!ds)return '';const n=Math.round((today()-parseD(ds))/864e5);return n<=0?'today':n===1?'yesterday':n+' days ago';}
+/* ---- sending ---- */
+function msgCopyText(t){
+  try{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t);return true;}}catch(e){}
+  try{const ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();return true;}catch(e){}
+  return false;
+}
+async function msgRecord(l,tpl){
+  const sent=Object.assign({},msgSentMap(l));sent[tpl.id]=iso(today());
+  if(!await updateLead(l.id,{msg_sent:sent}))return false;
+  await addActivityRow(l.id,{kind:'note',body:'WhatsApp follow-up sent — '+tpl.name});
+  await refresh();return true;
+}
+function msgPair(leadId,tplId){
+  const l=db.leads.find(x=>x.id===leadId);const tpl=msgTemplates().find(t=>t.id===tplId);
+  return (l&&tpl&&can('edit',l))?{l,tpl}:null;
+}
+async function msgSendWA(leadId,tplId){
+  const p=msgPair(leadId,tplId);if(!p)return;
+  const href=msgWaHref(p.l,msgMerge(p.tpl.body,p.l));
+  if(!href){alert('No phone number on this walk-in — use Copy instead, then paste it into WhatsApp.');return;}
+  window.open(href,'_blank');            // open FIRST — popup blockers need this inside the click
+  await msgRecord(p.l,p.tpl);
+}
+async function msgCopyAndMark(leadId,tplId){
+  const p=msgPair(leadId,tplId);if(!p)return;
+  const ok=msgCopyText(msgMerge(p.tpl.body,p.l));   // copy first, inside the gesture
+  if(!ok){alert('Could not copy automatically — select the text and copy it manually.');return;}
+  await msgRecord(p.l,p.tpl);
+}
+/* ---- the lead drawer picker ---- */
+function msgBlock(l){
+  if(!can('edit',l))return '';
+  const due=msgDue(l);const sent=msgSentMap(l);const st=msgState(l);
+  const ph=waPhone(l);
+  if(st==='stop')return `<div class="block"><label>WhatsApp follow-up</label><div class="locked-note">This walk-in is closed — the drip is stopped and no messages are suggested.</div></div>`;
+  const rows=msgTemplates().map(t=>{
+    const isDue=due&&due.id===t.id;
+    const when=t.when?`<span class="mchip st">${t.when}</span>`:(t.day!=null?`<span class="mchip">day ${t.day}</span>`:`<span class="mchip any">any time</span>`);
+    const sc=sent[t.id]?`<span class="mchip ok">sent ${msgAgo(sent[t.id])}</span>`:'';
+    return `<div class="mrow ${isDue?'due':''}">
+      <div class="mrow-h">${escapeHtml(t.name)} ${when} ${sc} ${isDue?'<span class="mchip now">due now</span>':''}</div>
+      <div class="mrow-b">${escapeHtml(msgMerge(t.body,l))}</div>
+      <div class="mrow-a">
+        <button class="act" onclick="msgCopyAndMark('${l.id}','${t.id}')">⧉ Copy message</button>
+        ${ph?`<button class="act" onclick="msgSendWA('${l.id}','${t.id}')">Open in WhatsApp</button>`:''}
+      </div></div>`;
+  }).join('');
+  const hint=ph?'':'<div class="ai-tag" style="margin-bottom:8px">No phone number on this walk-in — <b>Copy message</b>, then paste it into WhatsApp yourself. It is still recorded as sent.</div>';
+  return `<div class="block"><label>WhatsApp follow-up ${due?`<span class="pill over" style="margin-left:8px">${escapeHtml(due.name)} due</span>`:''}</label>
+    ${hint}<div class="mlist">${rows}</div>
+    <div class="ai-tag" style="margin-top:8px">The app picks the message; you send it. Any message can be sent at any time — the suggestion never blocks you.</div></div>`;
+}
+/* ---- the morning queue, shown inside Today's plays ---- */
+function msgQueue(){
+  return visible().map(l=>({l:l,step:msgDue(l)})).filter(x=>x.step)
+    .sort((a,b)=>(b.step.day||0)-(a.step.day||0));
+}
+function msgQueueHTML(){
+  const q=msgQueue();if(!q.length)return '';
+  const cap=12;const shown=q.slice(0,cap);
+  const rows=shown.map(({l,step})=>{
+    const ph=waPhone(l);
+    return `<div class="play-row" style="display:flex;gap:12px;align-items:center;padding:11px 4px;border-top:1px solid var(--line)">
+      <div style="flex:1;min-width:0">
+        <div style="font-family:'Space Grotesk';font-weight:600;cursor:pointer" onclick="openDrawer('${l.id}')">${escapeHtml(l.name)} <span class="mchip">${escapeHtml(step.name)}</span></div>
+        <div style="font-size:12.5px;color:var(--soft);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(msgMerge(step.body,l))}</div>
+      </div>
+      <button class="act" style="flex:none" onclick="msgCopyAndMark('${l.id}','${step.id}')">⧉ Copy</button>
+      ${ph?`<button class="btn" style="flex:none;padding:5px 11px" onclick="msgSendWA('${l.id}','${step.id}')">Send</button>`:''}
+    </div>`;
+  }).join('');
+  const more=q.length>cap?`<div style="padding:9px 4px;color:var(--soft);font-size:12.5px">…and ${q.length-cap} more.</div>`:'';
+  return `<div class="panel"><h3>💬 WhatsApp follow-ups due — ${q.length}</h3>
+    <div class="ai-tag" style="margin-bottom:4px">Already written and waiting. Copy and paste into WhatsApp (or Send directly where a number exists). Nothing goes out on its own.</div>
+    ${rows}${more}</div>`;
+}
+/* ---- template editor (heads) ---- */
+let msgEdit=null;   // null = list view; otherwise the template being edited
+function msgCanManage(){const u=currentUser();return !!u&&(u.role==='sales_head'||u.role==='project_head');}
+function openMsgManager(){if(!msgCanManage())return;msgEdit=null;document.getElementById('msgScrim').classList.add('on');renderMsgManager();}
+function closeMsgManager(){document.getElementById('msgScrim').classList.remove('on');}
+async function saveMsgTemplates(list){
+  const rd=Object.assign({},db.reportData||{});rd.msgTemplates=list;
+  return await saveReportData(rd);
+}
+function msgTimingLabel(t){return t.when?('when: '+t.when):(t.day!=null?('day '+t.day):'any time');}
+function renderMsgManager(){
+  const body=document.getElementById('msgBody');if(!body)return;
+  if(msgEdit){body.innerHTML=msgEditFormHTML();return;}
+  const list=msgTemplates();
+  const rows=list.map((t,i)=>`<div class="mrow">
+    <div class="mrow-h">${escapeHtml(t.name)} <span class="mchip ${t.when?'st':(t.day==null?'any':'')}">${escapeHtml(msgTimingLabel(t))}</span></div>
+    <div class="mrow-b">${escapeHtml(t.body)}</div>
+    <div class="mrow-a"><button class="act" onclick="msgEditOpen('${t.id}')">Edit</button><button class="act bad" onclick="msgRemove('${t.id}')">Remove</button></div>
+  </div>`).join('');
+  body.innerHTML=`<div class="ai-tag" style="margin-bottom:10px">These are the messages the app suggests. ${msgIsCustom()?'You are using your own set.':'You are using the standard set — editing any one saves your own copy.'}</div>
+    <div class="r" style="gap:8px;margin-bottom:10px"><button class="btn" onclick="msgEditOpen('')">＋ Add a message</button>${msgIsCustom()?`<button class="btn ghost" onclick="msgResetDefaults()">Reset to the standard set</button>`:''}</div>
+    <div class="mlist">${rows}</div>`;
+}
+function msgEditOpen(id){
+  const t=id?msgTemplates().find(x=>x.id===id):null;
+  msgEdit=t?JSON.parse(JSON.stringify(t)):{id:'',name:'',day:null,when:null,body:''};
+  renderMsgManager();
+}
+function msgEditFormHTML(){
+  const t=msgEdit;
+  const kind=t.when?'state':(t.day!=null?'day':'any');
+  const stateOpts=MSG_STATES.map(([k,d])=>`<option value="${k}" ${t.when===k?'selected':''}>${k}</option>`).join('');
+  const expl=(MSG_STATES.find(s=>s[0]===t.when)||[])[1]||'';
+  const tokens=MSG_TOKENS.map(k=>`<button class="sfchip" type="button" onclick="msgInsertToken('${k}')">{${k}}</button>`).join('');
+  return `<div class="block"><label>Message name (internal — the customer never sees it)</label>
+      <input class="field" id="mt_name" value="${escapeHtml(t.name).replace(/"/g,'&quot;')}" placeholder="e.g. Revisit nudge"/></div>
+    <div class="block"><label>When should it become due?</label>
+      <select class="field" id="mt_kind" onchange="msgKindChange(this.value)">
+        <option value="any" ${kind==='any'?'selected':''}>Any time — only when a rep picks it</option>
+        <option value="day" ${kind==='day'?'selected':''}>A set number of days after the walk-in</option>
+        <option value="state" ${kind==='state'?'selected':''}>When something happens in the deal</option>
+      </select>
+      <div id="mt_day_wrap" style="margin-top:9px;${kind==='day'?'':'display:none'}">
+        <label style="margin:0 0 4px">Days after the walk-in</label>
+        <input type="number" class="field" style="max-width:140px" id="mt_day" min="0" value="${t.day!=null?t.day:0}"/></div>
+      <div id="mt_state_wrap" style="margin-top:9px;${kind==='state'?'':'display:none'}">
+        <label style="margin:0 0 4px">Which moment</label>
+        <select class="field" id="mt_when" onchange="msgWhenChange()">${stateOpts}</select>
+        <div class="ai-tag" id="mt_expl" style="margin-top:6px">${escapeHtml(expl)}</div></div>
+    </div>
+    <div class="block"><label>Message</label>
+      <textarea class="field" id="mt_body" style="min-height:130px;line-height:1.5">${escapeHtml(t.body)}</textarea>
+      <div style="margin-top:8px"><div style="font-size:12px;color:var(--soft);margin-bottom:5px">Tap to insert — these fill in from the walk-in when the message is sent:</div>
+      <div class="rb-colchips">${tokens}</div></div></div>
+    <div class="r" style="gap:8px;margin-top:6px"><button class="btn" onclick="msgSaveEdit()">Save message</button><button class="btn ghost" onclick="msgEdit=null;renderMsgManager()">Cancel</button></div>`;
+}
+function msgKindChange(v){
+  const d=document.getElementById('mt_day_wrap'),s=document.getElementById('mt_state_wrap');
+  if(d)d.style.display=v==='day'?'':'none';
+  if(s)s.style.display=v==='state'?'':'none';
+}
+function msgWhenChange(){
+  const v=(document.getElementById('mt_when')||{}).value;
+  const e=document.getElementById('mt_expl');const d=(MSG_STATES.find(s=>s[0]===v)||[])[1]||'';
+  if(e)e.textContent=d;
+}
+function msgInsertToken(k){
+  const ta=document.getElementById('mt_body');if(!ta)return;
+  const s=ta.selectionStart||0,e=ta.selectionEnd||0;const tok='{'+k+'}';
+  ta.value=ta.value.slice(0,s)+tok+ta.value.slice(e);
+  ta.focus();ta.selectionStart=ta.selectionEnd=s+tok.length;
+}
+async function msgSaveEdit(){
+  const name=((document.getElementById('mt_name')||{}).value||'').trim();
+  const bodyTxt=((document.getElementById('mt_body')||{}).value||'').trim();
+  if(!name){alert('Give the message a name.');return;}
+  if(!bodyTxt){alert('Write the message.');return;}
+  const kind=(document.getElementById('mt_kind')||{}).value;
+  // day and when are mutually exclusive — the engine evaluates a both-set template twice
+  let day=null,when=null;
+  if(kind==='day'){day=parseInt((document.getElementById('mt_day')||{}).value,10);if(isNaN(day)||day<0)day=0;}
+  else if(kind==='state'){when=(document.getElementById('mt_when')||{}).value||MSG_STATES[0][0];}
+  const list=msgTemplates().map(x=>JSON.parse(JSON.stringify(x)));
+  const id=msgEdit.id||('m'+Date.now().toString(36));
+  const rec={id,name,day,when,body:bodyTxt};
+  const at=list.findIndex(x=>x.id===id);
+  if(at>=0)list[at]=rec;else list.push(rec);
+  if(!await saveMsgTemplates(list))return;
+  msgEdit=null;renderMsgManager();
+}
+async function msgRemove(id){
+  const list=msgTemplates().filter(x=>x.id!==id);
+  if(!list.length){alert('Keep at least one message.');return;}
+  const t=msgTemplates().find(x=>x.id===id);
+  if(!confirm('Remove "'+((t&&t.name)||'this message')+'"?'))return;
+  if(!await saveMsgTemplates(list))return;
+  renderMsgManager();
+}
+async function msgResetDefaults(){
+  if(!confirm('Discard your messages and go back to the standard set?'))return;
+  const rd=Object.assign({},db.reportData||{});rd.msgTemplates=null;
+  if(!await saveReportData(rd))return;
+  msgEdit=null;renderMsgManager();
 }
 /* ===================== Channel Partner analytics ===================== */
 function cpAliasMap(){return (db.reportData&&db.reportData.cpAliases)||{};}
