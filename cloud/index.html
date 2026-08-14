@@ -673,6 +673,14 @@
   .mchip.any{background:var(--canvas);color:var(--soft);}
   .mchip.ok{background:#CFE3D4;color:#245C36;}
   .mchip.now{background:#FBE3E1;color:#A03027;}
+  .mtop{display:inline-flex;align-items:center;gap:7px;flex-wrap:wrap;background:#FBE3E1;color:#A03027;border-radius:20px;padding:3px 5px 3px 11px;font-size:12.5px;}
+  .mtop b{font-weight:700;}
+  .mtop-btn{border:0;border-radius:16px;background:#fff;color:#A03027;font-weight:700;font-size:12px;padding:4px 10px;cursor:pointer;font-family:inherit;}
+  .mtop-btn.go{background:#A03027;color:#fff;}
+  .mtop-btn:hover{filter:brightness(.95);}
+  .mtop-link{border:0;background:transparent;color:inherit;text-decoration:underline;font-size:11.5px;cursor:pointer;padding:2px 6px;font-family:inherit;opacity:.85;}
+  button.mtop-link{color:var(--soft);}
+  .mtop .mtop-link{color:#A03027;}
   /* front-desk "visits expected" panel */
   .rcv-card{margin-bottom:16px;}
   .rcv-sec{margin-top:14px;}
@@ -2300,7 +2308,7 @@ function renderDrawer(){
   const _drSc=(document.querySelector('#drawer .dr-body')||{}).scrollTop||0;
   document.getElementById('drawer').innerHTML=`
     <div class="dr-head"><div class="row1"><div><h2>${l.name}</h2><div class="sub">${l.email||(l.project||'—')}</div></div>${can('edit',l)?`<button class="x" onclick="openEdit('${l.id}')" title="Edit details" style="margin-left:auto">✎</button><button class="x" onclick="closeDrawer()" title="Close (Esc)">✕</button>`:`<button class="x" onclick="closeDrawer()" title="Close (Esc)">✕</button>`}</div>
-      <div style="margin-top:12px"><span class="stage-now" style="background:${st.color}1c;color:${st.color}"><i style="background:${st.color}"></i>${st.label}</span></div></div>
+      <div style="margin-top:12px;display:flex;align-items:center;gap:9px;flex-wrap:wrap"><span class="stage-now" style="background:${st.color}1c;color:${st.color}"><i style="background:${st.color}"></i>${st.label}</span>${msgTopBar(l)}</div></div>
     <div class="dr-body">
       <div class="det"><label onclick="this.closest('.det').classList.toggle('open')"><span class="det-caret">▸</span> Personal details</label>
         <div class="det-body">${facts.map(([k,v,m])=>`<div class="fact"><div class="k">${k}</div><div class="v ${m?'mono':''}">${v}</div></div>`).join('')}</div></div>
@@ -4001,6 +4009,23 @@ async function msgCopyAndMark(leadId,tplId){
   if(!ok){alert('Could not copy automatically — select the text and copy it manually.');return;}
   await msgRecord(p.l,p.tpl);
 }
+/* ---- compact action in the drawer header, right under the name ---- */
+function msgTopBar(l){
+  if(!can('edit',l))return '';
+  if(msgState(l)==='stop')return '';
+  const due=msgDue(l);const ph=waPhone(l);
+  if(!due)return `<button class="mtop-link" onclick="msgJump()" title="Pick a WhatsApp message">💬 WhatsApp</button>`;
+  return `<span class="mtop">💬 <b>${escapeHtml(due.name)}</b> due
+    <button class="mtop-btn" onclick="msgCopyAndMark('${l.id}','${due.id}')">⧉ Copy</button>
+    ${ph?`<button class="mtop-btn go" onclick="msgSendWA('${l.id}','${due.id}')">Send</button>`:''}
+    <button class="mtop-link" onclick="msgJump()" title="See all messages">all</button></span>`;
+}
+function msgJump(){
+  const el=document.getElementById('msgPicker');if(!el)return;
+  el.scrollIntoView({behavior:'smooth',block:'center'});
+  el.style.transition='box-shadow .25s';el.style.boxShadow='0 0 0 3px #C0524A55';
+  setTimeout(()=>{el.style.boxShadow='';},1400);
+}
 /* ---- the lead drawer picker ---- */
 function msgBlock(l){
   if(!can('edit',l))return '';
@@ -4020,7 +4045,7 @@ function msgBlock(l){
       </div></div>`;
   }).join('');
   const hint=ph?'':'<div class="ai-tag" style="margin-bottom:8px">No phone number on this walk-in — <b>Copy message</b>, then paste it into WhatsApp yourself. It is still recorded as sent.</div>';
-  return `<div class="block"><label>WhatsApp follow-up ${due?`<span class="pill over" style="margin-left:8px">${escapeHtml(due.name)} due</span>`:''}</label>
+  return `<div class="block" id="msgPicker" style="border-radius:12px"><label>WhatsApp follow-up ${due?`<span class="pill over" style="margin-left:8px">${escapeHtml(due.name)} due</span>`:''}</label>
     ${hint}<div class="mlist">${rows}</div>
     <div class="ai-tag" style="margin-top:8px">The app picks the message; you send it. Any message can be sent at any time — the suggestion never blocks you.</div></div>`;
 }
