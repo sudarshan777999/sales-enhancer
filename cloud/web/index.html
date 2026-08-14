@@ -1853,7 +1853,7 @@ function render(){
     ${u.role==='sales_head'?`<button class="signout" onclick="openSchemes()" title="Payment schemes">Schemes</button>`:''}
     ${u.role==='sales_head'?`<button class="signout" onclick="openTeam()" title="Manage team">Team</button>`:''}
     ${(u.role==='sales_head'||u.role==='project_head')?`<button class="signout" onclick="openCpManager()" title="Manage channel partners">CPs</button>`:''}
-    ${(u.role==='sales_head'||u.role==='project_head')?`<button class="signout" onclick="openMsgManager()" title="Edit the WhatsApp follow-up messages">Messages</button>`:''}
+    ${u.role!=='reception'?`<button class="signout" onclick="openMsgManager()" title="Create and edit your WhatsApp follow-up messages">💬 Messages</button>`:''}
     ${u.role==='sales_head'?`<button class="signout" onclick="downloadBackup(this)" title="Download a full backup of all your data">⬇︎ Backup</button>`:''}
     <button class="signout" onclick="signOut()">Sign out</button>`;
   const bb=document.getElementById('bulkBtn');if(bb)bb.style.display=(u.role==='sales_head')?'':'none';
@@ -3928,9 +3928,20 @@ const MSG_DEFAULTS=[
   {id:'s4',name:'After booking',day:null,when:'booked',body:"Congratulations {name}. Delighted we could close {project} together. I'll share the paperwork checklist shortly — and do keep me in mind for anything you or your friends need."},
   {id:'m2',name:'Price / offer',day:null,when:null,body:"Hi {name}, there's a limited offer running at {project} right now. Worth a quick call today — shall I ring you at 5?"}
 ];
-// null/empty means "use the defaults", so untouched companies keep getting improvements.
-function msgTemplates(){const t=(db.reportData||{}).msgTemplates;return (t&&t.length)?t:MSG_DEFAULTS;}
+// Two sets: the company set (everyone gets it, heads edit it) and each salesperson's own.
+// null/empty on the company set means "use the defaults", so untouched companies keep improvements.
+function msgCompanyTemplates(){const t=(db.reportData||{}).msgTemplates;return (t&&t.length)?t:MSG_DEFAULTS;}
+function msgMyTemplates(){const t=(myPrefs||{}).msgTemplates;return Array.isArray(t)?t:[];}
+function msgTemplates(){return msgCompanyTemplates().concat(msgMyTemplates());}
+function msgIsMine(id){return msgMyTemplates().some(t=>t.id===id);}
 function msgIsCustom(){const t=(db.reportData||{}).msgTemplates;return !!(t&&t.length);}
+function msgCounts(){const all=msgTemplates();return {
+  total:all.length,
+  sched:all.filter(t=>t.day!=null&&!t.when).length,
+  state:all.filter(t=>!!t.when).length,
+  any:all.filter(t=>t.day==null&&!t.when).length,
+  mine:msgMyTemplates().length
+};}
 function msgSentMap(l){return (l&&l.msgSent&&typeof l.msgSent==='object')?l.msgSent:{};}
 // "Has anything actually been put in front of them yet?"
 function msgProposed(l){return !!((l.priceOffered&&String(l.priceOffered).trim())||l.lastQuote||((l.blocks||[]).length));}
@@ -4064,7 +4075,8 @@ function msgPickerHTML(l){
   const note='font-size:11.5px;color:var(--soft);line-height:1.55;margin-bottom:10px';
   const hint=ph?'':`<div style="${note}">No phone number on this walk-in — <b>Copy message</b>, then paste it into WhatsApp yourself. It is still recorded as sent.</div>`;
   const head=due?`<div style="${note}">Suggested next: <b>${escapeHtml(due.name)}</b>. Any message can be sent at any time — the suggestion never blocks you.</div>`:'';
-  return head+hint+`<div class="mlist">${rows}</div>`;
+  return head+hint+`<div class="mlist">${rows}</div>`
+    +`<div style="margin-top:12px;text-align:center"><button class="mtop-link" onclick="closeMsgPicker();openMsgManager()">＋ Create your own message</button></div>`;
 }
 /* ---- the morning queue, shown inside Today's plays ---- */
 function msgQueue(){
@@ -4090,109 +4102,163 @@ function msgQueueHTML(){
     <div class="ai-tag" style="margin-bottom:4px">Already written and waiting. Copy and paste into WhatsApp (or Send directly where a number exists). Nothing goes out on its own.</div>
     ${rows}${more}</div>`;
 }
-/* ---- template editor (heads) ---- */
-let msgEdit=null;   // null = list view; otherwise the template being edited
-function msgCanManage(){const u=currentUser();return !!u&&(u.role==='sales_head'||u.role==='project_head');}
-function openMsgManager(){if(!msgCanManage())return;msgEdit=null;document.getElementById('msgScrim').classList.add('on');renderMsgManager();}
-function closeMsgManager(){document.getElementById('msgScrim').classList.remove('on');}
-async function saveMsgTemplates(list){
-  const rd=Object.assign({},db.reportData||{});rd.msgTemplates=list;
-  return await saveReportData(rd);
+/* ---- message manager + wizard ---- */
+/* Everyone can build their own messages; heads also edit the shared company set. */
+let msgWiz=null;              // null = list view, otherwise the wizard state
+function msgCanManageCompany(){const u=currentUser();return !!u&&(u.role==='sales_head'||u.role==='project_head');}
+function msgCanOpen(){const u=currentUser();return !!u&&u.role!=='reception';}
+function openMsgManager(){if(!msgCanOpen())return;msgWiz=null;document.getElementById('msgScrim').classList.add('on');renderMsgManager();}
+function closeMsgManager(){msgWiz=null;document.getElementById('msgScrim').classList.remove('on');}
+async function saveCompanyTemplates(list){const rd=Object.assign({},db.reportData||{});rd.msgTemplates=list;return await saveReportData(rd);}
+async function saveMyTemplates(list){return await savePrefs(Object.assign({},myPrefs||{},{msgTemplates:list}));}
+function msgTimingLabel(t){return t.when?('when '+t.when):(t.day!=null?('day '+t.day):'any time');}
+function msgTimingWords(t){
+  if(t.when){const d=(MSG_STATES.find(s=>s[0]===t.when)||[])[1]||'';return 'Becomes due '+(d?d.charAt(0).toLowerCase()+d.slice(1):t.when);}
+  if(t.day!=null)return t.day===0?'Becomes due as soon as the walk-in is entered':('Becomes due '+t.day+' day'+(t.day===1?'':'s')+' after the walk-in');
+  return 'Never becomes due on its own — you pick it whenever you want it';
 }
-function msgTimingLabel(t){return t.when?('when: '+t.when):(t.day!=null?('day '+t.day):'any time');}
+/* ---------- list view ---------- */
 function renderMsgManager(){
   const body=document.getElementById('msgBody');if(!body)return;
-  if(msgEdit){body.innerHTML=msgEditFormHTML();return;}
-  const list=msgTemplates();
-  const rows=list.map((t,i)=>`<div class="mrow">
-    <div class="mrow-h">${escapeHtml(t.name)} <span class="mchip ${t.when?'st':(t.day==null?'any':'')}">${escapeHtml(msgTimingLabel(t))}</span></div>
+  if(msgWiz){body.innerHTML=msgWizHTML();return;}
+  const c=msgCounts();const canCo=msgCanManageCompany();
+  const card=(t,editable,scope)=>`<div class="mrow">
+    <div class="mrow-h">${escapeHtml(t.name)} <span class="mchip ${t.when?'st':(t.day==null?'any':'')}">${escapeHtml(msgTimingLabel(t))}</span>${scope==='mine'?'<span class="mchip">mine</span>':''}</div>
     <div class="mrow-b">${escapeHtml(t.body)}</div>
-    <div class="mrow-a"><button class="act" onclick="msgEditOpen('${t.id}')">Edit</button><button class="act bad" onclick="msgRemove('${t.id}')">Remove</button></div>
-  </div>`).join('');
-  body.innerHTML=`<div class="ai-tag" style="margin-bottom:10px">These are the messages the app suggests. ${msgIsCustom()?'You are using your own set.':'You are using the standard set — editing any one saves your own copy.'}</div>
-    <div class="r" style="gap:8px;margin-bottom:10px"><button class="btn" onclick="msgEditOpen('')">＋ Add a message</button>${msgIsCustom()?`<button class="btn ghost" onclick="msgResetDefaults()">Reset to the standard set</button>`:''}</div>
-    <div class="mlist">${rows}</div>`;
+    <div class="mrow-a">${editable
+      ?`<button class="act" onclick="msgWizOpen('${scope}','${t.id}')">Edit</button><button class="act bad" onclick="msgRemoveTpl('${scope}','${t.id}')">Remove</button>`
+      :`<span style="font-size:11.5px;color:var(--soft)">Set by your Sales Head</span>`}</div></div>`;
+  const coRows=msgCompanyTemplates().map(t=>card(t,canCo,'company')).join('');
+  const myRows=msgMyTemplates().length?msgMyTemplates().map(t=>card(t,true,'mine')).join('')
+    :`<div class="mrow" style="border-style:dashed"><div class="mrow-b" style="margin:0">No messages of your own yet. Add one and only you will see it.</div></div>`;
+  body.innerHTML=`
+    <div style="font-size:11.5px;color:var(--soft);line-height:1.55;margin-bottom:12px">
+      <b>${c.total} message${c.total===1?'':'s'}</b> in use — ${c.sched} on a day schedule, ${c.state} triggered by the deal, ${c.any} any-time.${c.mine?` ${c.mine} of them ${c.mine===1?'is':'are'} yours alone.`:''}</div>
+    <div class="r" style="gap:8px;margin-bottom:14px"><button class="btn" onclick="msgWizOpen('mine','')">＋ Create a message</button>${canCo?`<button class="btn ghost" onclick="msgWizOpen('company','')">＋ Add to the company set</button>`:''}</div>
+    <h4 style="font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--soft);margin:0 0 7px">My messages<span class="mchip" style="margin-left:7px">${msgMyTemplates().length}</span></h4>
+    <div class="mlist" style="margin-bottom:16px">${myRows}</div>
+    <h4 style="font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--soft);margin:0 0 7px">Company messages<span class="mchip" style="margin-left:7px">${msgCompanyTemplates().length}</span>${canCo&&msgIsCustom()?`<button class="mtop-link" style="margin-left:8px" onclick="msgResetDefaults()">reset to standard</button>`:''}</h4>
+    <div class="mlist">${coRows}</div>`;
 }
-function msgEditOpen(id){
-  const t=id?msgTemplates().find(x=>x.id===id):null;
-  msgEdit=t?JSON.parse(JSON.stringify(t)):{id:'',name:'',day:null,when:null,body:''};
+/* ---------- the wizard ---------- */
+function msgWizOpen(scope,id){
+  if(scope==='company'&&!msgCanManageCompany())return;
+  const src=id?(scope==='mine'?msgMyTemplates():msgCompanyTemplates()).find(t=>t.id===id):null;
+  msgWiz=src?{step:1,scope,id,name:src.name,day:src.day,when:src.when,body:src.body}
+            :{step:1,scope,id:'',name:'',day:2,when:null,body:'',kind:'day'};
+  if(src)msgWiz.kind=src.when?'state':(src.day!=null?'day':'any');
   renderMsgManager();
 }
-function msgEditFormHTML(){
-  const t=msgEdit;
-  const kind=t.when?'state':(t.day!=null?'day':'any');
-  const stateOpts=MSG_STATES.map(([k,d])=>`<option value="${k}" ${t.when===k?'selected':''}>${k}</option>`).join('');
-  const expl=(MSG_STATES.find(s=>s[0]===t.when)||[])[1]||'';
-  const tokens=MSG_TOKENS.map(k=>`<button class="sfchip" type="button" onclick="msgInsertToken('${k}')">{${k}}</button>`).join('');
-  return `<div class="block"><label>Message name (internal — the customer never sees it)</label>
-      <input class="field" id="mt_name" value="${escapeHtml(t.name).replace(/"/g,'&quot;')}" placeholder="e.g. Revisit nudge"/></div>
-    <div class="block"><label>When should it become due?</label>
-      <select class="field" id="mt_kind" onchange="msgKindChange(this.value)">
-        <option value="any" ${kind==='any'?'selected':''}>Any time — only when a rep picks it</option>
-        <option value="day" ${kind==='day'?'selected':''}>A set number of days after the walk-in</option>
-        <option value="state" ${kind==='state'?'selected':''}>When something happens in the deal</option>
-      </select>
-      <div id="mt_day_wrap" style="margin-top:9px;${kind==='day'?'':'display:none'}">
-        <label style="margin:0 0 4px">Days after the walk-in</label>
-        <input type="number" class="field" style="max-width:140px" id="mt_day" min="0" value="${t.day!=null?t.day:0}"/></div>
-      <div id="mt_state_wrap" style="margin-top:9px;${kind==='state'?'':'display:none'}">
-        <label style="margin:0 0 4px">Which moment</label>
-        <select class="field" id="mt_when" onchange="msgWhenChange()">${stateOpts}</select>
-        <div class="ai-tag" id="mt_expl" style="margin-top:6px">${escapeHtml(expl)}</div></div>
-    </div>
-    <div class="block"><label>Message</label>
-      <textarea class="field" id="mt_body" style="min-height:130px;line-height:1.5">${escapeHtml(t.body)}</textarea>
-      <div style="margin-top:8px"><div style="font-size:12px;color:var(--soft);margin-bottom:5px">Tap to insert — these fill in from the walk-in when the message is sent:</div>
-      <div class="rb-colchips">${tokens}</div></div></div>
-    <div class="r" style="gap:8px;margin-top:6px"><button class="btn" onclick="msgSaveEdit()">Save message</button><button class="btn ghost" onclick="msgEdit=null;renderMsgManager()">Cancel</button></div>`;
+function msgWizSet(k,v){if(!msgWiz)return;msgWiz[k]=v;renderMsgManager();}
+function msgWizGo(n){
+  if(!msgWiz)return;
+  // capture whatever is on screen before moving
+  const nm=document.getElementById('wz_name');if(nm)msgWiz.name=nm.value;
+  const bd=document.getElementById('wz_body');if(bd)msgWiz.body=bd.value;
+  const dy=document.getElementById('wz_day');if(dy)msgWiz.day=parseInt(dy.value,10);
+  if(n===2&&!String(msgWiz.name||'').trim()){alert('Give the message a name first — just for you, the customer never sees it.');return;}
+  if(n===4&&!String(msgWiz.body||'').trim()){alert('Write the message first.');return;}
+  msgWiz.step=n;renderMsgManager();
 }
-function msgKindChange(v){
-  const d=document.getElementById('mt_day_wrap'),s=document.getElementById('mt_state_wrap');
-  if(d)d.style.display=v==='day'?'':'none';
-  if(s)s.style.display=v==='state'?'':'none';
+function msgWizSample(){
+  const mine=(db.leads||[]).filter(l=>can('view',l)&&isOpenLead(l));
+  return mine[0]||{name:'Priya Anand',project:(PROJECTS&&PROJECTS[0])||'Earthscape',location:'Whitefield',budget:'1.2 Cr',cpName:'',log:[]};
 }
-function msgWhenChange(){
-  const v=(document.getElementById('mt_when')||{}).value;
-  const e=document.getElementById('mt_expl');const d=(MSG_STATES.find(s=>s[0]===v)||[])[1]||'';
-  if(e)e.textContent=d;
+function msgWizHTML(){
+  const w=msgWiz;const steps=['Name it','When it goes','Write it','Check & save'];
+  const bar=steps.map((s,i)=>{const n=i+1;const on=w.step===n;const done=w.step>n;
+    return `<div style="display:flex;align-items:center;gap:6px;opacity:${on||done?1:.45}">
+      <span style="width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;background:${on?'var(--brand)':done?'#CFE3D4':'var(--canvas)'};color:${on?'#fff':done?'#245C36':'var(--soft)'}">${done?'✓':n}</span>
+      <span style="font-size:11.5px;font-weight:${on?700:500};color:${on?'var(--ink)':'var(--soft)'}">${s}</span></div>`;
+  }).join('<span style="color:var(--line);font-size:11px">—</span>');
+  const head=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px">${bar}</div>
+    <div style="font-size:11.5px;color:var(--soft);margin-bottom:12px">${w.scope==='mine'?'This message will be yours alone — nobody else sees it.':'This will be added to the company set that everyone uses.'}</div>`;
+  let inner='';
+  if(w.step===1){
+    inner=`<div class="block"><label>What will you call it?</label>
+      <input class="field" id="wz_name" value="${escapeHtml(w.name||'').replace(/"/g,'&quot;')}" placeholder="e.g. Weekend visit nudge" onkeydown="if(event.key==='Enter')msgWizGo(2)"/>
+      <div style="font-size:11.5px;color:var(--soft);margin-top:6px;line-height:1.5">Just a label so you can recognise it in the list. The customer never sees this.</div></div>`;
+  } else if(w.step===2){
+    const k=w.kind||'day';
+    const opt=(val,title,sub)=>`<button type="button" onclick="msgWizSet('kind','${val}')" style="text-align:left;width:100%;border:1px solid ${k===val?'var(--brand)':'var(--line)'};background:${k===val?'#1B49650d':'var(--surface)'};border-radius:11px;padding:11px 13px;margin-bottom:8px;cursor:pointer;font-family:inherit">
+      <div style="font-family:'Space Grotesk';font-weight:600;font-size:13.5px;color:var(--ink)">${title}</div>
+      <div style="font-size:11.5px;color:var(--soft);margin-top:2px;line-height:1.45">${sub}</div></button>`;
+    const stateList=MSG_STATES.map(([key,desc])=>`<button type="button" onclick="msgWizSet('when','${key}')" style="text-align:left;width:100%;border:1px solid ${w.when===key?'var(--brand)':'var(--line)'};background:${w.when===key?'#1B49650d':'var(--surface)'};border-radius:9px;padding:9px 11px;margin-bottom:6px;cursor:pointer;font-family:inherit">
+      <div style="font-weight:600;font-size:12.5px;color:var(--ink)">${key}</div><div style="font-size:11.5px;color:var(--soft);margin-top:1px">${desc}</div></button>`).join('');
+    inner=`<div class="block"><label>When should this message become due?</label>
+      ${opt('day','A set number of days after the walk-in','Good for a steady follow-up rhythm — day 0, day 2, day 5 and so on.')}
+      ${opt('state','When something happens in the deal','Reacts to the customer — right after a visit, once they are qualified, when calls go unanswered.')}
+      ${opt('any','Never automatically — I will pick it myself','For one-off messages like a price drop or a festive offer.')}
+      ${k==='day'?`<div style="margin-top:10px"><label style="margin:0 0 4px">Days after the walk-in</label>
+        <input type="number" class="field" style="max-width:140px" id="wz_day" min="0" value="${w.day!=null?w.day:2}"/>
+        <div style="font-size:11.5px;color:var(--soft);margin-top:6px">0 means straight away, on the day they walk in.</div></div>`:''}
+      ${k==='state'?`<div style="margin-top:10px"><label style="margin:0 0 6px">Which moment?</label>${stateList}</div>`:''}
+    </div>`;
+  } else if(w.step===3){
+    const tokens=MSG_TOKENS.map(t=>`<button class="sfchip" type="button" onclick="msgWizToken('${t}')">{${t}}</button>`).join('');
+    inner=`<div class="block"><label>Write the message</label>
+      <textarea class="field" id="wz_body" style="min-height:150px;line-height:1.55" placeholder="Hi {name}, ...">${escapeHtml(w.body||'')}</textarea>
+      <div style="margin-top:9px"><div style="font-size:11.5px;color:var(--soft);margin-bottom:5px">Tap to drop in a detail — it fills itself in from the walk-in when you send:</div>
+        <div class="rb-colchips">${tokens}</div></div>
+      <div style="font-size:11.5px;color:var(--soft);margin-top:10px;line-height:1.55">Messages that end in a question get replies. Keep it short, first person, no capitals or emoji.</div></div>`;
+  } else {
+    const sample=msgWizSample();
+    const merged=msgMerge(w.body,sample);
+    const tmp={name:w.name,day:w.kind==='day'?(w.day!=null?w.day:0):null,when:w.kind==='state'?(w.when||MSG_STATES[0][0]):null};
+    inner=`<div class="block"><label>How it will look</label>
+      <div style="background:#E7FFDB;border:1px solid #CFE3D4;border-radius:12px;padding:12px 14px;font-size:13.5px;line-height:1.55;white-space:pre-wrap">${escapeHtml(merged)||'<span style="color:var(--soft)">Nothing written yet.</span>'}</div>
+      <div style="font-size:11.5px;color:var(--soft);margin-top:8px;line-height:1.55">Filled in using <b>${escapeHtml(sample.name||'a sample walk-in')}</b> as an example. Each customer gets their own details.</div></div>
+    <div class="block"><label>When it goes out</label>
+      <div style="font-size:12.5px;color:var(--ink);line-height:1.55">${escapeHtml(msgTimingWords(tmp))}.</div></div>`;
+  }
+  const back=w.step>1?`<button class="btn ghost" onclick="msgWizGo(${w.step-1})">← Back</button>`:`<button class="btn ghost" onclick="msgWiz=null;renderMsgManager()">Cancel</button>`;
+  const next=w.step<4?`<button class="btn" onclick="msgWizGo(${w.step+1})">Next →</button>`:`<button class="btn" onclick="msgWizSave()">${w.id?'Save changes':'Create message'}</button>`;
+  return head+inner+`<div class="r" style="gap:8px;margin-top:6px">${back}${next}</div>`;
 }
-function msgInsertToken(k){
-  const ta=document.getElementById('mt_body');if(!ta)return;
+function msgWizToken(k){
+  const ta=document.getElementById('wz_body');if(!ta)return;
   const s=ta.selectionStart||0,e=ta.selectionEnd||0;const tok='{'+k+'}';
   ta.value=ta.value.slice(0,s)+tok+ta.value.slice(e);
+  if(msgWiz)msgWiz.body=ta.value;
   ta.focus();ta.selectionStart=ta.selectionEnd=s+tok.length;
 }
-async function msgSaveEdit(){
-  const name=((document.getElementById('mt_name')||{}).value||'').trim();
-  const bodyTxt=((document.getElementById('mt_body')||{}).value||'').trim();
-  if(!name){alert('Give the message a name.');return;}
-  if(!bodyTxt){alert('Write the message.');return;}
-  const kind=(document.getElementById('mt_kind')||{}).value;
-  // day and when are mutually exclusive — the engine evaluates a both-set template twice
+async function msgWizSave(){
+  const w=msgWiz;if(!w)return;
+  const name=String(w.name||'').trim(),body=String(w.body||'').trim();
+  if(!name||!body){alert('The message needs a name and some text.');return;}
+  // day and when are mutually exclusive — a template with both would be evaluated twice
   let day=null,when=null;
-  if(kind==='day'){day=parseInt((document.getElementById('mt_day')||{}).value,10);if(isNaN(day)||day<0)day=0;}
-  else if(kind==='state'){when=(document.getElementById('mt_when')||{}).value||MSG_STATES[0][0];}
-  const list=msgTemplates().map(x=>JSON.parse(JSON.stringify(x)));
-  const id=msgEdit.id||('m'+Date.now().toString(36));
-  const rec={id,name,day,when,body:bodyTxt};
-  const at=list.findIndex(x=>x.id===id);
-  if(at>=0)list[at]=rec;else list.push(rec);
-  if(!await saveMsgTemplates(list))return;
-  msgEdit=null;renderMsgManager();
+  if(w.kind==='day'){day=parseInt(w.day,10);if(isNaN(day)||day<0)day=0;}
+  else if(w.kind==='state')when=w.when||MSG_STATES[0][0];
+  const id=w.id||((w.scope==='mine'?'p':'c')+Date.now().toString(36));
+  const rec={id,name,day,when,body};
+  if(w.scope==='mine'){
+    const list=msgMyTemplates().map(x=>JSON.parse(JSON.stringify(x)));
+    const at=list.findIndex(x=>x.id===id);if(at>=0)list[at]=rec;else list.push(rec);
+    if(!await saveMyTemplates(list))return;
+  } else {
+    const list=msgCompanyTemplates().map(x=>JSON.parse(JSON.stringify(x)));
+    const at=list.findIndex(x=>x.id===id);if(at>=0)list[at]=rec;else list.push(rec);
+    if(!await saveCompanyTemplates(list))return;
+  }
+  msgWiz=null;renderMsgManager();
 }
-async function msgRemove(id){
-  const list=msgTemplates().filter(x=>x.id!==id);
-  if(!list.length){alert('Keep at least one message.');return;}
-  const t=msgTemplates().find(x=>x.id===id);
+async function msgRemoveTpl(scope,id){
+  const src=scope==='mine'?msgMyTemplates():msgCompanyTemplates();
+  const t=src.find(x=>x.id===id);
+  if(scope==='company'&&!msgCanManageCompany())return;
+  if(scope==='company'&&src.length<=1){alert('Keep at least one company message.');return;}
   if(!confirm('Remove "'+((t&&t.name)||'this message')+'"?'))return;
-  if(!await saveMsgTemplates(list))return;
+  const list=src.filter(x=>x.id!==id);
+  if(!(scope==='mine'?await saveMyTemplates(list):await saveCompanyTemplates(list)))return;
   renderMsgManager();
 }
 async function msgResetDefaults(){
-  if(!confirm('Discard your messages and go back to the standard set?'))return;
+  if(!msgCanManageCompany())return;
+  if(!confirm('Discard the company messages and go back to the standard set? Your own messages are not affected.'))return;
   const rd=Object.assign({},db.reportData||{});rd.msgTemplates=null;
   if(!await saveReportData(rd))return;
-  msgEdit=null;renderMsgManager();
+  msgWiz=null;renderMsgManager();
 }
 /* ===================== Channel Partner analytics ===================== */
 function cpAliasMap(){return (db.reportData&&db.reportData.cpAliases)||{};}
