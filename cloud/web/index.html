@@ -661,6 +661,17 @@
   .rc-row .rc-field{flex:1;min-width:0;}
   .rc-submit{width:100%;justify-content:center;margin-top:6px;font-size:15px;padding:12px;}
   .rc-warn{background:#FBE9E7;border:1px solid #f3c6bf;color:#A03027;border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:14px;}
+  /* front-desk "visits expected" panel */
+  .rcv-card{margin-bottom:16px;}
+  .rcv-sec{margin-top:14px;}
+  .rcv-sec h4{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--soft);display:flex;align-items:center;gap:8px;margin-bottom:6px;font-weight:700;}
+  .rcv-n{font-family:'Space Grotesk';background:var(--canvas);border-radius:20px;padding:1px 9px;font-size:12px;color:var(--ink);}
+  .rcv-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-top:1px solid var(--line2);}
+  .rcv-who{flex:1;min-width:0;}
+  .rcv-who b{display:block;font-family:'Space Grotesk';font-size:14.5px;}
+  .rcv-who span{display:block;color:var(--soft);font-size:12.5px;margin-top:1px;}
+  .rcv-wait{color:var(--soft);font-size:12.5px;white-space:nowrap;}
+  .rcv-none{color:var(--soft);font-size:13px;padding:6px 0 2px;}
   .rc-log{max-width:620px;margin:16px auto 0;padding:0 16px;}
   .rc-log-h{font-family:'Space Grotesk';font-weight:600;font-size:13px;color:var(--soft);margin-bottom:8px;}
   .rc-log-row{display:flex;justify-content:space-between;gap:10px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:7px;background:var(--surface);font-size:13px;}
@@ -1679,7 +1690,38 @@ async function removeLabel(id,name){const l=db.leads.find(x=>x.id===id);if(!can(
 async function createLabelFor(id){const name=(document.getElementById('lbl_new_'+id).value||'').trim();if(!name)return;const color=(document.getElementById('lbl_col_'+id)||{}).value||'#6C7A93';const list=myLabels().slice();if(!list.some(x=>x.name===name))list.push({name,color});if(await savePrefs(Object.assign({},myPrefs,{labels:list})))await attachLabel(id,name);}
 
 /* ============ receptionist (front desk) ============ */
-let rcSession=[], rcLastOwner='';
+let rcSession=[], rcLastOwner='', rcVisitsDone=[];
+// Planned visits the front desk should expect: today, tomorrow, day after.
+function rcExpected(){
+  const t=iso(today()),d1=addDays(1),d2=addDays(2);
+  return (db.leads||[]).filter(l=>!l.mergedInto&&l.plannedVisit&&(l.plannedVisit===t||l.plannedVisit===d1||l.plannedVisit===d2))
+    .sort((a,b)=>(a.plannedVisit<b.plannedVisit?-1:a.plannedVisit>b.plannedVisit?1:a.name.localeCompare(b.name)));
+}
+async function rcMarkVisit(id){
+  const l=(db.leads||[]).find(x=>x.id===id);if(!l)return;
+  if(!confirm('Confirm that '+l.name+' has visited today?'))return;
+  const btn=document.getElementById('rcv_'+id);if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  const {error}=await sb.rpc('mark_visit_done',{p_lead:id,p_on:iso(today())});
+  if(error){alert('Could not confirm the visit: '+error.message);if(btn){btn.disabled=false;btn.textContent='✓ Visit happened';}return;}
+  rcVisitsDone.push({name:l.name,owner:l.ownerId?userName(l.ownerId):'—',at:iso(today())});
+  await refresh();
+}
+function rcVisitsHTML(){
+  const t=iso(today()),d1=addDays(1),d2=addDays(2);
+  const all=rcExpected();
+  const label=d=>d===t?'Today':d===d1?'Tomorrow':'Day after';
+  const sec=(d)=>{const arr=all.filter(l=>l.plannedVisit===d);
+    if(!arr.length)return `<div class="rcv-sec"><h4>${label(d)} · ${fmtDate(d)}<span class="rcv-n">0</span></h4><div class="rcv-none">No visits expected.</div></div>`;
+    return `<div class="rcv-sec"><h4>${label(d)} · ${fmtDate(d)}<span class="rcv-n">${arr.length}</span></h4>`+arr.map(l=>`<div class="rcv-row">
+      <div class="rcv-who"><b>${escapeHtml(l.name)}</b><span>${l.ownerId?escapeHtml(userName(l.ownerId)):'unassigned'}${l.project?' · '+escapeHtml(l.project):''}</span></div>
+      ${d===t?`<button class="btn" id="rcv_${l.id}" style="white-space:nowrap;padding:6px 12px" onclick="rcMarkVisit('${l.id}')">✓ Visit happened</button>`:`<span class="rcv-wait">expected</span>`}
+    </div>`).join('')+`</div>`;};
+  const done=rcVisitsDone.length?`<div class="rcv-sec"><h4>Confirmed today<span class="rcv-n">${rcVisitsDone.length}</span></h4>${rcVisitsDone.map(x=>`<div class="rcv-row"><div class="rcv-who"><b>${escapeHtml(x.name)}</b><span>✓ visit confirmed · ${escapeHtml(x.owner)}</span></div></div>`).join('')}</div>`:'';
+  return `<div class="rc-card rcv-card">
+    <h2>Visits expected</h2>
+    <div class="rc-sub">Customers who told their salesperson they'd come. When one arrives, press <b>✓ Visit happened</b> — it updates the salesperson's calendar and report straight away.</div>
+    ${sec(t)}${sec(d1)}${sec(d2)}${done}</div>`;
+}
 const RC_SUBSOURCES=['Hoarding','Digital','Referral'];
 function renderReception(){
   const u=currentUser();
@@ -1689,7 +1731,7 @@ function renderReception(){
   document.getElementById('whoami').innerHTML=`<div class="u-av sales">${initials(u.name)}</div><div><div class="nm">${u.name}</div><div class="rl">Receptionist</div></div><button class="signout" onclick="signOut()">Sign out</button>`;
   ['tabs','permNote','kpis','myTarget','savedBar'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});
   const cnt=document.getElementById('count');if(cnt)cnt.textContent='';
-  document.getElementById('main').innerHTML=receptionFormHTML();
+  document.getElementById('main').innerHTML=receptionScreenHTML();
   const first=document.getElementById('rc_name');if(first)first.focus();
   const td=document.getElementById('taskDock');if(td)td.style.display='none';
 }
@@ -1721,6 +1763,7 @@ function receptionFormHTML(){
     ${sessionHTML}
   </div>`;
 }
+function receptionScreenHTML(){return `<div class="rc-wrap" style="margin-bottom:0">${rcVisitsHTML()}</div>`+receptionFormHTML();}
 function rcToggleSource(){const cp=document.getElementById('rc_source').value==='CP';
   document.getElementById('rc_cp_wrap').classList.toggle('hidden',!cp);
   document.getElementById('rc_sub_wrap').classList.toggle('hidden',cp);}
