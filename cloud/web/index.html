@@ -1898,7 +1898,7 @@ function render(){
   if(['funnel','stats','ageing'].includes(activeTab))makeReorderable(m,activeTab);
   const total=scoped().length;
   document.getElementById('count').textContent=total+(u.role==='sales'?' of your leads':' leads in view');
-  refreshNotifyBadge();renderSavedBar();renderMyTarget();renderTaskDock();
+  refreshNotifyBadge();renderSavedBar();renderMyTarget();renderTaskDock();navSync();
   if(activeTab==='crossproject'){const k=document.getElementById('kpis');if(k)k.innerHTML='';const sb=document.getElementById('savedBar');if(sb)sb.innerHTML='';}   // cross-project: no stats/filters
   if(openId)renderDrawer();
 }
@@ -4628,6 +4628,55 @@ async function boot(){
     else{await sb.auth.signOut();session=null;loginView={step:'signin',err:'This login isn’t linked to your team yet. Ask your Sales Head to add you or send an invite link, then sign in.',email:''};showLogin();}}
   else{loginView={step:pendingInvite?'signup':'signin',err:'',email:''};showLogin();}
 }
+/* ============ phone back button / swipe-back ============ *
+ * A single-page app records no history, so Android's back gesture (and the iOS
+ * edge-swipe in an installed PWA) walked straight out of the app. We keep ONE
+ * spare history entry alive whenever there is somewhere to go back to, and spend
+ * it closing the top-most thing instead of quitting.
+ */
+const NAV_CLOSERS={modalScrim:'closeModal',editScrim:'closeEdit',bulkScrim:'closeBulk',baScrim:'closeBulkAssign',
+  bookScrim:'closeBooking',chatScrim:'closeChat',cpScrim:'closeCpManager',filterScrim:'closeFilters',
+  listScrim:'closeLeadList',msgScrim:'closeMsgManager',msgPickScrim:'closeMsgPicker',pieScrim:'closePie',
+  priceScrim:'closePricing',remScrim:'closeReminder',schemeScrim:'closeSchemes',teamScrim:'closeTeam'};
+// What would "back" mean right now? Returns a function to run, or null to leave the app.
+function navTop(){
+  const np=document.getElementById('notifyPanel');
+  if(np&&!np.classList.contains('hidden'))return closeNotify;
+  const open=Array.from(document.querySelectorAll('.modal-scrim.on'));
+  if(open.length){                                   // a dialog sits above the drawer, so it goes first
+    const el=open[open.length-1];const fn=window[NAV_CLOSERS[el.id]];
+    return typeof fn==='function'?fn:function(){el.classList.remove('on');};
+  }
+  const dr=document.getElementById('drawer');
+  if(dr&&dr.classList.contains('on'))return closeDrawer;
+  const u=(typeof currentUser==='function')?currentUser():null;
+  if(u&&u.role!=='reception'&&activeTab&&activeTab!=='pipeline')return function(){setTab('pipeline');};
+  return null;                                        // nothing left — let the phone leave the app
+}
+let _navGuard=0,_navIgnore=0,_navPending=null;
+function navSync(){
+  if(!window.history||!history.pushState)return;
+  const somewhere=!!navTop();
+  if(somewhere&&!_navGuard){_navGuard=1;try{history.pushState({se:1},'');}catch(e){}}
+  else if(!somewhere&&_navGuard){_navGuard=0;_navIgnore++;try{history.back();}catch(e){_navIgnore--;}}
+}
+function navSyncSoon(){if(_navPending)return;_navPending=setTimeout(function(){_navPending=null;navSync();},0);}
+function navInit(){
+  if(!window.history||!history.pushState)return;
+  window.addEventListener('popstate',function(){
+    if(_navIgnore>0){_navIgnore--;return;}          // this was our own history.back(), already handled
+    const back=navTop();
+    if(back){_navGuard=0;try{back();}catch(e){}navSyncSoon();}   // consumed the guard — re-arm if more remains
+  });
+  // Watch the overlays directly instead of editing 17 open/close functions.
+  const watch=Object.keys(NAV_CLOSERS).map(id=>document.getElementById(id))
+    .concat([document.getElementById('drawer'),document.getElementById('notifyPanel')]).filter(Boolean);
+  if(window.MutationObserver){
+    const obs=new MutationObserver(navSyncSoon);
+    watch.forEach(el=>obs.observe(el,{attributes:true,attributeFilter:['class']}));
+  }
+}
+navInit();
 boot();
 document.addEventListener('keydown',function(e){
   if(e.key!=='Escape')return;
