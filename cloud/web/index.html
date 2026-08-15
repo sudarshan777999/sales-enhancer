@@ -1258,7 +1258,14 @@ async function authSubmit(){
   session=data.user.id;const mem=await loadMyMember();
   if(mem){await afterLogin();}else if(pendingInvite){loginView={step:'join',err:'',email};renderLogin();}else if(ALLOW_SELF_ONBOARD){loginView={step:'onboard',err:'',email,company:'Bricks & Milestones'};renderLogin();}else{await sb.auth.signOut();session=null;loginView={step:'signin',err:'This login isn’t linked to your team yet. Ask your Sales Head to create your login, or to send you an invite link — then sign in.',email};renderLogin();}
 }
-async function afterLogin(){await loadAll();showApp();}
+// Open on the current month everywhere. Applies once per sign-in / reload — if someone
+// clears or widens it during the session it stays as they left it until the next load.
+function applyDefaultPeriod(){
+  if(activeFilters().length)return;            // never stomp on a filter that's already set
+  filters=[{field:'captured',value:monthRange(0)}];
+  filterMode='AND';
+}
+async function afterLogin(){await loadAll();applyDefaultPeriod();showApp();}
 async function signOut(){closeChat();await sb.auth.signOut();session=null;myCompanyId=null;closeDrawer();loginView={step:'signin',err:'',email:''};showLogin();}
 
 /* ============ team / invites (Sales Head only) ============ */
