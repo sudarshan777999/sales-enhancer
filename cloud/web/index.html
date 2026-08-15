@@ -1595,7 +1595,15 @@ function interestBlock(l){
 
 /* ============ scope + filter ============ */
 function scoped(){return db.leads.filter(l=>!l.mergedInto&&can('view',l));}
-function visible(){const q=document.getElementById('search').value.trim().toLowerCase();let s=scoped();if(q)s=s.filter(l=>l.name.toLowerCase().includes(q)||(l.matchCode||'').includes(q));return s.filter(passesFilters);}
+// The "what do I do now" screens. The month applied automatically at sign-in is ignored
+// here, because it is keyed on when a lead was CAPTURED — an older lead whose follow-up or
+// visit falls due today must still show up, or it quietly gets dropped.
+const WORK_TABS=['plays','followups','visits','tasks'];
+// True only when the single active filter is exactly the one we auto-applied. The moment
+// the user adds, edits or clears anything, it is their choice and applies everywhere.
+function isAutoPeriodOnly(){const a=activeFilters();return a.length===1&&a[0].field==='captured'&&a[0].value===monthRange(0);}
+function autoPeriodIgnoredHere(){return WORK_TABS.indexOf(activeTab)>=0&&isAutoPeriodOnly();}
+function visible(){const q=document.getElementById('search').value.trim().toLowerCase();let s=scoped();if(q)s=s.filter(l=>l.name.toLowerCase().includes(q)||(l.matchCode||'').includes(q));if(autoPeriodIgnoredHere())return s;return s.filter(passesFilters);}
 /* ---- multi-filter builder ---- */
 const FILTER_FIELDS=[
   {k:'stage',label:'Stage',type:'select',opts:()=>Object.keys(STAGES).map(s=>[s,STAGES[s].label])},
@@ -2049,6 +2057,8 @@ function pipelineListHTML(leads){
 }
 function filterBanner(){
   const af=activeFilters();if(!af.length)return '';
+  // Don't claim a filter that this screen is deliberately ignoring.
+  if(autoPeriodIgnoredHere())return `<div class="filter-banner" style="background:#EEF3F8;color:#2C5D80;border:0">Showing <b style="margin:0 4px">everything due</b>, not just this month — so nothing older slips through.</div>`;
   const chips=af.map(f=>{let v=String(f.value);if(fieldMeta(f.field).type==='daterange'){const p=v.split('|');v=(p[0]?fmtDate(p[0]):'any')+' → '+(p[1]?fmtDate(p[1]):'any');}return `<span class="fb-chip">${fieldMeta(f.field).label}: “${v}”</span>`;}).join(' ');
   const n=visible().length;
   const bulk=canBulkAssign()&&n?`<button class="fb-bulk" onclick="openBulkAssign()">⇄ Bulk assign (${n})</button>`:'';
