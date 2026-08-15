@@ -14,15 +14,23 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
+  /* ---------- design tokens ----------
+     Warm-neutral paper, deep pine, clay accent — an "architectural" palette rather than
+     the default SaaS blue-grey. Neutrals carry a little warmth so white surfaces read as
+     paper, not screen. One confident brand colour; status hues are re-picked to sit in the
+     same family instead of shouting over each other. */
   :root{
-    --canvas:#EEF1F5;--surface:#FFFFFF;--ink:#152238;--soft:#5C6879;
-    --line:#DCE2EA;--line2:#EAEEF3;
-    --brand:#1B4965;--brand-ink:#12374d;--teal:#2C9C9A;
-    --new:#6C7A93;--assigned:#4A6FA5;--qualified:#2C9C9A;
-    --booked:#2E9E5B;--lost:#C0524A;--nq:#98A2B0;
-    --amber:#D9982B;--over:#C0433A;
-    --header-bg:rgba(255,255,255,.86);--hover:rgba(255,255,255,.75);--subtle:#F1F5F9;--soft-bg:#F7F9FB;
-    --shadow:0 1px 2px rgba(21,34,56,.06),0 8px 24px rgba(21,34,56,.06);
+    --canvas:#F4F3F0;--surface:#FFFFFF;--surface-2:#FAF9F6;--ink:#1B1A17;--soft:#75706A;
+    --line:#E5E1DA;--line2:#F0EDE7;
+    --brand:#2C4A43;--brand-ink:#1E3630;--brand-tint:#E9EFEC;--accent:#B0603A;--teal:#1F7A6E;
+    --new:#8B857D;--assigned:#3F6B8A;--qualified:#1F7A6E;
+    --booked:#2E7D52;--lost:#B0473B;--nq:#A29B92;
+    --amber:#BE8A2C;--over:#B0473B;
+    --header-bg:rgba(255,255,255,.82);--hover:rgba(27,26,23,.04);--subtle:#F0EEE9;--soft-bg:#FAF9F6;
+    /* three layers: contact shadow, ambient, and a long soft cast — reads crisp, not blurry */
+    --shadow:0 1px 1px rgba(28,25,20,.04),0 2px 6px rgba(28,25,20,.05),0 14px 30px -10px rgba(28,25,20,.10);
+    --shadow-lift:0 1px 1px rgba(28,25,20,.05),0 4px 10px rgba(28,25,20,.07),0 22px 44px -12px rgba(28,25,20,.16);
+    --r-xs:4px;--r-sm:7px;--r-md:10px;--r-lg:14px;--r-full:999px;
   }
   /* ---------- dark mode ----------
      One stylesheet, custom properties only — no second theme file, no palette inversion.
@@ -35,26 +43,28 @@
   @media (prefers-color-scheme: dark){
     :root:not([data-theme="light"]){
       color-scheme:dark;
-      --canvas:#15171C;--surface:#1D2027;--ink:#E2E5EA;--soft:#9AA6B4;
-      --line:#2E343D;--line2:#252A31;
-      --brand:#3E86B8;--brand-ink:#5FA8D3;--teal:#3FB8B5;
-      --new:#8792A5;--assigned:#6E9BD6;--qualified:#3FB8B5;
-      --booked:#5FD08A;--lost:#E4736A;--nq:#8A94A2;
-      --amber:#E8B04B;--over:#E4736A;
-      --header-bg:rgba(29,32,39,.86);--hover:rgba(255,255,255,.06);--subtle:#232830;--soft-bg:#1A1D23;
-      --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+      --canvas:#131412;--surface:#1C1E1B;--surface-2:#232520;--ink:#E9E6DF;--soft:#9C968C;
+      --line:#2F322C;--line2:#26291F;
+      --brand:#7FB3A5;--brand-ink:#9AC7BA;--brand-tint:#233029;--accent:#D08558;--teal:#57B3A6;
+      --new:#948D83;--assigned:#7BA5C4;--qualified:#57B3A6;
+      --booked:#6FC08D;--lost:#D9756A;--nq:#8F887E;
+      --amber:#D9A94E;--over:#D9756A;
+      --header-bg:rgba(28,30,27,.82);--hover:rgba(255,255,255,.05);--subtle:#232520;--soft-bg:#191B18;
+      --shadow:0 1px 2px rgba(0,0,0,.45),0 10px 26px rgba(0,0,0,.38);
+      --shadow-lift:0 2px 6px rgba(0,0,0,.5),0 24px 48px rgba(0,0,0,.45);
     }
   }
   :root[data-theme="dark"]{
     color-scheme:dark;
-    --canvas:#15171C;--surface:#1D2027;--ink:#E2E5EA;--soft:#9AA6B4;
-    --line:#2E343D;--line2:#252A31;
-    --brand:#3E86B8;--brand-ink:#5FA8D3;--teal:#3FB8B5;
-    --new:#8792A5;--assigned:#6E9BD6;--qualified:#3FB8B5;
-    --booked:#5FD08A;--lost:#E4736A;--nq:#8A94A2;
-    --amber:#E8B04B;--over:#E4736A;
-    --header-bg:rgba(29,32,39,.86);--hover:rgba(255,255,255,.06);--subtle:#232830;--soft-bg:#1A1D23;
-    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+    --canvas:#131412;--surface:#1C1E1B;--surface-2:#232520;--ink:#E9E6DF;--soft:#9C968C;
+    --line:#2F322C;--line2:#26291F;
+    --brand:#7FB3A5;--brand-ink:#9AC7BA;--brand-tint:#233029;--accent:#D08558;--teal:#57B3A6;
+    --new:#948D83;--assigned:#7BA5C4;--qualified:#57B3A6;
+    --booked:#6FC08D;--lost:#D9756A;--nq:#8F887E;
+    --amber:#D9A94E;--over:#D9756A;
+    --header-bg:rgba(28,30,27,.82);--hover:rgba(255,255,255,.05);--subtle:#232520;--soft-bg:#191B18;
+    --shadow:0 1px 2px rgba(0,0,0,.45),0 10px 26px rgba(0,0,0,.38);
+    --shadow-lift:0 2px 6px rgba(0,0,0,.5),0 24px 48px rgba(0,0,0,.45);
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
@@ -691,6 +701,100 @@
   .keys-row kbd{font-family:inherit;font-size:11px;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;
     padding:1px 6px;background:var(--canvas);color:var(--ink);white-space:nowrap;}
   @media(max-width:640px){.keys-grid{grid-template-columns:1fr;}}
+  /* ================= visual system =================
+     Component refinements layered after the base rules. The aim is fewer, more deliberate
+     decisions: one radius scale, one shadow language, hairlines instead of hard borders,
+     and colour used sparingly so the data is the loudest thing on screen. */
+
+  /* Paper, not screen: drop the graph-paper grid, it reads like a wireframe */
+  body{background-image:none;}
+
+  /* Type — tighter tracking on headings is most of what makes a UI feel drawn rather than typed */
+  h1,h2,h3,.nm,.lb-title{letter-spacing:-.015em;}
+  h2{letter-spacing:-.02em;}
+
+  /* Buttons: solid brand, crisp edge, real press feedback */
+  .btn{border-radius:var(--r-sm);padding:8px 14px;font-size:13px;letter-spacing:-.005em;
+    box-shadow:0 1px 2px rgba(28,25,20,.10);transition:background .14s,box-shadow .14s,transform .06s;}
+  .btn:hover{background:var(--brand-ink);border-color:var(--brand-ink);filter:none;}
+  .btn:active{transform:translateY(1px);box-shadow:0 0 0 rgba(0,0,0,0);}
+  .btn.ghost{background:var(--surface);color:var(--ink);border-color:var(--line);box-shadow:none;}
+  .btn.ghost:hover{background:var(--subtle);border-color:var(--line);}
+  .act{border-radius:var(--r-sm);}
+
+  /* Inputs: quiet until focused, then an unmistakable brand ring (also an a11y win) */
+  .field{border-radius:var(--r-sm);background:var(--surface-2);transition:border-color .14s,box-shadow .14s,background .14s;}
+  .field:focus{border-color:var(--brand);background:var(--surface);box-shadow:0 0 0 3px color-mix(in srgb,var(--brand) 18%,transparent);}
+  :focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:3px;}
+
+  /* Surfaces: one radius, hairline border, layered shadow */
+  .panel,.kpi,.card,.dt-wrap,.fu-wrap,.rc-card,.modal{border-radius:var(--r-lg);border-color:var(--line);}
+  .panel{padding:20px 22px;}
+  .kpi{border-radius:var(--r-md);}
+  .card{border-radius:var(--r-md);}
+  .card:hover{box-shadow:var(--shadow-lift);transform:translateY(-1px);}
+
+  /* Navigation: a brand-tinted pill with a leading rule — reads deliberate, not default */
+  .navi{border-radius:var(--r-sm);font-weight:500;color:var(--soft);transition:background .14s,color .14s;}
+  .navi:hover{background:var(--hover);color:var(--ink);}
+  .navi.on{background:var(--brand-tint);color:var(--brand-ink);font-weight:650;box-shadow:none;position:relative;}
+  .navi.on::before{content:'';position:absolute;left:0;top:6px;bottom:6px;width:3px;border-radius:0 3px 3px 0;background:var(--brand);}
+  .nav-h{letter-spacing:.08em;}
+
+  /* Chips: solid tint rather than a translucent wash, so text stays legible everywhere */
+  .stg,.tchip,.lchip,.mchip,.pill{border-radius:var(--r-full);letter-spacing:.01em;}
+  .stg{font-weight:650;padding:3px 10px;}
+
+  /* Header: a hairline and a whisper of shadow instead of a hard rule */
+  header{border-bottom:1px solid var(--line);box-shadow:0 1px 0 rgba(28,25,20,.02);}
+
+  /* Table: the quietest possible chrome so the numbers carry the page */
+  table.dt thead th{background:var(--surface-2);border-bottom:1px solid var(--line);letter-spacing:.06em;}
+  table.dt tbody tr:hover td,table.dt tbody tr:hover td:first-child{background:var(--brand-tint);}
+  .dt-wrap{box-shadow:var(--shadow);}
+
+  /* Modals and the palette sit above everything, so they get the lifted shadow */
+  .modal,.pal{box-shadow:var(--shadow-lift);border-radius:var(--r-lg);}
+
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important;}
+  }
+
+  /* ---- density pass: the KPI strip was two rows of oversized cards ----
+     Eight counters are a glance, not a dashboard. One tight row, numbers sized to be read
+     not admired, scrolls sideways rather than wrapping. */
+  .kpis{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:8px;margin:14px 0 6px;padding-bottom:2px;
+    scrollbar-width:thin;}
+  .kpis::-webkit-scrollbar{height:5px;}
+  .kpis::-webkit-scrollbar-thumb{background:var(--line);border-radius:999px;}
+  .kpi{flex:1 1 0;min-width:104px;padding:9px 12px;border-radius:var(--r-sm);box-shadow:none;
+    background:var(--surface);border:1px solid var(--line);}
+  .kpi .lab{font-size:10.5px;letter-spacing:.06em;gap:5px;}
+  .kpi .lab i{width:6px;height:6px;}
+  .kpi .val{font-size:21px;margin-top:1px;}
+
+  /* The permission line is orientation, not a headline — say it once, quietly */
+  .perm-note .inner{background:transparent;border:0;padding:2px 0;font-size:12px;}
+
+  /* Header: let the action cluster wrap instead of running off the screen edge */
+  .top{align-items:center;flex-wrap:wrap;}
+
+  /* ---- account / settings menu ----
+     The top bar was carrying ten buttons and overflowed the window. The spec wants it thin:
+     search, notifications and ONE primary action. Everything else lives behind here. */
+  .whoami{position:relative;}
+  .umenu-btn{font-size:16px;line-height:1;}
+  .umenu{position:absolute;top:calc(100% + 8px);right:0;z-index:60;min-width:238px;display:none;
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--shadow-lift);padding:6px;}
+  .umenu.on{display:block;}
+  .umenu button{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;cursor:pointer;
+    font-family:inherit;font-size:13.5px;color:var(--ink);padding:8px 10px;border-radius:var(--r-sm);text-align:left;}
+  .umenu button:hover{background:var(--brand-tint);}
+  .umenu button span{width:18px;text-align:center;flex:none;}
+  .umenu button kbd{margin-left:auto;font-family:inherit;font-size:10.5px;color:var(--soft);
+    border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 5px;}
+  .umenu-sep{height:1px;background:var(--line2);margin:5px 2px;}
+
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
   /* ---------- data table (All leads) ---------- */
   .dt-wrap{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;}
@@ -2099,13 +2203,21 @@ function render(){
     <div><div class="nm">${u.name}</div><div class="rl">${ROLE_LABEL[u.role]}</div></div>
     <button class="bell" onclick="toggleNotify()" title="Alerts">🔔<span class="badge" id="notifyBadge"></span></button>
     <button class="bell" onclick="openChat()" title="Team chat">💬</button>
-    ${u.role==='sales_head'?`<button class="signout" onclick="openSchemes()" title="Payment schemes">Schemes</button>`:''}
-    ${u.role==='sales_head'?`<button class="signout" onclick="openTeam()" title="Manage team">Team</button>`:''}
-    ${(u.role==='sales_head'||u.role==='project_head')?`<button class="signout" onclick="openCpManager()" title="Manage channel partners">CPs</button>`:''}
-    <button class="signout" onclick="cycleTheme()" title="${themeLabel()}">${themeIcon()}</button>
-    ${u.role!=='reception'?`<button class="signout" onclick="openMsgManager()" title="Create and edit your WhatsApp follow-up messages">💬 Messages</button>`:''}
-    ${u.role==='sales_head'?`<button class="signout" onclick="downloadBackup(this)" title="Download a full backup of all your data">⬇︎ Backup</button>`:''}
-    <button class="signout" onclick="signOut()">Sign out</button>`;
+    <button class="bell umenu-btn" onclick="toggleUserMenu(event)" title="Settings and account" aria-haspopup="menu">⋯</button>
+    <div class="umenu" id="umenu" role="menu">
+      <button role="menuitem" onclick="closeUserMenu();palOpen()"><span>⌘</span>Command palette<kbd>⌘K</kbd></button>
+      <button role="menuitem" onclick="closeUserMenu();openKeys()"><span>⌨</span>Keyboard shortcuts<kbd>?</kbd></button>
+      <div class="umenu-sep"></div>
+      ${u.role!=='reception'?`<button role="menuitem" onclick="closeUserMenu();openMsgManager()"><span>💬</span>WhatsApp messages</button>`:''}
+      ${(u.role==='sales_head'||u.role==='project_head')?`<button role="menuitem" onclick="closeUserMenu();openCpManager()"><span>🤝</span>Channel partners</button>`:''}
+      ${u.role==='sales_head'?`<button role="menuitem" onclick="closeUserMenu();openTeam()"><span>👥</span>Team</button>`:''}
+      ${u.role==='sales_head'?`<button role="menuitem" onclick="closeUserMenu();openSchemes()"><span>📄</span>Payment schemes</button>`:''}
+      <div class="umenu-sep"></div>
+      <button role="menuitem" onclick="cycleTheme()"><span>${themeIcon()}</span>${escapeHtml(themeLabel())}</button>
+      ${u.role==='sales_head'?`<button role="menuitem" onclick="closeUserMenu();downloadBackup(this)"><span>⬇</span>Download backup</button>`:''}
+      <div class="umenu-sep"></div>
+      <button role="menuitem" onclick="signOut()"><span>⏻</span>Sign out</button>
+    </div>`;
   const bb=document.getElementById('bulkBtn');if(bb)bb.style.display=(u.role==='sales_head')?'':'none';
   const fb=document.getElementById('filterBtn');if(fb){const n=activeFilters().length;fb.classList.toggle('ghost',n===0);fb.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg> Filters${n?' ('+n+')':''}`;}
   // permission banner
@@ -5109,6 +5221,12 @@ let pal={open:false,q:'',sel:0,page:null,items:[],lastFocus:null};
 const NAV_KEYS=[['p','pipeline','Pipeline'],['t','plays',"Today's plays"],['v','visits','Visits planned'],
   ['f','followups','Follow-ups due'],['l','all','All leads'],['k','tasks','Tasks'],
   ['n','funnel','Funnel'],['c','lostanalytics','Closed Lost'],['r','report','Report']];
+function toggleUserMenu(e){if(e)e.stopPropagation();const m=document.getElementById('umenu');if(m)m.classList.toggle('on');}
+function closeUserMenu(){const m=document.getElementById('umenu');if(m)m.classList.remove('on');}
+document.addEventListener('click',function(e){
+  const m=document.getElementById('umenu');
+  if(m&&m.classList.contains('on')&&!m.contains(e.target)&&!(e.target.closest&&e.target.closest('.umenu-btn')))closeUserMenu();
+});
 function palOpen(){
   pal.lastFocus=document.activeElement;
   pal.open=true;pal.q='';pal.sel=0;pal.page=null;
