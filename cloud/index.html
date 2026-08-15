@@ -1007,38 +1007,36 @@ async function fetchAll(makeQuery){
   return out;
 }
 async function loadAll(){
-  const {data:projs}=await sb.from('projects').select('*');
-  projById={};projByName={};(projs||[]).forEach(p=>{projById[p.id]=p.name;projByName[p.name]=p.id;});
-  const {data:mem}=await sb.from('members').select('*');
-  db.users=(mem||[]).map(m=>({id:m.id,name:m.name,role:m.role,project:projName(m.project_id),title:titleFor(m),email:m.email}));
-  myCompanyId=(mem||[]).find(m=>m.id===session)?.company_id||null;
-  myPrefs=(mem||[]).find(m=>m.id===session)?.prefs||{};
-  // shared label pool — union of every member's labels (first colour wins)
-  {const map={};(mem||[]).forEach(m=>{(((m.prefs||{}).labels)||[]).forEach(x=>{if(x&&x.name&&!(x.name in map))map[x.name]=x.color||'#6C7A93';});});db.allLabels=Object.keys(map).map(name=>({name,color:map[name]}));}
-  await ensureProjects();
-  const rows=await fetchAll(()=>sb.from('leads').select('*'));   // page past the 1000-row cap
-  const ids=rows.map(l=>l.id);
-  let acts=[];
-  // RLS already limits activity to leads this user can see, so no .in() needed — page through ALL of it
-  if(ids.length){acts=await fetchAll(()=>sb.from('lead_activity').select('*').order('created_at',{ascending:true}).order('id',{ascending:true}));}
-  const byLead={};acts.forEach(a=>{(byLead[a.lead_id]=byLead[a.lead_id]||[]).push(a);});
-  db.leads=rows.map(r=>{const L=leadFromRow(r);(byLead[r.id]||[]).forEach(a=>{const d=(a.created_at||'').slice(0,10);const by=memberName(a.author_id);L.log.push({t:a.body||'',d,kind:a.kind,by,next:a.next_follow_up||null});if(a.kind==='revisit'){const nt=/^Revisited \(visit #\d+\)$/.test(a.body||'')?'':(a.body||'');L.revisits.push({date:d,by,note:nt});}});return L;});
-  const [{data:trs},{data:cis}]=await Promise.all([
-    sb.from('transfer_requests').select('*').order('created_at',{ascending:false}),
-    sb.from('cross_interest').select('*').order('created_at',{ascending:false})
+  // Every table below is independent, so they all go out at once. Doing these one after
+  // another cost a full network round trip each — on a slow link that was most of the load time.
+  // safe(): one table failing must not abort the whole load, as it would with a bare Promise.all
+  const safe=(p,what)=>Promise.resolve(p).then(r=>(r&&r.data)||[]).catch(e=>{console.error('load '+what,e);return [];});
+  const [projs,mem,rows,acts,trs,cis,prs,tgs,promos,tks]=await Promise.all([
+    safe(sb.from('projects').select('*'),'projects'),
+    safe(sb.from('members').select('*'),'members'),
+    safe(fetchAll(()=>sb.from('leads').select('*')).then(a=>({data:a})),'leads'),   // pages past the 1000-row cap
+    // only the columns the timeline actually uses — '*' pulled far more than we read
+    safe(fetchAll(()=>sb.from('lead_activity').select('id,lead_id,kind,body,next_follow_up,author_id,created_at').order('created_at',{ascending:true}).order('id',{ascending:true})).then(a=>({data:a})),'activity'),
+    safe(sb.from('transfer_requests').select('*').order('created_at',{ascending:false}),'transfers'),
+    safe(sb.from('cross_interest').select('*').order('created_at',{ascending:false}),'cross-interest'),
+    safe(sb.from('pricing_requests').select('*').order('created_at',{ascending:false}),'pricing'),
+    safe(sb.from('targets').select('*'),'targets'),
+    safe(sb.from('promotions').select('*').order('name'),'promotions'),
+    safe(fetchAll(()=>sb.from('tasks').select('*').order('created_at',{ascending:false})).then(a=>({data:a})),'tasks')
   ]);
-  db.transfers=trs||[];db.crossInterest=cis||[];
-  const {data:prs}=await sb.from('pricing_requests').select('*').order('created_at',{ascending:false});
-  db.pricingRequests=prs||[];
-  const {data:tgs}=await sb.from('targets').select('*');
-  db.targets=tgs||[];
-  const {data:promos}=await sb.from('promotions').select('*').order('name');
-  db.promotions=promos||[];
-  await ensurePromotions();
-  const tks=await fetchAll(()=>sb.from('tasks').select('*').order('created_at',{ascending:false}));
-  db.tasks=tks;
+  projById={};projByName={};projs.forEach(p=>{projById[p.id]=p.name;projByName[p.name]=p.id;});
+  db.users=mem.map(m=>({id:m.id,name:m.name,role:m.role,project:projName(m.project_id),title:titleFor(m),email:m.email}));
+  myCompanyId=mem.find(m=>m.id===session)?.company_id||null;
+  myPrefs=mem.find(m=>m.id===session)?.prefs||{};
+  // shared label pool — union of every member's labels (first colour wins)
+  {const map={};mem.forEach(m=>{(((m.prefs||{}).labels)||[]).forEach(x=>{if(x&&x.name&&!(x.name in map))map[x.name]=x.color||'#6C7A93';});});db.allLabels=Object.keys(map).map(name=>({name,color:map[name]}));}
+  db.transfers=trs;db.crossInterest=cis;db.pricingRequests=prs;db.targets=tgs;db.promotions=promos;db.tasks=tks;
+  await ensureProjects();          // no-op unless a brand-new instance is missing project rows
+  const byLead={};acts.forEach(a=>{(byLead[a.lead_id]=byLead[a.lead_id]||[]).push(a);});
+  db.leads=rows.map(r=>{const L=leadFromRow(r);(byLead[r.id]||[]).forEach(a=>{const dt=(a.created_at||'').slice(0,10);const by=memberName(a.author_id);L.log.push({t:a.body||'',d:dt,kind:a.kind,by,next:a.next_follow_up||null});if(a.kind==='revisit'){const nt=/^Revisited \(visit #\d+\)$/.test(a.body||'')?'':(a.body||'');L.revisits.push({date:dt,by,note:nt});}});return L;});
   const {data:comp}=await sb.from('companies').select('id,name,report_data').eq('id',myCompanyId).maybeSingle();
   db.company=comp||null;db.reportData=(comp&&comp.report_data)||{};
+  await ensurePromotions();        // no-op unless the promotions catalog is empty
   scoreboard.rows=null;   // invalidate leaderboard cache so it reflects fresh activity
 }
 async function saveReportData(next){const {error}=await sb.from('companies').update({report_data:next}).eq('id',myCompanyId);if(error){alert('Could not save report data: '+error.message);return false;}db.reportData=next;return true;}
@@ -1935,7 +1933,8 @@ function renderTabs(){
   const playCount=s.filter(isOpenLead).map(dealCoach).filter(Boolean).length;
   const tabs=[['pipeline','Pipeline',s.length],['plays',"Today's plays",playCount||'']];
   if(cu&&(cu.role==='sales_head'||cu.role==='project_head'))tabs.push(['funnel','Funnel',''],['cp','CP analytics','']);
-  const visitSoon=s.filter(l=>l.plannedVisit&&isOpenLead(l)&&l.plannedVisit>=iso(today())&&l.plannedVisit<=addDays(7)).length;
+  const _vt=iso(today()),_v7=addDays(7);   // hoisted — these were building two Dates per lead
+  const visitSoon=s.filter(l=>l.plannedVisit&&isOpenLead(l)&&l.plannedVisit>=_vt&&l.plannedVisit<=_v7).length;
   tabs.push(['visits','Visits planned',visitSoon||''],['ageing','Ageing',''],['followups','Follow-ups due',dueCount],['stats','Follow-up stats',''],['lostanalytics','Closed Lost',''],['builder','Builder',''],['all','All leads',s.length]);
   if(cu&&cu.role!=='reception')tabs.push(['leaderboard','Leaderboard','']);
   if(cu&&(cu.role==='sales_head'||cu.role==='project_head')){const ci=(db.crossInterest||[]).filter(c=>c.status==='open'&&(cu.role==='sales_head'||c.target_project_id===myProjId())).length;tabs.push(['crossproject','Cross-project',ci||'']);}
