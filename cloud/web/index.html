@@ -968,7 +968,18 @@ const sb=supabase.createClient(ENV.url,ENV.anon);
 /* ============ config ============ */
 const INSTANCE='Bricks & Milestones';
 const STAGES={new:{label:'New',color:'var(--new)'},assigned:{label:'Assigned',color:'var(--assigned)'},qualified:{label:'Qualified',color:'var(--qualified)'},booked:{label:'Booked',color:'var(--booked)'},lost:{label:'Lost',color:'var(--lost)'},not_qualified:{label:'Not qualified',color:'var(--nq)'}};
-const BOARD_ORDER=['new','assigned','qualified','booked','lost','not_qualified'];
+const BOARD_ORDER=['new','assigned','qualified','revisited','booked','lost','not_qualified'];
+// "Revisited" is a VIEW of qualified leads who have come back — not a stored stage, so
+// nothing in the database, permissions or analytics changes. A lead lands in exactly one
+// column: a qualified lead with revisits moves out of Qualified and into Revisited.
+const BOARD_VIRTUAL={revisited:{label:'Revisited',color:'#5E35B1',
+  match:l=>l.stage==='qualified'&&(l.revisits||[]).length>0}};
+function boardBucket(l){
+  for(const k in BOARD_VIRTUAL){if(BOARD_VIRTUAL[k].match(l))return k;}
+  return l.stage;
+}
+function boardLabel(s){return BOARD_VIRTUAL[s]?BOARD_VIRTUAL[s].label:(STAGES[s]?STAGES[s].label:s);}
+function boardColor(s){return BOARD_VIRTUAL[s]?BOARD_VIRTUAL[s].color:(STAGES[s]?STAGES[s].color:'var(--soft)');}
 const PROJECTS=['Earthscape','Solcrest','Lagos'];
 const DIGITAL=['Website','Google Ads','Facebook / Meta','Property portal','Referral','WhatsApp'];
 const NQ_REASONS=['Budget mismatch','Just browsing / not serious','Wrong location','Not the decision maker','Timeline too far out','Invalid contact details'];
@@ -1978,8 +1989,9 @@ function renderKPIs(leads){
   const band=document.getElementById('kpiBand');
   if(band)band.style.display=(activeTab==='visits')?'none':'';
   if(activeTab==='visits')return;
-  const c=s=>leads.filter(l=>l.stage===s).length;
-  const items=[['New','var(--new)',c('new')],['Assigned','var(--assigned)',c('assigned')],['Qualified','var(--qualified)',c('qualified')],['Booked','var(--booked)',c('booked')],['Lost','var(--lost)',c('lost')],['Not qualified','var(--nq)',c('not_qualified')]];
+  // Same bucketing as the board, so a tile can never disagree with its column.
+  const c=s=>leads.filter(l=>boardBucket(l)===s).length;
+  const items=[['New','var(--new)',c('new')],['Assigned','var(--assigned)',c('assigned')],['Qualified','var(--qualified)',c('qualified')],['Revisited',BOARD_VIRTUAL.revisited.color,c('revisited')],['Booked','var(--booked)',c('booked')],['Lost','var(--lost)',c('lost')],['Not qualified','var(--nq)',c('not_qualified')]];
   const mo=iso(today()).slice(0,7);
   _rnr3Leads=leads.filter(l=>l.source==='walkin'&&(l.createdAt||'').slice(0,7)===mo&&rnrCount(l)>=3);
   const rnrTile=`<div class="kpi" style="cursor:pointer" title="Walk-ins captured this month with 3 or more ring-no-response attempts — tap to open" onclick="openRnr3()"><div class="lab"><i style="background:#B23B3B"></i>3+ RNR (mo.)</div><div class="val">${_rnr3Leads.length}</div></div>`;
@@ -1996,7 +2008,7 @@ function cardHTML(l){
   if(l.stage==='lost'&&l.lostReason)reason=`<div class="reason-tag">Lost · <b>${l.lostReason}</b></div>`;
   return `<div class="card ${crit?'crit':attn?'attn':''}" style="--l:${st.color}" onclick="openDrawer('${l.id}')">
     <div class="top"><div><div class="nm">${l.name}</div><div class="proj">${l.project||'—'} · <span title="${l.source==='walkin'?'Walk-in date':'Captured'}">📅 ${fmtDate(l.createdAt)}</span></div></div><span class="src ${l.source}">${l.source==='digital'?'Digital':'Walk-in'}</span></div>
-    <div class="meta">${l.ownerId?`<div class="avatar" title="${userName(l.ownerId)}">${initials(userName(l.ownerId))}</div>`:`<div class="avatar none" title="Unassigned">–</div>`}${l.viaGre?`<span class="tchip" style="background:#E8F5E9;color:#2E7D32" title="Entered at the front desk (GRE)">GRE</span>`:''}${l.pendingRevisit?`<span class="tchip" style="background:#FFF3E0;color:#B26A00" title="Marked as a revisit by the front desk — needs merge">↩ Revisit · merge</span>`:''}${l.dealStatus?`<span class="tchip" style="background:#E7EEF5;color:#2C5D80">${l.dealStatus}</span>`:''}${(l.metProjectHead===false&&(l.revisits&&l.revisits.length))?`<span class="tchip" style="background:#FBE9E7;color:#A03027" title="Revisited but no Project-Head meeting">No PH mtg</span>`:''}${(l.revisits&&l.revisits.length)?`<span class="tchip" style="background:#EDE7F6;color:#5E35B1">↩ ${l.revisits.length}</span>`:''}${(l.plannedVisit&&isOpenLead(l))?`<span class="tchip" style="background:${l.plannedVisit<iso(today())?'#FBE3E1':'#E8F0FA'};color:${l.plannedVisit<iso(today())?'#A03027':'#25506F'}" title="Next visit planned${l.plannedVisit<iso(today())?' — date passed, no revisit logged':''}">📅${fmtDate(l.plannedVisit)}</span>`:''}${rnrCount(l)?`<span class="tchip" style="background:#FDECEA;color:#B23B3B" title="Ring-no-response attempts">☎ RNR ×${rnrCount(l)}</span>`:''}${(l.labels||[]).map(n=>`<span class="lchip" style="background:${labelColor(n)}">${n}</span>`).join('')}${slaHTML}${dueHTML}${l.budget?`<span class="budget">₹${l.budget}</span>`:''}</div>
+    <div class="meta">${l.ownerId?`<div class="avatar" title="${userName(l.ownerId)}">${initials(userName(l.ownerId))}</div>`:`<div class="avatar none" title="Unassigned">–</div>`}${l.viaGre?`<span class="tchip" style="background:#E8F5E9;color:#2E7D32" title="Entered at the front desk (GRE)">GRE</span>`:''}${l.pendingRevisit?`<span class="tchip" style="background:#FFF3E0;color:#B26A00" title="Marked as a revisit by the front desk — needs merge">↩ Revisit · merge</span>`:''}${l.dealStatus?`<span class="tchip" style="background:#E7EEF5;color:#2C5D80">${l.dealStatus}</span>`:''}${(l.metProjectHead===false&&(l.revisits&&l.revisits.length))?`<span class="tchip" style="background:#FBE9E7;color:#A03027" title="Revisited but no Project-Head meeting">No PH mtg</span>`:''}${(l.revisits&&l.revisits.length)?`<span class="tchip" style="background:#EDE7F6;color:#5E35B1;font-weight:700" title="Came back ${l.revisits.length} time${l.revisits.length===1?'':'s'} after the first walk-in">↩ ${l.revisits.length} revisit${l.revisits.length===1?'':'s'}</span>`:''}${(l.plannedVisit&&isOpenLead(l))?`<span class="tchip" style="background:${l.plannedVisit<iso(today())?'#FBE3E1':'#E8F0FA'};color:${l.plannedVisit<iso(today())?'#A03027':'#25506F'}" title="Next visit planned${l.plannedVisit<iso(today())?' — date passed, no revisit logged':''}">📅${fmtDate(l.plannedVisit)}</span>`:''}${rnrCount(l)?`<span class="tchip" style="background:#FDECEA;color:#B23B3B" title="Ring-no-response attempts">☎ RNR ×${rnrCount(l)}</span>`:''}${(l.labels||[]).map(n=>`<span class="lchip" style="background:${labelColor(n)}">${n}</span>`).join('')}${slaHTML}${dueHTML}${l.budget?`<span class="budget">₹${l.budget}</span>`:''}</div>
     ${reason}</div>`;
 }
 function setPipeView(v){pipeView=v;try{localStorage.setItem('bm_pipe_view',v);}catch(e){}render();}
@@ -2037,8 +2049,8 @@ function filterBanner(){
 }
 function canBulkAssign(){const u=currentUser();return !!u&&(u.role==='sales_head'||u.role==='project_head');}
 function boardHTML(leads){
-  return filterBanner()+`<div class="board">`+BOARD_ORDER.map(s=>{const items=leads.filter(l=>l.stage===s);
-    return `<div class="col"><div class="col-head"><i style="background:${STAGES[s].color}"></i><h3>${STAGES[s].label}</h3><span class="ct">${items.length}</span></div>
+  return filterBanner()+`<div class="board">`+BOARD_ORDER.map(s=>{const items=leads.filter(l=>boardBucket(l)===s);
+    return `<div class="col"><div class="col-head"><i style="background:${boardColor(s)}"></i><h3>${boardLabel(s)}</h3><span class="ct">${items.length}</span></div>
     <div class="stack">${items.length?items.map(cardHTML).join(''):'<div class="empty-col">Nothing here</div>'}</div></div>`;}).join('')+`</div>`;
 }
 function followupsHTML(leads){
