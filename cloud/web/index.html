@@ -4629,52 +4629,60 @@ async function boot(){
   else{loginView={step:pendingInvite?'signup':'signin',err:'',email:''};showLogin();}
 }
 /* ============ phone back button / swipe-back ============ *
- * A single-page app records no history, so Android's back gesture (and the iOS
- * edge-swipe in an installed PWA) walked straight out of the app. We keep ONE
- * spare history entry alive whenever there is somewhere to go back to, and spend
- * it closing the top-most thing instead of quitting.
+ * A single-page app records no history, so the Android back gesture and the iOS
+ * edge-swipe walked straight out of the app.
+ *
+ * Model: hold exactly ONE spare history entry at all times while the app is open,
+ * and re-arm it immediately after every back. Each back closes exactly one thing.
+ * We never call history.back() ourselves to "give an entry back" — that was the
+ * bug: the counters desynchronised and the second swipe fell through and quit.
  */
 const NAV_CLOSERS={modalScrim:'closeModal',editScrim:'closeEdit',bulkScrim:'closeBulk',baScrim:'closeBulkAssign',
   bookScrim:'closeBooking',chatScrim:'closeChat',cpScrim:'closeCpManager',filterScrim:'closeFilters',
   listScrim:'closeLeadList',msgScrim:'closeMsgManager',msgPickScrim:'closeMsgPicker',pieScrim:'closePie',
   priceScrim:'closePricing',remScrim:'closeReminder',schemeScrim:'closeSchemes',teamScrim:'closeTeam'};
-// What would "back" mean right now? Returns a function to run, or null to leave the app.
-function navTop(){
+// Everything "back" could step out of, TOP-MOST FIRST.
+function navSteps(){
+  const out=[];
   const np=document.getElementById('notifyPanel');
-  if(np&&!np.classList.contains('hidden'))return closeNotify;
+  if(np&&!np.classList.contains('hidden'))out.push(closeNotify);
+  // later in the DOM = stacked on top, so walk the open dialogs in reverse
   const open=Array.from(document.querySelectorAll('.modal-scrim.on'));
-  if(open.length){                                   // a dialog sits above the drawer, so it goes first
-    const el=open[open.length-1];const fn=window[NAV_CLOSERS[el.id]];
-    return typeof fn==='function'?fn:function(){el.classList.remove('on');};
+  for(let i=open.length-1;i>=0;i--){
+    const el=open[i];const fn=window[NAV_CLOSERS[el.id]];
+    out.push(typeof fn==='function'?fn:function(){el.classList.remove('on');});
   }
   const dr=document.getElementById('drawer');
-  if(dr&&dr.classList.contains('on'))return closeDrawer;
+  if(dr&&dr.classList.contains('on'))out.push(closeDrawer);
   const u=(typeof currentUser==='function')?currentUser():null;
-  if(u&&u.role!=='reception'&&activeTab&&activeTab!=='pipeline')return function(){setTab('pipeline');};
-  return null;                                        // nothing left — let the phone leave the app
+  if(u&&u.role!=='reception'&&typeof activeTab!=='undefined'&&activeTab&&activeTab!=='pipeline')
+    out.push(function(){setTab('pipeline');});
+  return out;
 }
-let _navGuard=0,_navIgnore=0,_navPending=null;
-function navSync(){
-  if(!window.history||!history.pushState)return;
-  const somewhere=!!navTop();
-  if(somewhere&&!_navGuard){_navGuard=1;try{history.pushState({se:1},'');}catch(e){}}
-  else if(!somewhere&&_navGuard){_navGuard=0;_navIgnore++;try{history.back();}catch(e){_navIgnore--;}}
+let _navArmed=false,_navExitAt=0;
+function navArm(){
+  if(_navArmed||!window.history||!history.pushState)return;
+  try{history.pushState({se:1},'');_navArmed=true;}catch(e){}
 }
-function navSyncSoon(){if(_navPending)return;_navPending=setTimeout(function(){_navPending=null;navSync();},0);}
+function navSync(){navArm();}            // one entry, always — nothing to get out of step
 function navInit(){
   if(!window.history||!history.pushState)return;
   window.addEventListener('popstate',function(){
-    if(_navIgnore>0){_navIgnore--;return;}          // this was our own history.back(), already handled
-    const back=navTop();
-    if(back){_navGuard=0;try{back();}catch(e){}navSyncSoon();}   // consumed the guard — re-arm if more remains
+    _navArmed=false;                     // the browser just spent our entry
+    const steps=navSteps();
+    if(steps.length){                    // close exactly one thing, then re-arm for the next swipe
+      try{steps[0]();}catch(e){}
+      navArm();
+      return;
+    }
+    // Nothing left inside the app — don't quit on the first press.
+    const now=Date.now();
+    if(now-_navExitAt<2500){return;}      // they meant it; leave unarmed so the next back exits
+    _navExitAt=now;
+    try{showToast({icon:'👋',title:'Press back again to close',msg:'You are on the main screen.'});}catch(e){}
+    navArm();
   });
-  // Watch the overlays directly instead of editing 17 open/close functions.
-  const watch=Object.keys(NAV_CLOSERS).map(id=>document.getElementById(id))
-    .concat([document.getElementById('drawer'),document.getElementById('notifyPanel')]).filter(Boolean);
-  if(window.MutationObserver){
-    const obs=new MutationObserver(navSyncSoon);
-    watch.forEach(el=>obs.observe(el,{attributes:true,attributeFilter:['class']}));
-  }
+  navArm();
 }
 navInit();
 boot();
