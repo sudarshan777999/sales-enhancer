@@ -681,6 +681,12 @@
   .mtop-link{border:0;background:transparent;color:inherit;text-decoration:underline;font-size:11.5px;cursor:pointer;padding:2px 6px;font-family:inherit;opacity:.85;}
   button.mtop-link{color:var(--soft);}
   .mtop .mtop-link{color:#A03027;}
+  /* front-desk: entry form and expected visits side by side */
+  .rc-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;
+    max-width:1160px;margin:26px auto;padding:0 16px;align-items:start;}
+  .rc-cols .rc-col{min-width:0;}
+  .rc-cols .rc-log{max-width:none;margin:14px 0 0;padding:0;}
+  @media(max-width:1000px){.rc-cols{grid-template-columns:1fr;max-width:640px;gap:16px;}}
   /* front-desk "visits expected" panel */
   .rcv-card{margin-bottom:16px;}
   .rcv-sec{margin-top:14px;}
@@ -1799,7 +1805,7 @@ function receptionFormHTML(){
   const subOpts=RC_SUBSOURCES.map(s=>`<option>${s}</option>`).join('');
   const sessionHTML=rcSession.length?`<div class="rc-log"><div class="rc-log-h">Entered today (${rcSession.length})</div>${rcSession.map(e=>`<div class="rc-log-row"><b>${escapeHtml(e.name)}${e.revisit?' <span style="color:#B26A00">↩ revisit</span>':''}</b><span>${escapeHtml(e.src)} · 📅 ${fmtDate(e.date)} → ${escapeHtml(e.owner)}</span></div>`).join('')}</div>`:'';
   const noReps=reps.length?'':`<div class="rc-warn">No salespeople have a login yet. Ask the Sales Head to add them before entering walk-ins.</div>`;
-  return `<div class="rc-wrap">
+  return `<div class="rc-col">
     <form class="rc-card" onsubmit="event.preventDefault();rcSubmit();return false;">
       <h2>New walk-in</h2>
       <div class="rc-sub">Fill this in as the customer arrives. Press <b>Enter</b> to save — it goes straight to the salesperson you pick.</div>
@@ -1821,7 +1827,11 @@ function receptionFormHTML(){
     ${sessionHTML}
   </div>`;
 }
-function receptionScreenHTML(){return `<div class="rc-wrap" style="margin-bottom:0">${rcVisitsHTML()}</div>`+receptionFormHTML();}
+// Two columns on a wide screen: the entry form first (it's the job), visits expected beside it.
+// On a phone they stack, form on top — it must never be pushed below the list again.
+function receptionScreenHTML(){
+  return `<div class="rc-cols">${receptionFormHTML()}<div class="rc-col">${rcVisitsHTML()}</div></div>`;
+}
 function rcToggleSource(){const cp=document.getElementById('rc_source').value==='CP';
   document.getElementById('rc_cp_wrap').classList.toggle('hidden',!cp);
   document.getElementById('rc_sub_wrap').classList.toggle('hidden',cp);}
