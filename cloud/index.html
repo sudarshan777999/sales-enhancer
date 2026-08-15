@@ -1265,7 +1265,57 @@ function applyDefaultPeriod(){
   filters=[{field:'captured',value:monthRange(0)}];
   filterMode='AND';
 }
-async function afterLogin(){await loadAll();applyDefaultPeriod();showApp();}
+/* ============ the URL is the state ============ *
+ * Tab, search, open lead and every active filter live in the address bar, so a link can be
+ * pasted into WhatsApp and land a colleague on exactly this screen — and a refresh keeps
+ * your place. Parameters are readable on purpose (?tab=funnel&stage=qualified), not an
+ * encoded blob: people read and hand-edit these.
+ */
+const URL_RESERVED=['tab','q','id','mode','invite','view'];
+function parseUrlState(){
+  const p=new URLSearchParams(location.search);const out={filters:[]};
+  out.tab=p.get('tab')||'';out.q=p.get('q')||'';out.id=p.get('id')||'';
+  out.mode=(p.get('mode')||'').toUpperCase()==='OR'?'OR':'AND';
+  p.forEach(function(v,k){
+    if(URL_RESERVED.indexOf(k)>=0)return;
+    if(FILTER_FIELDS.some(function(f){return f.k===k;}))out.filters.push({field:k,value:v});
+  });
+  return out;
+}
+function applyUrlState(s){
+  if(!s)return;
+  if(s.tab)activeTab=s.tab;
+  if(s.q){const el=document.getElementById('search');if(el)el.value=s.q;}
+  if(s.filters.length){filters=s.filters;filterMode=s.mode;}
+}
+function urlWrite(){
+  if(!window.history||!history.replaceState)return;
+  const u=currentUser();if(!u||u.role==='reception')return;
+  const p=new URLSearchParams();
+  const inv=new URLSearchParams(location.search).get('invite');
+  if(inv)p.set('invite',inv);                                  // never drop a half-finished invite
+  if(activeTab&&activeTab!=='pipeline')p.set('tab',activeTab);
+  const q=((document.getElementById('search')||{}).value||'').trim();
+  if(q)p.set('q',q);
+  if(openId)p.set('id',openId);
+  if(filterMode==='OR')p.set('mode','or');
+  activeFilters().forEach(function(f){if(URL_RESERVED.indexOf(f.field)<0)p.set(f.field,f.value);});
+  const qs=p.toString();
+  const next=location.pathname+(qs?'?'+qs:'');
+  if(next===location.pathname+location.search)return;
+  // replaceState, not pushState: filters change constantly and should not each become a
+  // back step. In-app back is handled by the swipe/back module.
+  try{history.replaceState(history.state,'',next);}catch(e){}
+}
+async function afterLogin(){
+  const want=parseUrlState();      // read the link BEFORE anything rewrites the address bar
+  await loadAll();
+  showApp();                       // resets to the pipeline, so the link is applied after
+  applyUrlState(want);
+  applyDefaultPeriod();            // only fires when the link carried no filters of its own
+  render();
+  if(want.id&&db.leads.some(function(l){return l.id===want.id;}))openDrawer(want.id);
+}
 async function signOut(){closeChat();await sb.auth.signOut();session=null;myCompanyId=null;closeDrawer();loginView={step:'signin',err:'',email:''};showLogin();}
 
 /* ============ team / invites (Sales Head only) ============ */
@@ -1934,7 +1984,7 @@ function render(){
   if(['funnel','stats','ageing'].includes(activeTab))makeReorderable(m,activeTab);
   const total=scoped().length;
   document.getElementById('count').textContent=total+(u.role==='sales'?' of your leads':' leads in view');
-  refreshNotifyBadge();renderSavedBar();renderMyTarget();renderTaskDock();navSync();
+  refreshNotifyBadge();renderSavedBar();renderMyTarget();renderTaskDock();navSync();urlWrite();
   if(activeTab==='crossproject'){const k=document.getElementById('kpis');if(k)k.innerHTML='';const sb=document.getElementById('savedBar');if(sb)sb.innerHTML='';}   // cross-project: no stats/filters
   if(openId)renderDrawer();
 }
@@ -2314,9 +2364,9 @@ function lbBreakdown(r){
   return bits.length?bits.join(' &nbsp; '):'<span style="color:var(--soft)">no activity yet</span>';
 }
 /* ============ drawer ============ */
-function openDrawer(id){listReturn=null;openId=id;renderDrawer();document.getElementById('scrim').classList.add('on');document.getElementById('drawer').classList.add('on');}
+function openDrawer(id){listReturn=null;openId=id;renderDrawer();document.getElementById('scrim').classList.add('on');document.getElementById('drawer').classList.add('on');urlWrite();}
 function openFromList(id){const ret=curList;closeLeadList();openDrawer(id);listReturn=ret;}
-function closeDrawer(){openId=null;document.getElementById('scrim').classList.remove('on');document.getElementById('drawer').classList.remove('on');if(listReturn){const lr=listReturn;listReturn=null;openLeadList(lr.title,db.leads.filter(l=>lr.ids.includes(l.id)));}}
+function closeDrawer(){openId=null;document.getElementById('scrim').classList.remove('on');document.getElementById('drawer').classList.remove('on');if(listReturn){const lr=listReturn;listReturn=null;openLeadList(lr.title,db.leads.filter(l=>lr.ids.includes(l.id)));}urlWrite();}
 function getLead(){return db.leads.find(l=>l.id===openId);}
 function renderDrawer(){
   const l=getLead();if(!l)return;
