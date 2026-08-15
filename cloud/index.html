@@ -664,6 +664,33 @@
   .dr-step{display:inline-flex;align-items:center;gap:2px;}
   .dr-step .x[disabled]{opacity:.3;cursor:default;}
   .dr-pos{font-size:11.5px;color:var(--soft);font-variant-numeric:tabular-nums;white-space:nowrap;padding:0 2px;}
+  /* ---------- command palette ---------- */
+  .pal-scrim{position:fixed;inset:0;background:rgba(12,18,28,.45);backdrop-filter:blur(3px);z-index:120;
+    display:none;align-items:flex-start;justify-content:center;padding:12vh 16px 16px;}
+  .pal-scrim.on{display:flex;}
+  .pal{width:100%;max-width:620px;background:var(--surface);border:1px solid var(--line);border-radius:14px;
+    box-shadow:0 24px 70px rgba(9,14,24,.35);overflow:hidden;display:flex;flex-direction:column;max-height:70vh;}
+  .pal-top{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line);}
+  .pal-crumb{font-size:11.5px;font-weight:700;background:var(--canvas);color:var(--brand);padding:3px 9px;border-radius:20px;white-space:nowrap;}
+  .pal-input{flex:1;border:0;outline:0;background:transparent;font-family:inherit;font-size:15px;color:var(--ink);}
+  .pal-esc,.pal-foot kbd{font-family:inherit;font-size:10.5px;border:1px solid var(--line);border-bottom-width:2px;
+    border-radius:5px;padding:1px 5px;color:var(--soft);background:var(--canvas);}
+  .pal-list{overflow-y:auto;padding:6px;}
+  .pal-sec{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--soft);font-weight:700;padding:9px 10px 5px;}
+  .pal-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;cursor:pointer;font-size:13.5px;}
+  .pal-item .pi-ic{width:22px;text-align:center;flex:none;}
+  .pal-item .pi-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .pal-item .pi-s{font-size:11.5px;color:var(--soft);white-space:nowrap;}
+  .pal-item[aria-selected="true"]{background:var(--brand);color:#fff;}
+  .pal-item[aria-selected="true"] .pi-s{color:rgba(255,255,255,.8);}
+  .pal-foot{display:flex;gap:14px;align-items:center;padding:8px 14px;border-top:1px solid var(--line);font-size:11.5px;color:var(--soft);}
+  .pal-empty{padding:26px 12px;text-align:center;color:var(--soft);font-size:13px;}
+  .keys-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  .keys-grid h4{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--soft);margin:0 0 6px;}
+  .keys-row{display:flex;align-items:center;gap:9px;padding:5px 0;border-top:1px solid var(--line2);font-size:13px;}
+  .keys-row kbd{font-family:inherit;font-size:11px;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;
+    padding:1px 6px;background:var(--canvas);color:var(--ink);white-space:nowrap;}
+  @media(max-width:640px){.keys-grid{grid-template-columns:1fr;}}
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
   /* ---------- data table (All leads) ---------- */
   .dt-wrap{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;}
@@ -818,7 +845,7 @@
       </div>
       <div class="search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-        <input id="search" placeholder="Search name or merge code…" oninput="render()" />
+        <input id="search" placeholder="Search name or merge code…   ⌘K for commands" oninput="render()" />
       </div>
       <button class="btn ghost" id="filterBtn" onclick="openFilters()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
@@ -927,6 +954,29 @@
 </div>
 
 <!-- Walk-ins drill-down list (from funnel numbers / ask box) -->
+<!-- Command palette (⌘K) -->
+<div class="pal-scrim" id="palScrim" role="dialog" aria-modal="true" aria-label="Command palette" onclick="if(event.target===this)palClose()">
+  <div class="pal">
+    <div class="pal-top">
+      <span id="palCrumb" class="pal-crumb"></span>
+      <input id="palInput" class="pal-input" role="combobox" aria-expanded="true" aria-controls="palList"
+             aria-autocomplete="list" autocomplete="off" oninput="palInputChanged(this.value)" placeholder="Search leads or type a command…"/>
+      <kbd class="pal-esc">esc</kbd>
+    </div>
+    <div id="palList" class="pal-list" role="listbox" aria-label="Results"></div>
+    <div class="pal-foot"><span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>↵</kbd> select</span><span><kbd>⌫</kbd> back</span><span style="margin-left:auto"><kbd>?</kbd> all shortcuts</span></div>
+  </div>
+</div>
+
+<!-- Keyboard cheat sheet (?) -->
+<div class="modal-scrim" id="keysScrim">
+  <div class="modal">
+    <div class="modal-h"><h2>Keyboard shortcuts</h2></div>
+    <div class="modal-b" style="display:block" id="keysBody"></div>
+    <div class="modal-f"><button class="btn ghost" onclick="closeKeys()">Close</button></div>
+  </div>
+</div>
+
 <div class="modal-scrim" id="listScrim">
   <div class="modal">
     <div class="modal-h"><h2 id="listTitle">Walk-ins</h2></div>
@@ -5050,6 +5100,139 @@ function navInit(){
 }
 navInit();
 boot();
+/* ============ the keyboard layer ============ *
+ * A command palette (⌘K) that does both search AND actions, plus single-letter shortcuts.
+ * Every shortcut has a mouse equivalent, none fire while typing, and each one is shown in
+ * two places — beside the action in the palette and in the ? cheat sheet.
+ */
+let pal={open:false,q:'',sel:0,page:null,items:[],lastFocus:null};
+const NAV_KEYS=[['p','pipeline','Pipeline'],['t','plays',"Today's plays"],['v','visits','Visits planned'],
+  ['f','followups','Follow-ups due'],['l','all','All leads'],['k','tasks','Tasks'],
+  ['n','funnel','Funnel'],['c','lostanalytics','Closed Lost'],['r','report','Report']];
+function palOpen(){
+  pal.lastFocus=document.activeElement;
+  pal.open=true;pal.q='';pal.sel=0;pal.page=null;
+  document.getElementById('palScrim').classList.add('on');
+  const i=document.getElementById('palInput');i.value='';
+  palRender();setTimeout(function(){i.focus();},0);
+}
+function palClose(){
+  pal.open=false;pal.page=null;
+  document.getElementById('palScrim').classList.remove('on');
+  try{if(pal.lastFocus&&pal.lastFocus.focus)pal.lastFocus.focus();}catch(e){}   // focus goes back
+}
+function palGo(page){pal.page=page;pal.q='';pal.sel=0;const i=document.getElementById('palInput');if(i)i.value='';palRender();}
+function palLead(){return openId?db.leads.find(function(l){return l.id===openId;}):null;}
+function palBuild(){
+  const q=pal.q.trim().toLowerCase();
+  const hit=function(t){return !q||String(t).toLowerCase().indexOf(q)>=0;};
+  const secs=[];
+  if(pal.page&&pal.page.kind==='stage'){
+    const l=db.leads.find(function(x){return x.id===pal.page.id;});
+    secs.push({name:'Set deal status',items:DEAL_STATUSES.filter(hit).map(function(s){
+      return {ic:'◆',t:s,run:function(){if(s==='Closed Won')openBooking(l.id,'Closed Won');else if(s==='Closed Lost')notify('Pick a reason on the lead to mark it lost.');else setDealStatus(l.id,s);}};})});
+    return secs;
+  }
+  if(pal.page&&pal.page.kind==='assign'){
+    const l=db.leads.find(function(x){return x.id===pal.page.id;});
+    secs.push({name:'Assign to',items:assignees(l&&l.project).filter(function(r){return hit(r.name);}).map(function(r){
+      return {ic:'👤',t:r.name,s:r.project||'',run:function(){assign(l.id,r.id);}};})});
+    return secs;
+  }
+  // Records — searching leads is the most common thing, so it comes first
+  if(q){
+    const found=scoped().filter(function(l){return hit(l.name)||hit(l.matchCode||'');}).slice(0,6);
+    if(found.length)secs.push({name:'Leads',items:found.map(function(l){
+      return {ic:'🧾',t:l.name,s:(STAGES[l.stage]||{}).label||'',run:function(){openDrawer(l.id);}};})});
+  }
+  // Actions — what you can do depends on what is open
+  const L=palLead();const acts=[];
+  if(L&&can('edit',L)){
+    acts.push({ic:'✎',t:'Edit '+L.name,s:'E',run:function(){openEdit(L.id);}});
+    acts.push({ic:'◆',t:'Change deal status…',s:'S',run:function(){palGo({kind:'stage',id:L.id});},keep:true});
+    if(can('assign'))acts.push({ic:'👤',t:'Assign to…',s:'A',run:function(){palGo({kind:'assign',id:L.id});},keep:true});
+    acts.push({ic:'›',t:'Next lead',s:'J',run:function(){drawerStep(1);}});
+    acts.push({ic:'‹',t:'Previous lead',s:'K',run:function(){drawerStep(-1);}});
+  }
+  acts.push({ic:'＋',t:'New lead',s:'C',run:function(){openModal();}});
+  acts.push({ic:'⛃',t:'Open filters',s:'F',run:function(){openFilters();}});
+  if(activeFilters().length)acts.push({ic:'✕',t:'Clear all filters',run:function(){bannerClear();}});
+  acts.push({ic:'🌗',t:'Switch theme (auto / light / dark)',run:function(){cycleTheme();}});
+  acts.push({ic:'⌨',t:'Show all keyboard shortcuts',s:'?',run:function(){openKeys();}});
+  const actF=acts.filter(function(a){return hit(a.t);});
+  if(actF.length)secs.push({name:'Actions',items:actF});
+  // Navigate
+  const cu=currentUser();
+  const navF=NAV_KEYS.filter(function(n){return hit(n[2]);}).map(function(n){
+    return {ic:'→',t:n[2],s:'G '+n[0].toUpperCase(),run:function(){setTab(n[1]);}};});
+  if(navF.length)secs.push({name:'Go to',items:navF});
+  // Settings
+  if(cu&&cu.role!=='reception'){
+    const set=[{ic:'💬',t:'WhatsApp messages',run:function(){openMsgManager();}}];
+    if(cu.role==='sales_head'||cu.role==='project_head'){
+      set.push({ic:'🤝',t:'Channel partners',run:function(){openCpManager();}});
+      set.push({ic:'👥',t:'Team',run:function(){openTeam();}});
+    }
+    const setF=set.filter(function(a){return hit(a.t);});
+    if(setF.length)secs.push({name:'Settings',items:setF});
+  }
+  return secs;
+}
+function palRender(){
+  const secs=palBuild();
+  pal.items=[];secs.forEach(function(s){s.items.forEach(function(i){pal.items.push(i);});});
+  if(pal.sel>=pal.items.length)pal.sel=Math.max(0,pal.items.length-1);
+  const crumb=document.getElementById('palCrumb');
+  const label=pal.page?(pal.page.kind==='stage'?'Deal status':'Assign'):'';
+  crumb.textContent=label;crumb.style.display=label?'':'none';
+  const inp=document.getElementById('palInput');
+  if(inp)inp.placeholder=pal.page?'Pick one…':'Search leads or type a command…';
+  let n=0,html='';
+  secs.forEach(function(s){
+    html+=`<div class="pal-sec">${escapeHtml(s.name)}</div>`;
+    s.items.forEach(function(it){
+      const on=n===pal.sel;
+      html+=`<div class="pal-item" id="pal-o-${n}" role="option" aria-selected="${on}" onclick="palRun(${n})" onmousemove="palHover(${n})">
+        <span class="pi-ic">${it.ic||'•'}</span><span class="pi-t">${escapeHtml(it.t)}</span>${it.s?`<span class="pi-s">${escapeHtml(it.s)}</span>`:''}</div>`;
+      n++;});
+  });
+  const list=document.getElementById('palList');
+  list.innerHTML=html||`<div class="pal-empty">Nothing matches “${escapeHtml(pal.q)}”.</div>`;
+  if(inp)inp.setAttribute('aria-activedescendant',pal.items.length?('pal-o-'+pal.sel):'');
+  const sel=document.getElementById('pal-o-'+pal.sel);
+  if(sel&&sel.scrollIntoView)sel.scrollIntoView({block:'nearest'});
+}
+function palHover(i){if(pal.sel!==i){pal.sel=i;palRender();}}
+function palRun(i){
+  const it=pal.items[i];if(!it)return;
+  if(!it.keep)palClose();                       // "…" items open a sub-list instead of closing
+  try{it.run();}catch(e){console.error(e);}
+}
+function palKey(e){
+  if(e.key==='Escape'){e.preventDefault();if(pal.page)palGo(null);else palClose();return;}
+  if(e.key==='ArrowDown'){e.preventDefault();pal.sel=Math.min(pal.items.length-1,pal.sel+1);palRender();return;}
+  if(e.key==='ArrowUp'){e.preventDefault();pal.sel=Math.max(0,pal.sel-1);palRender();return;}
+  if(e.key==='Enter'){e.preventDefault();palRun(pal.sel);return;}
+  if(e.key==='Tab'){e.preventDefault();return;}                       // focus stays trapped
+  if(e.key==='Backspace'&&!pal.q&&pal.page){e.preventDefault();palGo(null);return;}
+}
+function palInputChanged(v){pal.q=v;pal.sel=0;palRender();}
+/* ---- cheat sheet ---- */
+const KEY_HELP=[
+  ['Anywhere',[['⌘K / Ctrl K','Command palette'],['/','Jump to search'],['F','Open filters'],
+    ['C','New lead'],['?','This cheat sheet'],['Esc','Close panel, then cancel, then clear']]],
+  ['Go to',NAV_KEYS.map(function(n){return ['G then '+n[0].toUpperCase(),n[2]];})],
+  ['With a lead open',[['J','Next lead'],['K','Previous lead'],['E','Edit details'],
+    ['S','Change deal status'],['A','Assign to someone']]]
+];
+function openKeys(){document.getElementById('keysBody').innerHTML=
+  `<div class="keys-grid">`+KEY_HELP.map(function(g){
+    return `<div><h4>${escapeHtml(g[0])}</h4>`+g[1].map(function(r){
+      return `<div class="keys-row"><kbd>${escapeHtml(r[0])}</kbd><span>${escapeHtml(r[1])}</span></div>`;}).join('')+`</div>`;
+  }).join('')+`</div><div style="font-size:11.5px;color:var(--soft);line-height:1.55;margin-top:14px">
+    Shortcuts never fire while you are typing in a box. Everything here can also be done with the mouse.</div>`;
+  document.getElementById('keysScrim').classList.add('on');}
+function closeKeys(){document.getElementById('keysScrim').classList.remove('on');}
 /* Step between records without closing the panel — the spec calls this the single biggest
    productivity win. J/K mirror the arrow buttons in the panel header. */
 function drawerList(){
@@ -5068,7 +5251,36 @@ function drawerStep(d){
   openDrawer(q.list[n].id);
   const dr=document.getElementById('drawer');if(dr)dr.scrollTop=0;
 }
+let _gPending=0;
 document.addEventListener('keydown',function(e){
+  const t=e.target,tag=(t&&t.tagName||'').toLowerCase();
+  const typing=tag==='input'||tag==='textarea'||tag==='select'||(t&&t.isContentEditable);
+  // ⌘K works everywhere, including from inside a field — it is the one global escape hatch
+  if((e.metaKey||e.ctrlKey)&&(e.key==='k'||e.key==='K')){e.preventDefault();pal.open?palClose():palOpen();return;}
+  if(pal.open){palKey(e);return;}                     // the palette owns the keyboard while open
+  if(typing||e.metaKey||e.ctrlKey||e.altKey){         // never steal a key from a text box
+    if(e.key==='Escape'&&typing&&t.blur)t.blur();
+    if(!(e.key==='Escape'))return;
+  }
+  if(!typing){
+    // G then a letter — navigation, with a short window before it lapses
+    if(_gPending&&Date.now()-_gPending<1400){
+      const m=NAV_KEYS.find(function(n){return n[0]===e.key.toLowerCase();});
+      _gPending=0;
+      if(m){e.preventDefault();setTab(m[1]);return;}
+    }
+    if(e.key==='g'||e.key==='G'){_gPending=Date.now();return;}
+    if(e.key==='/'){e.preventDefault();const s=document.getElementById('search');if(s){s.focus();s.select();}return;}
+    if(e.key==='?'){e.preventDefault();openKeys();return;}
+    if(e.key==='f'||e.key==='F'){e.preventDefault();openFilters();return;}
+    if(e.key==='c'||e.key==='C'){e.preventDefault();openModal();return;}
+    const L=openId?db.leads.find(function(x){return x.id===openId;}):null;
+    if(L&&can('edit',L)){
+      if(e.key==='e'||e.key==='E'){e.preventDefault();openEdit(L.id);return;}
+      if(e.key==='s'||e.key==='S'){e.preventDefault();palOpen();palGo({kind:'stage',id:L.id});return;}
+      if((e.key==='a'||e.key==='A')&&can('assign')){e.preventDefault();palOpen();palGo({kind:'assign',id:L.id});return;}
+    }
+  }
   // J / K step through records while the panel is open — but never while typing
   if(openId&&!e.metaKey&&!e.ctrlKey&&!e.altKey){
     const t=e.target,tag=(t&&t.tagName||'').toLowerCase();
