@@ -2860,9 +2860,17 @@ function closedLostPanels(leads){
   const cpRows=Object.entries(byCp).map(([k,arr])=>({label:k,arr})).sort((a,b)=>b.arr.length-a.arr.length);
   const byMo=group(l=>(lostAt(l)||'').slice(0,7)||'unknown');
   const moRows=Object.entries(byMo).sort((a,b)=>a[0]<b[0]?1:-1).map(([ym,arr])=>({label:ym==='unknown'?'(unknown)':rMonthLabel(ym),arr}));
+  // How far did we get before losing them? Buckets by how many times they came back.
+  const rvBuckets=[['Never came back','0'],['Came back once','1'],['Came back twice','2'],['Came back 3+ times','3+']];
+  const byRv={};lost.forEach(l=>{const n=(l.revisits||[]).length;const k=n>=3?'3+':String(n);(byRv[k]=byRv[k]||[]).push(l);});
+  const rvRows=rvBuckets.filter(b=>byRv[b[1]]).map(b=>({label:b[0]+' ('+b[1]+')',arr:byRv[b[1]]}));
+  const rvTotal=lost.length;
+  const rvAfterVisit=lost.filter(l=>(l.revisits||[]).length>0).length;
+  const rvNote=rvTotal?`<div style="font-size:11.5px;color:var(--soft);line-height:1.55;margin-top:8px"><b>${Math.round(rvAfterVisit/rvTotal*100)}%</b> of losses came back at least once before we lost them — those are the ones worth reviewing, since real interest was there.</div>`:'';
   return `<div class="panel"><h3>Closed Lost — analytics <span style="font-weight:400;color:var(--soft);font-size:12px">· ${lost.length} lost</span></h3>
     <div class="split"><div>${sub('By salesperson')}${bar(spRows,'#C0524A')}</div><div>${sub('By reason')}${bar(rsRows,'#A0453D')}</div></div>
     <div class="split" style="margin-top:4px"><div>${sub('By month (when lost) — tap for a reason pie 🥧')}${bar(moRows,'#7E57C2',r=>drillPie(r.arr,'Closed Lost · '+r.label))}</div><div>${sub('By channel partner')}${bar(cpRows,'#4A6FA5')}</div></div>
+    <div class="split" style="margin-top:4px"><div>${sub('Lost after how many revisits')}${bar(rvRows,'#B26A00')}${rvNote}</div><div></div></div>
     <div class="ai-tag" style="margin-top:8px">Use the filter bar above (salesperson, period, etc.) to narrow this — it flows straight into these breakdowns. Tap a month for a downloadable reason pie; tap any other bar to open those lost leads.</div></div>`;
 }
 // Qualification snapshot: % qualified, % not-qualified, and the not-qualified reasons
@@ -2929,7 +2937,26 @@ function statsHTML(leads){
     const bkN=wins.filter(l=>(l.revisits||[]).length===0&&l.stage==='booked').length;
     const convR=winRevisited?Math.round(bkR/winRevisited*100):0;
     const winsNot=wins.length-winRevisited;const convN=winsNot?Math.round(bkN/winsNot*100):0;
-    wiPanel+=`<div class="panel"><h3>Visits &amp; revisits</h3><div class="stat-grid">${sc('Total revisits',totalRevisits)}${sc('Walk-ins that revisited',winRevisited+' <small>('+revRate+'%)</small>')}${sc('Avg revisits / walk-in',avgRev)}${sc('Booked · revisited vs not',convR+'% <small>vs '+convN+'%</small>')}</div><div class="ai-tag" style="margin-top:4px">Revisiting walk-ins convert at ${convR}% vs ${convN}% for one-time visitors.</div></div>`;
+    wiPanel+=`<div class="panel"><h3>Visits &amp; revisits</h3><div class="stat-grid">${sc('Total revisits',totalRevisits)}${sc('Walk-ins that revisited',winRevisited+' <small>('+revRate+'%)</small>')}${sc('Avg revisits / walk-in',avgRev)}${sc('Booked · revisited vs not',convR+'% <small>vs '+convN+'%</small>')}</div><div style="font-size:11.5px;color:var(--soft);line-height:1.55;margin-top:6px">Revisiting walk-ins convert at ${convR}% vs ${convN}% for one-time visitors.</div></div>`;
+    // Per-salesperson revisits — the headline numbers above are company-wide, which
+    // doesn't answer "how many revisits has this rep actually pulled in?"
+    const rvBy={};wins.forEach(l=>{const k=l.ownerId||'—';(rvBy[k]=rvBy[k]||[]).push(l);});
+    const rvRows=Object.entries(rvBy).map(function(en){
+      const arr=en[1];
+      const total=arr.reduce((a,l)=>a+((l.revisits||[]).length),0);
+      const withRv=arr.filter(l=>(l.revisits||[]).length>0).length;
+      const bk=arr.filter(l=>(l.revisits||[]).length>0&&l.stage==='booked').length;
+      return {id:en[0],walkins:arr.length,total:total,withRv:withRv,
+        avg:arr.length?(total/arr.length).toFixed(1):'0',
+        rate:arr.length?Math.round(withRv/arr.length*100):0,booked:bk};
+    }).sort((a,b)=>b.total-a.total);
+    if(rvRows.length){
+      const tot=rvRows.reduce((a,r)=>a+r.total,0);
+      const body=rvRows.map(r=>`<tr><td><b class="mono">${escapeHtml(r.id==='—'?'Unassigned':userName(r.id))}</b></td>
+        <td class="mono">${r.walkins}</td><td class="mono"><b>${r.total}</b></td><td class="mono">${r.withRv} <span style="color:var(--soft)">(${r.rate}%)</span></td>
+        <td class="mono">${r.avg}</td><td class="mono">${r.booked}</td></tr>`).join('');
+      wiPanel+=`<div class="panel"><h3>Revisits by salesperson</h3><div style="overflow-x:auto"><table style="box-shadow:none"><thead><tr><th>Salesperson</th><th>Walk-ins</th><th>Revisits</th><th>Customers who came back</th><th>Avg / walk-in</th><th>Booked after a revisit</th></tr></thead><tbody>${body}<tr style="background:var(--canvas)"><td><b>Team</b></td><td class="mono"><b>${wins.length}</b></td><td class="mono"><b>${tot}</b></td><td class="mono"><b>${winRevisited}</b></td><td class="mono"><b>${avgRev}</b></td><td class="mono"><b>${bkR}</b></td></tr></tbody></table></div><div style="font-size:11.5px;color:var(--soft);line-height:1.55;margin-top:9px"><b>Revisits</b> counts every return visit, so one customer coming three times counts as three. <b>Customers who came back</b> counts each person once. Follows the filters above.</div></div>`;
+    }
   }
   const card=(k,v)=>`<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`;
   const spPanel=spRows.length?spRows.map(([nm,n])=>`<div class="barrow"><div class="lbl">${nm}</div><div class="track"><div class="fillb" style="width:${Math.round(n/spMax*100)}%;background:var(--brand)">${n}</div></div></div>`).join(''):'<div class="locked-note">No follow-up comments logged yet.</div>';
@@ -3535,7 +3562,7 @@ const REPORT_COLS=[
   {k:'gre',label:'GRE',get:l=>l.viaGre?'Yes':'No'},
   {k:'lastcomment',label:'Last comment',get:l=>{const c=(l.log||[]).filter(e=>(e.kind==='note'||e.kind==='revisit')&&e.t);return c.length?c[c.length-1].t:'';}}
 ];
-const REPORT_GROUPS=['owner','project','stage','dealStatus','walkinVia','phase','source','metph','gre','wwsug','wwvis','lostto','competitors','labels','rnr'];
+const REPORT_GROUPS=['owner','project','stage','dealStatus','walkinVia','phase','source','metph','gre','wwsug','wwvis','lostto','competitors','labels','rnr','revisits'];
 function reportCol(k){return REPORT_COLS.find(c=>c.k===k);}
 function rbCell(c,l){let v=c.get(l);if((c.k==='captured'||c.k==='nextfu'||c.k==='pvisit')&&v)v=fmtDate(v);return v==null?'':String(v);}
 function rbRerender(){const m=document.getElementById('main');if(m)m.innerHTML=reportBuilderHTML();}
