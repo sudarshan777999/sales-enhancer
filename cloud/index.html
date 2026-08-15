@@ -996,13 +996,25 @@ function leadFromRow(r){return {id:r.id,name:r.name,phone:r.phone,email:r.email|
 // Fetch ALL rows for a query, paging past Supabase's 1000-row cap.
 // makeQuery must return a FRESH query builder each call (filters/order applied, no .range()).
 async function fetchAll(makeQuery){
-  const PAGE=1000;let from=0;const out=[];
+  const PAGE=1000,BURST=4;
+  // One request first: small tables (the common case) cost exactly one round trip.
+  const first=await Promise.resolve(makeQuery().range(0,PAGE-1)).catch(e=>({error:e}));
+  if(first.error){console.error('fetchAll',first.error);return [];}
+  const out=(first.data||[]).slice();
+  if(out.length<PAGE)return out;                  // that was the lot
+  // Still going, so fetch the remaining pages CONCURRENTLY rather than one after another.
+  let from=PAGE;
   for(;;){
-    const {data,error}=await makeQuery().range(from,from+PAGE-1);
-    if(error){console.error('fetchAll',error);break;}
-    const batch=data||[];out.push(...batch);
-    if(batch.length<PAGE)break;   // last page
-    from+=PAGE;
+    const res=await Promise.all(Array.from({length:BURST},(_,i)=>
+      Promise.resolve(makeQuery().range(from+i*PAGE,from+(i+1)*PAGE-1)).catch(e=>({error:e}))));
+    let done=false;
+    for(const r of res){
+      if(r.error){console.error('fetchAll',r.error);done=true;break;}
+      const b=r.data||[];out.push(...b);          // Promise.all keeps order, so rows stay in sequence
+      if(b.length<PAGE)done=true;                 // ranges are contiguous — anything after this is empty
+    }
+    if(done)break;
+    from+=BURST*PAGE;
   }
   return out;
 }
