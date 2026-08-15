@@ -21,7 +21,40 @@
     --new:#6C7A93;--assigned:#4A6FA5;--qualified:#2C9C9A;
     --booked:#2E9E5B;--lost:#C0524A;--nq:#98A2B0;
     --amber:#D9982B;--over:#C0433A;
+    --header-bg:rgba(255,255,255,.86);--hover:rgba(255,255,255,.75);--subtle:#F1F5F9;--soft-bg:#F7F9FB;
     --shadow:0 1px 2px rgba(21,34,56,.06),0 8px 24px rgba(21,34,56,.06);
+  }
+  /* ---------- dark mode ----------
+     One stylesheet, custom properties only — no second theme file, no palette inversion.
+     Never pure black (smears on OLED, kills elevation) and never pure white text (halation
+     over a long session). Elevation comes from surface lightness, not shadow. Status and
+     brand colours are re-picked for dark rather than reused: a hue that passes on white
+     routinely fails on dark. Follows the OS by default; the header button overrides it. */
+  :root[data-theme="dark"],
+  :root:not([data-theme="light"]) { color-scheme: light; }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme:dark;
+      --canvas:#15171C;--surface:#1D2027;--ink:#E2E5EA;--soft:#9AA6B4;
+      --line:#2E343D;--line2:#252A31;
+      --brand:#3E86B8;--brand-ink:#5FA8D3;--teal:#3FB8B5;
+      --new:#8792A5;--assigned:#6E9BD6;--qualified:#3FB8B5;
+      --booked:#5FD08A;--lost:#E4736A;--nq:#8A94A2;
+      --amber:#E8B04B;--over:#E4736A;
+      --header-bg:rgba(29,32,39,.86);--hover:rgba(255,255,255,.06);--subtle:#232830;--soft-bg:#1A1D23;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --canvas:#15171C;--surface:#1D2027;--ink:#E2E5EA;--soft:#9AA6B4;
+    --line:#2E343D;--line2:#252A31;
+    --brand:#3E86B8;--brand-ink:#5FA8D3;--teal:#3FB8B5;
+    --new:#8792A5;--assigned:#6E9BD6;--qualified:#3FB8B5;
+    --booked:#5FD08A;--lost:#E4736A;--nq:#8A94A2;
+    --amber:#E8B04B;--over:#E4736A;
+    --header-bg:rgba(29,32,39,.86);--hover:rgba(255,255,255,.06);--subtle:#232830;--soft-bg:#1A1D23;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
@@ -61,7 +94,7 @@
   .auth-field input:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(27,73,101,.12);}
   .auth-err{color:var(--lost);font-size:12.5px;margin:-4px 0 12px;min-height:16px;}
   .auth-actions{display:flex;gap:10px;}
-  .auth-foot{padding:14px 28px;border-top:1px solid var(--line);font-size:11.5px;color:var(--soft);background:#F7F9FB;}
+  .auth-foot{padding:14px 28px;border-top:1px solid var(--line);font-size:11.5px;color:var(--soft);background:var(--soft-bg);}
   .back{background:none;border:none;color:var(--soft);font-size:13px;font-weight:600;padding:0;margin-bottom:14px;}
   .back:hover{color:var(--brand);}
 
@@ -74,7 +107,7 @@
   .btn.wide{width:100%;justify-content:center;}
 
   /* ---------- Header ---------- */
-  header{position:sticky;top:0;z-index:40;background:rgba(255,255,255,.86);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);}
+  header{position:sticky;top:0;z-index:40;background:var(--header-bg);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);}
   .head-in{max-width:1360px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;gap:16px;}
   .logo{display:flex;align-items:center;gap:11px;}
   .logo .mark{width:34px;height:34px;border-radius:9px;}
@@ -107,7 +140,7 @@
   .nav-group{margin-bottom:15px;}
   .nav-h{font-family:'Space Grotesk';font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--soft);opacity:.65;padding:0 12px;margin-bottom:6px;}
   .navi{display:flex;align-items:center;gap:10px;width:100%;border:none;background:transparent;color:var(--ink);font-weight:600;font-size:13.5px;padding:8px 11px;border-radius:11px;cursor:pointer;text-align:left;margin-bottom:2px;position:relative;transition:background .12s;}
-  .navi:hover{background:rgba(255,255,255,.75);}
+  .navi:hover{background:var(--hover);}
   .navi.on{background:var(--surface);box-shadow:0 1px 4px rgba(20,34,56,.07);}
   .navi.on::before{content:'';position:absolute;left:-2px;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--_c);}
   .navi-ic{width:27px;height:27px;border-radius:8px;display:grid;place-items:center;font-size:14px;flex:none;line-height:1;}
@@ -125,7 +158,7 @@
     .navi-l{overflow:visible;}
   }
   .perm-note{max-width:1360px;margin:12px auto 0;padding:0 24px;}
-  .perm-note .inner{background:#F1F5F9;border:1px solid var(--line);border-radius:10px;padding:9px 13px;font-size:12.5px;color:var(--soft);display:flex;align-items:center;gap:9px;}
+  .perm-note .inner{background:var(--subtle);border:1px solid var(--line);border-radius:10px;padding:9px 13px;font-size:12.5px;color:var(--soft);display:flex;align-items:center;gap:9px;}
   .perm-note b{color:var(--ink);}
   .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin:18px 0 8px;}
   .kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:13px 15px;box-shadow:var(--shadow);}
@@ -628,6 +661,9 @@
   .pipe-seg button{border:none;background:var(--surface);color:var(--soft);font-family:'Space Grotesk';font-weight:600;font-size:13px;padding:7px 15px;cursor:pointer;}
   .pipe-seg button.on{background:var(--brand);color:#fff;}
   .pipe-seg button:not(.on):hover{background:#F1F5F9;}
+  .dr-step{display:inline-flex;align-items:center;gap:2px;}
+  .dr-step .x[disabled]{opacity:.3;cursor:default;}
+  .dr-pos{font-size:11.5px;color:var(--soft);font-variant-numeric:tabular-nums;white-space:nowrap;padding:0 2px;}
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
   /* ---------- data table (All leads) ---------- */
   .dt-wrap{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;}
@@ -762,6 +798,10 @@
   }
 </style>
 </head>
+<script>
+/* Applied before first paint so the page never flashes light then repaints dark. */
+(function(){try{var t=localStorage.getItem('bm_theme');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t;}catch(e){}})();
+</script>
 <body>
 <div id="busybar"></div>
 
@@ -1103,8 +1143,8 @@ async function loadAll(){
   await ensurePromotions();        // no-op unless the promotions catalog is empty
   scoreboard.rows=null;   // invalidate leaderboard cache so it reflects fresh activity
 }
-async function saveReportData(next){const {error}=await sb.from('companies').update({report_data:next}).eq('id',myCompanyId);if(error){alert('Could not save report data: '+error.message);return false;}db.reportData=next;return true;}
-async function savePrefs(next){const {error}=await sb.from('members').update({prefs:next}).eq('id',session);if(error){alert('Could not save your preference: '+error.message);return false;}myPrefs=next;return true;}
+async function saveReportData(next){const {error}=await sb.from('companies').update({report_data:next}).eq('id',myCompanyId);if(error){notify('Could not save report data: '+error.message);return false;}db.reportData=next;return true;}
+async function savePrefs(next){const {error}=await sb.from('members').update({prefs:next}).eq('id',session);if(error){notify('Could not save your preference: '+error.message);return false;}myPrefs=next;return true;}
 async function ensureProjects(){
   if(!myCompanyId||!currentUser()||currentUser().role!=='sales_head')return;
   const missing=PROJECTS.filter(p=>!projByName[p]);
@@ -1139,15 +1179,15 @@ function renderSchemes(){
 }
 async function addScheme(){
   const nEl=document.getElementById('new_scheme_name');if(!nEl)return;
-  const name=(nEl.value||'').trim();if(!name){alert('Type a scheme name.');nEl.focus();return;}
+  const name=(nEl.value||'').trim();if(!name){notify('Type a scheme name.');nEl.focus();return;}
   const desc=((document.getElementById('new_scheme_desc')||{}).value||'').trim();
   const {error}=await sb.from('promotions').insert({company_id:myCompanyId,name,description:desc});
-  if(error){alert(/duplicate|unique/i.test(error.message)?'That scheme already exists.':'Could not add: '+error.message);return;}
+  if(error){notify(/duplicate|unique/i.test(error.message)?'That scheme already exists.':'Could not add: '+error.message);return;}
   await reloadPromos();renderSchemes();
 }
 async function toggleScheme(id,active){
   const {error}=await sb.from('promotions').update({active}).eq('id',id);
-  if(error){alert('Could not update: '+error.message);return;}
+  if(error){notify('Could not update: '+error.message);return;}
   await reloadPromos();renderSchemes();
 }
 async function loadMyMember(){const {data}=await sb.from('members').select('*').eq('id',session).maybeSingle();return data;}
@@ -1155,9 +1195,37 @@ let _busyN=0,_busyT=null;
 function busyStart(){_busyN++;if(_busyT){clearTimeout(_busyT);_busyT=null;}const b=document.getElementById('busybar');if(b){b.classList.add('on');b.style.width='75%';}}
 function busyEnd(){_busyN=Math.max(0,_busyN-1);if(_busyN===0){const b=document.getElementById('busybar');if(b){b.style.width='100%';_busyT=setTimeout(()=>{b.classList.remove('on');b.style.width='0';_busyT=null;},280);}}}
 async function refresh(){busyStart();try{await loadAll();render();}finally{busyEnd();}}
+/* Most actions change exactly ONE lead. Re-reading every table for that was the reason a
+   single click felt slow. This refetches just that lead and its timeline (two small
+   queries) and patches it in place. Use refresh() only when other tables also changed. */
+async function refreshLead(id){
+  if(!id)return refresh();
+  busyStart();
+  try{
+    const [res,acts]=await Promise.all([
+      Promise.resolve(sb.from('leads').select('*').eq('id',id).maybeSingle()).catch(e=>({error:e})),
+      fetchAll(()=>sb.from('lead_activity').select('id,lead_id,kind,body,next_follow_up,author_id,created_at')
+        .eq('lead_id',id).order('created_at',{ascending:true}).order('id',{ascending:true}))
+    ]);
+    if(res&&res.error){console.error('refreshLead',res.error);await loadAll();render();return;}
+    const row=res&&res.data;
+    const i=db.leads.findIndex(l=>l.id===id);
+    if(!row){ if(i>=0)db.leads.splice(i,1); }        // gone, or no longer visible to this user
+    else{
+      const L=leadFromRow(row);
+      (acts||[]).forEach(a=>{const d=(a.created_at||'').slice(0,10);const by=memberName(a.author_id);
+        L.log.push({t:a.body||'',d,kind:a.kind,by,next:a.next_follow_up||null});
+        if(a.kind==='revisit'){const nt=/^Revisited \(visit #\d+\)$/.test(a.body||'')?'':(a.body||'');L.revisits.push({date:d,by,note:nt});}});
+      if(i>=0)db.leads[i]=L; else db.leads.push(L);
+    }
+    scoreboard.rows=null;
+    render();
+    if(openId===id&&document.getElementById('drawer').classList.contains('on'))renderDrawer();
+  } finally{busyEnd();}
+}
 
 /* write helpers — targeted row updates instead of a whole-blob save */
-async function updateLead(id,patch){busyStart();const {error}=await sb.from('leads').update(patch).eq('id',id);busyEnd();if(error){alert('Could not save that change: '+error.message);return false;}return true;}
+async function updateLead(id,patch){busyStart();const {error}=await sb.from('leads').update(patch).eq('id',id);busyEnd();if(error){notify('Could not save that change: '+error.message);return false;}return true;}
 async function addActivityRow(leadId,o){const payload={company_id:myCompanyId,lead_id:leadId,kind:o.kind,body:o.body||null,next_follow_up:o.next||null,author_id:session};if(o.date)payload.created_at=o.date+'T12:00:00';const {error}=await sb.from('lead_activity').insert(payload);if(error)console.error(error);}
 
 /* ============ helpers ============ */
@@ -1355,7 +1423,7 @@ async function signOut(){closeChat();await sb.auth.signOut();session=null;myComp
 
 /* ============ team / invites (Sales Head only) ============ */
 function inviteLink(token){return location.origin+location.pathname+'?invite='+token;}
-function copyText(t){try{navigator.clipboard.writeText(t);alert('Invite link copied — paste it to your teammate (WhatsApp, SMS or email).');}catch(e){prompt('Copy this invite link:',t);}}
+function copyText(t){try{navigator.clipboard.writeText(t);notify('Invite link copied — paste it to your teammate (WhatsApp, SMS or email).');}catch(e){prompt('Copy this invite link:',t);}}
 async function openTeam(){document.getElementById('teamScrim').classList.add('on');await renderTeam();}
 async function downloadBackup(btn){
   if(!currentUser()||currentUser().role!=='sales_head')return;
@@ -1384,34 +1452,34 @@ async function saveMember(id){
   const name=((document.getElementById('ed_name_'+id)||{}).value||'').trim();
   const role=(document.getElementById('ed_role_'+id)||{}).value||'sales';
   const proj=(document.getElementById('ed_proj_'+id)||{}).value||'';
-  if(!name){alert('Name cannot be empty.');return;}
+  if(!name){notify('Name cannot be empty.');return;}
   const patch={name,role,project_id:(role==='sales'||role==='project_head')?(projId(proj)||null):null};
   const {error}=await sb.from('members').update(patch).eq('id',id);
-  if(error){alert('Could not save: '+error.message);return;}
+  if(error){notify('Could not save: '+error.message);return;}
   teamEdit=null;await refresh();await renderTeam();
 }
 async function deleteMember(id){
   if(currentUser().role!=='sales_head')return;
-  if(id===session){alert('You can’t delete your own account.');return;}
+  if(id===session){notify('You can’t delete your own account.');return;}
   const m=db.users.find(x=>x.id===id);const nm=m?m.name:'this member';
   const owned=db.leads.filter(l=>l.ownerId===id).length;
   const coOwned=db.leads.filter(l=>(l.coOwners||[]).includes(id)).length;
-  if(owned||coOwned){alert(nm+' still owns '+owned+' lead(s)'+(coOwned?' and co-owns '+coOwned:'')+'. Reassign those first (Bulk assign, or the lead drawer), then delete.');return;}
+  if(owned||coOwned){notify(nm+' still owns '+owned+' lead(s)'+(coOwned?' and co-owns '+coOwned:'')+'. Reassign those first (Bulk assign, or the lead drawer), then delete.');return;}
   if(!confirm('Remove '+nm+' from the team? This removes their access. (To fully delete their login, also remove them in Supabase → Authentication.)'))return;
   await sb.from('lead_activity').update({author_id:null}).eq('author_id',id);
   await sb.from('messages').update({member_id:null}).eq('member_id',id);
   await sb.from('tasks').delete().eq('assigned_to',id);
   await sb.from('tasks').delete().eq('assigned_by',id);
   const {error}=await sb.from('members').delete().eq('id',id);
-  if(error){alert('Could not remove '+nm+': '+error.message+' — they may still be referenced (a handoff or pricing request). Clear those first.');return;}
+  if(error){notify('Could not remove '+nm+': '+error.message+' — they may still be referenced (a handoff or pricing request). Clear those first.');return;}
   await refresh();await renderTeam();
 }
 async function saveCompanyName(){
   if(currentUser().role!=='sales_head')return;
   const n=((document.getElementById('team_company')||{}).value||'').trim();if(!n)return;
   const {error}=await sb.from('companies').update({name:n}).eq('id',myCompanyId);
-  if(error){alert('Could not save company name: '+error.message);return;}
-  if(db.company)db.company.name=n;alert('Company name updated.');
+  if(error){notify('Could not save company name: '+error.message);return;}
+  if(db.company)db.company.name=n;notify('Company name updated.');
 }
 async function renderTeam(){
   const body=document.getElementById('teamBody');body.innerHTML='<div class="locked-note">Loading…</div>';
@@ -1458,9 +1526,9 @@ async function inviteTeammate(){
   const email=(document.getElementById('inv_email').value||'').trim();
   const role=document.getElementById('inv_role').value;
   const project=document.getElementById('inv_project').value;
-  if(!email){alert('Enter their email first.');return;}
+  if(!email){notify('Enter their email first.');return;}
   const {data,error}=await sb.from('invitations').insert({company_id:myCompanyId,email,role,project_id:projId(project)||null,status:'pending'}).select().single();
-  if(error){alert('Could not create invite: '+error.message);return;}
+  if(error){notify('Could not create invite: '+error.message);return;}
   await renderTeam();copyText(inviteLink(data.token));
 }
 function fdRoleToggle(){const isSales=(document.getElementById('fd_role')||{}).value==='sales';const pr=document.getElementById('fd_project');if(pr)pr.style.display=isSales?'':'none';}
@@ -1471,8 +1539,8 @@ async function createLoginNow(){
   const role=((document.getElementById('fd_role')||{}).value||'sales');
   const fullName=((document.getElementById('fd_name')||{}).value||'').trim()||uname;
   const project=(document.getElementById('fd_project')||{}).value||'';
-  if(!uname){alert('Enter a username, e.g. amartya_earthscape');return;}
-  if(pw.length<6){alert('Password must be at least 6 characters.');return;}
+  if(!uname){notify('Enter a username, e.g. amartya_earthscape');return;}
+  if(pw.length<6){notify('Password must be at least 6 characters.');return;}
   const email=toEmail(uname);
   const project_id=role==='sales'?(projId(project)||null):null;
   const btn=document.getElementById('fd_btn');if(btn){btn.disabled=true;btn.textContent='Creating…';}
@@ -1489,8 +1557,8 @@ async function createLoginNow(){
     await loadAll();await renderTeam();
     const where=role==='sales'?(project?(' for '+project):''):'';
     const lands=role==='sales'?'They can sign in now and will see their own leads. They now appear in the front-desk "assign to" list'+where+'.':'They can sign in now — they land straight on the walk-in entry screen.';
-    alert('✓ Login created — '+(role==='sales'?'Salesperson':'Receptionist')+where+'.\n\nName:      '+fullName+'\nUsername:  '+uname+'\nPassword:  '+pw+'\n\n'+lands);
-  }catch(err){alert('Could not create login: '+(err.message||err));}
+    notify('✓ Login created — '+(role==='sales'?'Salesperson':'Receptionist')+where+'.\n\nName:      '+fullName+'\nUsername:  '+uname+'\nPassword:  '+pw+'\n\n'+lands);
+  }catch(err){notify('Could not create login: '+(err.message||err));}
   finally{const b=document.getElementById('fd_btn');if(b){b.disabled=false;b.textContent='Create login';}}
 }
 
@@ -1536,7 +1604,7 @@ function parseTable(text){
   if(text.indexOf('\t')>=0){return text.split('\n').filter(l=>l.trim()!=='').map(l=>l.split('\t'));}
   return parseCSV(text);
 }
-function onBulkPaste(){const t=document.getElementById('bulkPaste').value;if(!t.trim()){alert('Paste your rows first (with a header row).');return;}buildBulk(t);}
+function onBulkPaste(){const t=document.getElementById('bulkPaste').value;if(!t.trim()){notify('Paste your rows first (with a header row).');return;}buildBulk(t);}
 function normHeader(h){return String(h||'').trim().toLowerCase().replace(/[\s_]+/g,'');}
 function normDate(s){s=(s||'').trim();if(!s)return iso(today());
   let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);if(m)return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
@@ -1586,14 +1654,14 @@ async function doBulkImport(){
     return {company_id:myCompanyId,project_id:projId(v.project),owner_id:v.owner_id,name:v.name,phone:'',email:v.email,source:'walkin',src_detail:v.project,walkin_source:v.walkin_source,cp_name:v.cp_name,location:v.location,company_name:v.company_name,budget:v.budget,notes,stage:q?'qualified':(v.owner_id?'assigned':'new'),qualified:q?true:null,temp:null,next_follow_up:null,assigned_at:v.owner_id?v.created_at:null,created_at:v.created_at,created_by:session};
   });
   const {data,error}=await sb.from('leads').insert(rows).select();
-  if(error){alert('Import failed: '+error.message);btn.disabled=false;btn.textContent='Import';return;}
+  if(error){notify('Import failed: '+error.message);btn.disabled=false;btn.textContent='Import';return;}
   const acts=[];(data||[]).forEach((lead,i)=>{const v=bulkParsed[i]||{};const at=(v.created_at||iso(today()))+'T12:00:00';
     acts.push({company_id:myCompanyId,lead_id:lead.id,kind:'system',body:'Walk-in at '+(v.project||'')+' ('+(v.walkin_source==='CP'?('CP'+(v.cp_name?' · '+v.cp_name:'')):'Direct')+') — bulk import by '+me,author_id:session,created_at:at});
     if(lead.owner_id)acts.push({company_id:myCompanyId,lead_id:lead.id,kind:'system',body:'Assigned to '+(v.ownerName||'')+' (bulk)',author_id:session,created_at:at});
     if(q)acts.push({company_id:myCompanyId,lead_id:lead.id,kind:'system',body:'Marked qualified (bulk import)',author_id:session,created_at:at});});
   if(acts.length){for(let i=0;i<acts.length;i+=200){await sb.from('lead_activity').insert(acts.slice(i,i+200));}}
   closeBulk();activeTab='pipeline';await refresh();
-  alert('Imported '+(data?data.length:0)+' customer(s) successfully.');
+  notify('Imported '+(data?data.length:0)+' customer(s) successfully.');
 }
 async function reconcileAgents(){
   const {data:leads}=await sb.from('leads').select('id,owner_id,notes,stage,created_at').is('owner_id',null).ilike('notes','Agent:%');
@@ -1609,22 +1677,22 @@ async function reconcileAgents(){
     await addActivityRow(l.id,{kind:'system',body:'Linked to '+sp.name+' from import'});n++;
   }
   await loadAll();await renderTeam();
-  alert(n?('Attached '+n+' imported customer(s) to their agents.'):'No unassigned imports matched a current salesperson name. Create or rename the agents to match the sheet, then try again.');
+  notify(n?('Attached '+n+' imported customer(s) to their agents.'):'No unassigned imports matched a current salesperson name. Create or rename the agents to match the sheet, then try again.');
 }
 
 /* ============ handoff requests + cross-project interest ============ */
 function pendingHandoffFor(leadId){return db.transfers.find(t=>t.lead_id===leadId&&t.status==='pending');}
 async function requestHandoff(leadId){
   const l=db.leads.find(x=>x.id===leadId);if(!l)return;
-  const to=(document.getElementById('ho_to')||{}).value||'';if(!to){alert('Choose a teammate to hand off to.');return;}
+  const to=(document.getElementById('ho_to')||{}).value||'';if(!to){notify('Choose a teammate to hand off to.');return;}
   const note=((document.getElementById('ho_note')||{}).value||'').trim();
   const {error}=await sb.from('transfer_requests').insert({company_id:myCompanyId,lead_id:leadId,lead_name:l.name,from_member:session,to_member:to,note});
-  if(error){alert('Could not send request: '+error.message);return;}
+  if(error){notify('Could not send request: '+error.message);return;}
   await addActivityRow(leadId,{kind:'system',body:'Handoff requested to '+userName(to)+' (awaiting acceptance)'});
   await refresh();
 }
-async function acceptTransfer(reqId){const t=db.transfers.find(x=>x.id===reqId);const {error}=await sb.rpc('accept_transfer',{p_request:reqId});if(error){alert(error.message);return;}if(t)await addActivityRow(t.lead_id,{kind:'system',body:'Handoff accepted by '+currentUser().name});closeNotify();await refresh();}
-async function declineTransfer(reqId){const {error}=await sb.rpc('decline_transfer',{p_request:reqId});if(error){alert(error.message);return;}await refresh();}
+async function acceptTransfer(reqId){const t=db.transfers.find(x=>x.id===reqId);const {error}=await sb.rpc('accept_transfer',{p_request:reqId});if(error){notify(error.message);return;}if(t)await addActivityRow(t.lead_id,{kind:'system',body:'Handoff accepted by '+currentUser().name});closeNotify();await refresh();}
+async function declineTransfer(reqId){const {error}=await sb.rpc('decline_transfer',{p_request:reqId});if(error){notify(error.message);return;}await refresh();}
 // Where a cross-project interest email should go, per project head. Add more as heads get set up.
 const PROJECT_HEAD_EMAIL={Solcrest:'jason@bricksandmilestones.in'};
 function projectHeadEmail(p){
@@ -1647,15 +1715,15 @@ function openInterestEmail(l,proj,note){
 }
 async function flagInterest(leadId){
   const l=db.leads.find(x=>x.id===leadId);if(!l)return;
-  const proj=(document.getElementById('ci_proj')||{}).value||'';if(!proj){alert('Choose a project.');return;}
+  const proj=(document.getElementById('ci_proj')||{}).value||'';if(!proj){notify('Choose a project.');return;}
   const note=((document.getElementById('ci_note')||{}).value||'').trim();
   const {error}=await sb.from('cross_interest').insert({company_id:myCompanyId,lead_id:leadId,lead_name:l.name,source_project_id:projId(l.project),target_project_id:projId(proj),note,created_by:session});
-  if(error){alert('Could not flag interest: '+error.message);return;}
+  if(error){notify('Could not flag interest: '+error.message);return;}
   await addActivityRow(leadId,{kind:'system',body:'Flagged as interested in '+proj+(note?' — '+note:'')});
   openInterestEmail(l,proj,note);   // opens the salesperson's mail app pre-filled to the project head, cc the salesperson
   await refresh();
 }
-async function closeInterest(id){const {error}=await sb.from('cross_interest').update({status:'closed'}).eq('id',id);if(error){alert(error.message);return;}await refresh();}
+async function closeInterest(id){const {error}=await sb.from('cross_interest').update({status:'closed'}).eq('id',id);if(error){notify(error.message);return;}await refresh();}
 function handoffBlock(l){
   const u=currentUser();if(u.role!=='sales'||l.ownerId!==u.id)return '';
   const pend=pendingHandoffFor(l.id);
@@ -1771,7 +1839,7 @@ function clearFilters(){_returnTab=null;filters=[];filterMode='AND';closeFilters
 function savedFilters(){return myPrefs.savedFilters||[];}
 function savedAsks(){return myPrefs.savedAsks||[];}
 async function saveAsk(){
-  const q=((document.getElementById('askBox')||{}).value||'').trim();if(!q){alert('Type a question first, then Save.');return;}
+  const q=((document.getElementById('askBox')||{}).value||'').trim();if(!q){notify('Type a question first, then Save.');return;}
   const name=prompt('Name this saved question:',q.slice(0,44));if(name===null)return;
   const nm=(name||q).trim();const list=savedAsks().slice();
   if(!list.some(x=>x.q.toLowerCase()===q.toLowerCase()))list.push({name:nm,q});
@@ -1780,8 +1848,8 @@ async function saveAsk(){
 function applySavedAsk(i){const s=savedAsks()[i];if(!s)return;lastAsk=s.q;const b=document.getElementById('askBox');if(b)b.value=s.q;runAsk();}
 async function deleteSavedAsk(i){const list=savedAsks().slice();list.splice(i,1);if(await savePrefs(Object.assign({},myPrefs,{savedAsks:list})))renderSavedBar();}
 async function saveCurrentFilter(){
-  const name=(document.getElementById('sf_name').value||'').trim();if(!name){alert('Name your filter first.');return;}
-  const a=activeFilters();if(!a.length){alert('Add at least one filter to save.');return;}
+  const name=(document.getElementById('sf_name').value||'').trim();if(!name){notify('Name your filter first.');return;}
+  const a=activeFilters();if(!a.length){notify('Add at least one filter to save.');return;}
   const list=savedFilters().slice();list.push({name,mode:filterMode,filters:JSON.parse(JSON.stringify(a))});
   if(await savePrefs(Object.assign({},myPrefs,{savedFilters:list}))){renderFilterBuilder();render();}
 }
@@ -1870,7 +1938,7 @@ async function rcMarkVisit(id){
   if(!confirm('Confirm that '+l.name+' has visited today?'))return;
   const btn=document.getElementById('rcv_'+id);if(btn){btn.disabled=true;btn.textContent='Saving…';}
   const {error}=await sb.rpc('mark_visit_done',{p_lead:id,p_on:iso(today())});
-  if(error){alert('Could not confirm the visit: '+error.message);if(btn){btn.disabled=false;btn.textContent='✓ Visit happened';}return;}
+  if(error){notify('Could not confirm the visit: '+error.message);if(btn){btn.disabled=false;btn.textContent='✓ Visit happened';}return;}
   rcVisitsDone.push({name:l.name,owner:l.ownerId?userName(l.ownerId):'—',at:iso(today())});
   await refresh();
 }
@@ -1948,8 +2016,8 @@ function rcToggleSource(){const cp=document.getElementById('rc_source').value===
   document.getElementById('rc_sub_wrap').classList.toggle('hidden',cp);}
 async function rcSubmit(){
   const v=id=>((document.getElementById(id)||{}).value||'').trim();
-  const name=v('rc_name');if(!name){alert('Enter the customer name.');document.getElementById('rc_name').focus();return;}
-  const ownerId=v('rc_owner');if(!ownerId){alert('Choose which salesperson gets this walk-in.');document.getElementById('rc_owner').focus();return;}
+  const name=v('rc_name');if(!name){notify('Enter the customer name.');document.getElementById('rc_name').focus();return;}
+  const ownerId=v('rc_owner');if(!ownerId){notify('Choose which salesperson gets this walk-in.');document.getElementById('rc_owner').focus();return;}
   const owner=db.users.find(x=>x.id===ownerId);
   const src=document.getElementById('rc_source').value;const cp=v('rc_cp');const sub=document.getElementById('rc_sub').value;
   const date=v('rc_date')||iso(today());
@@ -1961,8 +2029,8 @@ async function rcSubmit(){
   const {error}=await sb.from('leads').insert(row);
   if(btn){btn.disabled=false;btn.textContent='＋ Add walk-in';}
   if(error){
-    if(/foreign key|owner/i.test(error.message||'')){await refresh();alert('The salesperson list was out of date — it has been refreshed. Please pick the salesperson again and re-add the walk-in.');return;}
-    alert('Could not add the walk-in: '+error.message);return;
+    if(/foreign key|owner/i.test(error.message||'')){await refresh();notify('The salesperson list was out of date — it has been refreshed. Please pick the salesperson again and re-add the walk-in.');return;}
+    notify('Could not add the walk-in: '+error.message);return;
   }
   rcLastOwner=ownerId;
   rcSession.unshift({name,owner:owner?owner.name:'',date,revisit,src:walkin_source==='CP'?('CP'+(cp?' · '+cp:'')):src_detail});
@@ -1984,6 +2052,7 @@ function render(){
     ${u.role==='sales_head'?`<button class="signout" onclick="openSchemes()" title="Payment schemes">Schemes</button>`:''}
     ${u.role==='sales_head'?`<button class="signout" onclick="openTeam()" title="Manage team">Team</button>`:''}
     ${(u.role==='sales_head'||u.role==='project_head')?`<button class="signout" onclick="openCpManager()" title="Manage channel partners">CPs</button>`:''}
+    <button class="signout" onclick="cycleTheme()" title="${themeLabel()}">${themeIcon()}</button>
     ${u.role!=='reception'?`<button class="signout" onclick="openMsgManager()" title="Create and edit your WhatsApp follow-up messages">💬 Messages</button>`:''}
     ${u.role==='sales_head'?`<button class="signout" onclick="downloadBackup(this)" title="Download a full backup of all your data">⬇︎ Backup</button>`:''}
     <button class="signout" onclick="signOut()">Sign out</button>`;
@@ -2041,7 +2110,7 @@ function targetsPanel(){
     return `<tr><td><b class="mono">${r.name}</b></td><td><input class="field" style="width:78px" id="tg_t_${r.id}" value="${t.target||0}"/></td><td><input class="field" style="width:130px" id="tg_i_${r.id}" value="${t.incentive||0}"/></td><td class="mono">${actual}</td><td class="mono">₹${earned.toLocaleString('en-IN')}</td><td><button class="act" onclick="saveTarget('${r.id}')">Save</button></td></tr>`;}).join('');
   return `<div class="panel"><h3>Targets &amp; incentives · ${rMonthLabel(m)}</h3><div style="overflow-x:auto"><table style="box-shadow:none"><thead><tr><th>Salesperson</th><th>Target (bookings)</th><th>Potential incentive ₹</th><th>Actual</th><th>Earned</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" style="color:var(--soft)">No salespeople yet.</td></tr>'}</tbody></table></div><div class="ai-tag" style="margin-top:8px">Earned = potential × (actual ÷ target), capped at the full amount.</div></div>`;
 }
-async function saveTarget(memberId){const m=iso(today()).slice(0,7);const target=parseInt(document.getElementById('tg_t_'+memberId).value)||0;const incentive=parseFloat(document.getElementById('tg_i_'+memberId).value)||0;const {error}=await sb.from('targets').upsert({company_id:myCompanyId,member_id:memberId,month:m,target,incentive},{onConflict:'member_id,month'});if(error){alert('Could not save target: '+error.message);return;}await refresh();}
+async function saveTarget(memberId){const m=iso(today()).slice(0,7);const target=parseInt(document.getElementById('tg_t_'+memberId).value)||0;const incentive=parseFloat(document.getElementById('tg_i_'+memberId).value)||0;const {error}=await sb.from('targets').upsert({company_id:myCompanyId,member_id:memberId,month:m,target,incentive},{onConflict:'member_id,month'});if(error){notify('Could not save target: '+error.message);return;}await refresh();}
 const NAV_META={
   pipeline:{icon:'📋',color:'1B4965',group:'Work'},
   plays:{icon:'🧭',color:'C0524A',group:'Work'},
@@ -2559,7 +2628,13 @@ function renderDrawer(){
 
   const _drSc=(document.querySelector('#drawer .dr-body')||{}).scrollTop||0;
   document.getElementById('drawer').innerHTML=`
-    <div class="dr-head"><div class="row1"><div><h2>${l.name}</h2><div class="sub">${l.email||(l.project||'—')}</div></div>${can('edit',l)?`<button class="x" onclick="openEdit('${l.id}')" title="Edit details" style="margin-left:auto">✎</button><button class="x" onclick="closeDrawer()" title="Close (Esc)">✕</button>`:`<button class="x" onclick="closeDrawer()" title="Close (Esc)">✕</button>`}</div>
+    <div class="dr-head"><div class="row1"><div><h2>${l.name}</h2><div class="sub">${l.email||(l.project||'—')}</div></div>
+      ${(function(){const q=drawerPos();if(q.i<0||q.list.length<2)return '<span style="margin-left:auto"></span>';
+        return `<span class="dr-step" style="margin-left:auto">
+          <button class="x" onclick="drawerStep(-1)" title="Previous lead (K)" ${q.i<=0?'disabled':''}>‹</button>
+          <span class="dr-pos">${q.i+1} of ${q.list.length}</span>
+          <button class="x" onclick="drawerStep(1)" title="Next lead (J)" ${q.i>=q.list.length-1?'disabled':''}>›</button></span>`;})()}
+      ${can('edit',l)?`<button class="x" onclick="openEdit('${l.id}')" title="Edit details">✎</button><button class="x" onclick="closeDrawer()" title="Close (Esc)">✕</button>`:`<button class="x" onclick="closeDrawer()" title="Close (Esc)">✕</button>`}</div>
       <div style="margin-top:12px;display:flex;align-items:center;gap:9px;flex-wrap:wrap"><span class="stage-now" style="background:${st.color}1c;color:${st.color}"><i style="background:${st.color}"></i>${st.label}</span>${msgTopBar(l)}</div></div>
     <div class="dr-body">
       <div class="det"><label onclick="this.closest('.det').classList.toggle('open')"><span class="det-caret">▸</span> Personal details</label>
@@ -2599,7 +2674,7 @@ function followBlock(l){
       <div class="r" style="margin-top:9px;align-items:center;gap:9px"><span style="font-size:12.5px;color:var(--soft);white-space:nowrap">Remind on</span><input type="date" class="field" style="max-width:175px" id="fu_date" value="${l.nextFollowUp||iso(today())}"/><button class="btn" style="white-space:nowrap" onclick="logFollowUp('${l.id}')">Set follow-up</button><button class="btn ghost" style="white-space:nowrap" title="Log a Ring-No-Response attempt (customer didn't pick up)" onclick="logRNR('${l.id}')">☎ RNR${rnrCount(l)?' · '+rnrCount(l):''}</button></div>
     </div></div>`;
 }
-async function addNote(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const t=document.getElementById('note_text').value.trim();if(!t)return;await addActivityRow(id,{kind:'note',body:t});await refresh();}
+async function addNote(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const t=document.getElementById('note_text').value.trim();if(!t)return;await addActivityRow(id,{kind:'note',body:t});await refreshLead(id);}
 function leadTasks(id){return (db.tasks||[]).filter(t=>t.lead_id===id);}
 function canAssignTask(l){const u=currentUser();if(!u||!l.ownerId)return false;if(u.role==='sales_head')return true;if(u.role==='project_head'&&myProjId()&&projId(l.project)===myProjId())return true;return false;}
 function assigneePeople(l){const rank=u=>u.role==='sales_head'?0:u.role==='project_head'?1:2;return (db.users||[]).filter(u=>u.id!==session&&u.role!=='reception').sort((a,b)=>rank(a)-rank(b)||String(a.name).localeCompare(b.name));}
@@ -2645,18 +2720,18 @@ function taskPick(id){
 async function assignTask(id){
   const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;
   const ids=Array.from(document.querySelectorAll('#task_chips [data-id]')).map(c=>c.getAttribute('data-id'));
-  if(!ids.length){alert('Add at least one person to assign the task to.');return;}
+  if(!ids.length){notify('Add at least one person to assign the task to.');return;}
   const el=document.getElementById('task_new');const body=(el&&el.value||'').trim();
-  if(!body){alert('Type the task first.');if(el)el.focus();return;}
+  if(!body){notify('Type the task first.');if(el)el.focus();return;}
   const rows=ids.map(to=>({company_id:myCompanyId,lead_id:l.id,lead_name:l.name,assigned_to:to,assigned_by:session,body,status:'open'}));
   const {error}=await sb.from('tasks').insert(rows);
-  if(error){alert('Could not assign: '+error.message);return;}
+  if(error){notify('Could not assign: '+error.message);return;}
   // Auto-share the lead with anyone who couldn't otherwise open it, so they can complete the task.
   const co=Array.isArray(l.coOwners)?l.coOwners.slice():[];const shared=[];
   ids.forEach(to=>{if(!memberCanView(to,l)&&!co.includes(to)){co.push(to);shared.push(to);}});
   if(shared.length){
     const {error:e2}=await sb.from('leads').update({co_owners:co}).eq('id',l.id);
-    if(e2){alert('Task assigned, but sharing the lead failed: '+e2.message);}
+    if(e2){notify('Task assigned, but sharing the lead failed: '+e2.message);}
     else{await addActivityRow(id,{kind:'system',body:'Shared with '+shared.map(userName).join(', ')+' (task)'});}
   }
   await addActivityRow(id,{kind:'system',body:'Assigned a task to '+ids.map(userName).join(', ')+': '+body});
@@ -2666,7 +2741,7 @@ async function completeTask(tid){
   const t=(db.tasks||[]).find(x=>x.id===tid);if(!t)return;
   const resp=((document.getElementById('tr_'+tid)||{}).value||'').trim();
   const {error}=await sb.from('tasks').update({status:'done',response:resp,done_at:new Date().toISOString()}).eq('id',tid);
-  if(error){alert('Could not update: '+error.message);return;}
+  if(error){notify('Could not update: '+error.message);return;}
   await addActivityRow(t.lead_id,{kind:'note',body:'Completed task'+(resp?': '+resp:'')});
   await refresh();
 }
@@ -2691,7 +2766,7 @@ function tasksHTML(){
     ${col('tk-h-done','✅','Recently completed',done,'done','No completed tasks yet.')}
   </div>`;
 }
-async function completeTaskFrom(tid){const t=(db.tasks||[]).find(x=>x.id===tid);if(!t)return;const resp=((document.getElementById('tkr_'+tid)||{}).value||'').trim();const {error}=await sb.from('tasks').update({status:'done',response:resp,done_at:new Date().toISOString()}).eq('id',tid);if(error){alert('Could not update: '+error.message);return;}await addActivityRow(t.lead_id,{kind:'note',body:'Completed task'+(resp?': '+resp:'')});await refresh();}
+async function completeTaskFrom(tid){const t=(db.tasks||[]).find(x=>x.id===tid);if(!t)return;const resp=((document.getElementById('tkr_'+tid)||{}).value||'').trim();const {error}=await sb.from('tasks').update({status:'done',response:resp,done_at:new Date().toISOString()}).eq('id',tid);if(error){notify('Could not update: '+error.message);return;}await addActivityRow(t.lead_id,{kind:'note',body:'Completed task'+(resp?': '+resp:'')});await refresh();}
 function digits(s){return String(s||'').replace(/\D/g,'');}
 function revisitMergeBlock(l){
   if(!l.pendingRevisit||!can('edit',l))return '';
@@ -2704,9 +2779,9 @@ function revisitMergeBlock(l){
 async function mergeRevisit(rId){
   const r=db.leads.find(x=>x.id===rId);if(!r||!can('edit',r))return;
   const tId=((document.getElementById('mergeSel_'+rId)||{}).value)||'';
-  if(!tId){alert('Pick the customer’s earlier walk-in first.');return;}
+  if(!tId){notify('Pick the customer’s earlier walk-in first.');return;}
   const t=db.leads.find(x=>x.id===tId);if(!t)return;
-  if(!can('edit',t)){alert('That earlier walk-in belongs to someone else — ask a Project Head or Sales Head to merge.');return;}
+  if(!can('edit',t)){notify('That earlier walk-in belongs to someone else — ask a Project Head or Sales Head to merge.');return;}
   if(!confirm('Merge this revisit into "'+t.name+'"? A shared merge code will be stamped on both, it will be logged as a revisit on the earlier walk-in, and this duplicate will be tucked away.'))return;
   const code=(t.matchCode&&/^\d{5}$/.test(t.matchCode))?t.matchCode:String(Math.floor(10000+Math.random()*90000));
   const note='Revisit (via front desk)'+(r.location?' · '+r.location:'')+(r.walkinSource==='CP'&&r.cpName?' · CP '+r.cpName:'')+' · merge code '+code;
@@ -2756,7 +2831,7 @@ async function saveUpdate(id){
   let fuOn,fuDate;
   if(mustFollow){
     fuDate=((document.getElementById('upd_fud_'+id)||{}).value||'');
-    if(!fuDate){alert('Please set the next follow-up date — it’s required for walk-ins.');return;}
+    if(!fuDate){notify('Please set the next follow-up date — it’s required for walk-ins.');return;}
     fuOn=true;
   } else {
     fuOn=!!(document.getElementById('upd_fu_'+id)||{}).checked;
@@ -2767,7 +2842,7 @@ async function saveUpdate(id){
   const pvOn=!!(document.getElementById('upd_pv_'+id)||{}).checked;
   const pvDate=pvOn?((document.getElementById('upd_pvd_'+id)||{}).value||''):'';
   const pvChanged=(pvDate||'')!==(l.plannedVisit||'');
-  if(!note&&!fuOn&&!rvOn&&!pvChanged){alert('Type an update, or tick follow-up / revisit / planned visit.');return;}
+  if(!note&&!fuOn&&!rvOn&&!pvChanged){notify('Type an update, or tick follow-up / revisit / planned visit.');return;}
   if(fuOn&&fuDate){if(!await updateLead(id,{next_follow_up:fuDate}))return;}
   // Planned visits. visit_plans keeps the durable history (kept vs missed); planned_visit
   // mirrors the current pending one so the calendar, filters and alerts keep working.
@@ -2796,19 +2871,19 @@ async function saveUpdate(id){
   } else if(note||fuOn){
     await addActivityRow(id,{kind:'note',body:note||'Follow-up set',next:fuOn?fuDate:null});
   }
-  await refresh();
+  await refreshLead(id);
 }
 
 /* ============ mutations ============ */
-async function assign(id,repId){if(!can('assign'))return;const l=db.leads.find(x=>x.id===id);const was=l.ownerId;const patch={owner_id:repId||null};if(repId&&l.stage==='new')patch.stage='assigned';if(repId&&repId!==was)patch.assigned_at=iso(today());if(!await updateLead(id,patch))return;if(repId&&repId!==was)await addActivityRow(id,{kind:'system',body:'Assigned to '+userName(repId)});await refresh();}
-async function qualify(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const nf=l.nextFollowUp||addDays(3);if(!await updateLead(id,{qualified:true,stage:'qualified',next_follow_up:nf}))return;await addActivityRow(id,{kind:'system',body:'Marked qualified'});await refresh();}
-async function disqualify(id,reason){if(!reason)return;const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;if(!await updateLead(id,{qualified:false,stage:'not_qualified',nq_reason:reason,disqualified_by:currentUser().name}))return;await addActivityRow(id,{kind:'system',body:'Disqualified — '+reason});await refresh();}
-async function requalify(id){const l=db.leads.find(x=>x.id===id);const u=currentUser();if(!l||!u||!can('edit',l))return;if(!await updateLead(id,{qualified:true,stage:'qualified',nq_reason:'',next_follow_up:l.nextFollowUp||addDays(3)}))return;await addActivityRow(id,{kind:'system',body:'Moved back to Qualified by '+u.name});await refresh();}
-async function logFollowUp(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const date=document.getElementById('fu_date').value;const note=document.getElementById('fu_note').value.trim();if(!note&&!date)return;if(date){if(!await updateLead(id,{next_follow_up:date}))return;}await addActivityRow(id,{kind:'note',body:note||'Followed up',next:date||null});await refresh();}
+async function assign(id,repId){if(!can('assign'))return;const l=db.leads.find(x=>x.id===id);const was=l.ownerId;const patch={owner_id:repId||null};if(repId&&l.stage==='new')patch.stage='assigned';if(repId&&repId!==was)patch.assigned_at=iso(today());if(!await updateLead(id,patch))return;if(repId&&repId!==was)await addActivityRow(id,{kind:'system',body:'Assigned to '+userName(repId)});await refreshLead(id);}
+async function qualify(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const nf=l.nextFollowUp||addDays(3);if(!await updateLead(id,{qualified:true,stage:'qualified',next_follow_up:nf}))return;await addActivityRow(id,{kind:'system',body:'Marked qualified'});await refreshLead(id);}
+async function disqualify(id,reason){if(!reason)return;const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;if(!await updateLead(id,{qualified:false,stage:'not_qualified',nq_reason:reason,disqualified_by:currentUser().name}))return;await addActivityRow(id,{kind:'system',body:'Disqualified — '+reason});await refreshLead(id);}
+async function requalify(id){const l=db.leads.find(x=>x.id===id);const u=currentUser();if(!l||!u||!can('edit',l))return;if(!await updateLead(id,{qualified:true,stage:'qualified',nq_reason:'',next_follow_up:l.nextFollowUp||addDays(3)}))return;await addActivityRow(id,{kind:'system',body:'Moved back to Qualified by '+u.name});await refreshLead(id);}
+async function logFollowUp(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const date=document.getElementById('fu_date').value;const note=document.getElementById('fu_note').value.trim();if(!note&&!date)return;if(date){if(!await updateLead(id,{next_follow_up:date}))return;}await addActivityRow(id,{kind:'note',body:note||'Followed up',next:date||null});await refreshLead(id);}
 // RNR = Ring No Response. Logged as a system entry; the count is derived from the timeline (no DB column needed).
 function rnrCount(l){return (l.log||[]).filter(e=>/^RNR\b/.test(e.t||'')).length;}
-async function logRNR(id){const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;const n=rnrCount(l)+1;const date=addDays(1);if(!await updateLead(id,{next_follow_up:date}))return;await addActivityRow(id,{kind:'system',body:'RNR — ring no response (attempt #'+n+') · reminder set for tomorrow',next:date});await refresh();}
-async function setTemp(id,t){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;if(l.temp===t){if(!await updateLead(id,{temp:null}))return;await addActivityRow(id,{kind:'system',body:'Cleared temperature'});}else{if(!await updateLead(id,{temp:t}))return;await addActivityRow(id,{kind:'system',body:'Marked as '+t+' lead'});}await refresh();}
+async function logRNR(id){const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;const n=rnrCount(l)+1;const date=addDays(1);if(!await updateLead(id,{next_follow_up:date}))return;await addActivityRow(id,{kind:'system',body:'RNR — ring no response (attempt #'+n+') · reminder set for tomorrow',next:date});await refreshLead(id);}
+async function setTemp(id,t){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;if(l.temp===t){if(!await updateLead(id,{temp:null}))return;await addActivityRow(id,{kind:'system',body:'Cleared temperature'});}else{if(!await updateLead(id,{temp:t}))return;await addActivityRow(id,{kind:'system',body:'Marked as '+t+' lead'});}await refreshLead(id);}
 function dealStatusBlock(l){
   const cur=l.dealStatus||'';const seg=s=>`<button class="act ${cur===s?'ds-on':''}" onclick="setDealStatus('${l.id}','${s}')">${s}</button>`;
   return `<div class="block"><label>Deal status${cur?` · <span style="color:var(--ink)">${cur}</span>`:''}</label>
@@ -2822,8 +2897,8 @@ function dealStatusBlock(l){
       <button class="act bad" onclick="closedLostBtn('${l.id}')">Mark Lost</button>
     </div></div></div>`;
 }
-function closedLostBtn(id){const reason=(document.getElementById('lr_'+id)||{}).value;const comp=((document.getElementById('lc_'+id)||{}).value||'').trim();if(!reason){alert('Pick a reason for the loss.');return;}closedLost(id,reason,comp);}
-async function setDealStatus(id,s){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const patch={deal_status:s,stage:'qualified'};if(s==='First Contact Done'||s==='Prospect')patch.lost_reason='';if(!await updateLead(id,patch))return;await addActivityRow(id,{kind:'system',body:'Deal status → '+s});await refresh();}
+function closedLostBtn(id){const reason=(document.getElementById('lr_'+id)||{}).value;const comp=((document.getElementById('lc_'+id)||{}).value||'').trim();if(!reason){notify('Pick a reason for the loss.');return;}closedLost(id,reason,comp);}
+async function setDealStatus(id,s){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const patch={deal_status:s,stage:'qualified'};if(s==='First Contact Done'||s==='Prospect')patch.lost_reason='';if(!await updateLead(id,patch))return;await addActivityRow(id,{kind:'system',body:'Deal status → '+s});await refreshLead(id);}
 // The qualify-or-disqualify panel (before a lead is qualified).
 function qualifyBlock(l){
   return `<div class="block"><label>Qualify this lead</label><div class="actions">
@@ -2860,9 +2935,9 @@ function shareBlock(l){
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">${chips||'<span style="color:var(--soft);font-size:12.5px">Not shared</span>'}</div>
     ${avail.length?`<div class="fu-form"><div class="r" style="gap:8px;margin-bottom:0"><select class="field" id="co_${l.id}">${avail.map(r=>`<option value="${r.id}">${r.name}</option>`).join('')}</select><button class="btn" style="white-space:nowrap" onclick="addCoOwnerPick('${l.id}')">Share</button></div><div class="ai-tag" style="margin-top:8px">Both owners get equal access to this ${l.source==='walkin'?'walk-in':'lead'}.</div></div>`:''}</div>`;
 }
-async function addCoOwner(id,memberId){const l=db.leads.find(x=>x.id===id);if(!memberId||!can('edit',l))return;const co=Array.isArray(l.coOwners)?l.coOwners.slice():[];if(co.includes(memberId)||memberId===l.ownerId)return;co.push(memberId);if(!await updateLead(id,{co_owners:co}))return;await addActivityRow(id,{kind:'system',body:'Shared with '+userName(memberId)});await refresh();}
+async function addCoOwner(id,memberId){const l=db.leads.find(x=>x.id===id);if(!memberId||!can('edit',l))return;const co=Array.isArray(l.coOwners)?l.coOwners.slice():[];if(co.includes(memberId)||memberId===l.ownerId)return;co.push(memberId);if(!await updateLead(id,{co_owners:co}))return;await addActivityRow(id,{kind:'system',body:'Shared with '+userName(memberId)});await refreshLead(id);}
 function addCoOwnerPick(id){const v=(document.getElementById('co_'+id)||{}).value;if(v)addCoOwner(id,v);}
-async function removeCoOwner(id,memberId){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const co=(l.coOwners||[]).filter(x=>x!==memberId);if(!await updateLead(id,{co_owners:co}))return;await addActivityRow(id,{kind:'system',body:'Unshared with '+userName(memberId)});await refresh();}
+async function removeCoOwner(id,memberId){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const co=(l.coOwners||[]).filter(x=>x!==memberId);if(!await updateLead(id,{co_owners:co}))return;await addActivityRow(id,{kind:'system',body:'Unshared with '+userName(memberId)});await refreshLead(id);}
 function salesInfoBlock(l){
   const blocks=Array.isArray(l.blocks)?l.blocks:[];const BL=['A','B','C','D','E','F'];
   return `<div class="block"><label>Deal details</label>
@@ -2903,7 +2978,7 @@ async function saveLastQuote(id){const l=db.leads.find(x=>x.id===id);if(!can('ed
   const units=[0,1,2].map(i=>({unit:(document.getElementById('lq_u_'+id+'_'+i).value||'').trim(),price:(document.getElementById('lq_p_'+id+'_'+i).value||'').trim()})).filter(u=>u.unit||u.price);
   if(!await updateLead(id,{last_quote:{units,at:iso(today())}}))return;
   await addActivityRow(id,{kind:'note',body:'Quoted to customer — '+(units.map(u=>u.unit+(u.price?' @ ₹'+u.price:'')).join(', ')||'—')});
-  await refresh();}
+  await refreshLead(id);}
 /* ---- pricing-approval requests ---- */
 let pricingMode='new', pricingReqId=null, pricingLeadId=null;
 function pricingBlock(l){
@@ -2940,18 +3015,18 @@ async function pricingSubmit(){
   if(pricingMode==='new'){
     const l=db.leads.find(x=>x.id===pricingLeadId);if(!l)return;
     const units=[0,1,2].map(i=>({unit:(document.getElementById('pu_'+i).value||'').trim()})).filter(u=>u.unit);
-    if(!units.length){alert('Enter at least one unit option.');return;}
+    if(!units.length){notify('Enter at least one unit option.');return;}
     const note=(document.getElementById('p_note').value||'').trim();
     const scheme=((document.getElementById('p_scheme')||{}).value||'').trim();
     const {error}=await sb.from('pricing_requests').insert({company_id:myCompanyId,lead_id:l.id,lead_name:l.name,project_id:projId(l.project),requested_by:session,units,note,scheme,status:'pending'});
-    if(error){alert('Could not send: '+error.message);return;}
+    if(error){notify('Could not send: '+error.message);return;}
     await addActivityRow(l.id,{kind:'system',body:'Requested pricing approval'+(scheme?' ['+scheme+']':'')+' ('+units.map(u=>u.unit).join(', ')+')'});
-    closePricing();await refresh();alert('Sent to your Project Head and Sales Head.');
+    closePricing();await refresh();notify('Sent to your Project Head and Sales Head.');
   } else if(pricingMode==='respond'){
     const r=(db.pricingRequests||[]).find(x=>x.id===pricingReqId);if(!r)return;
     const units=(Array.isArray(r.units)?r.units:[]).map((x,i)=>({unit:x.unit,prefinal:(document.getElementById('pf_'+i).value||'').trim(),finalp:(document.getElementById('fn_'+i).value||'').trim()}));
     const {error}=await sb.from('pricing_requests').update({units,status:'priced',responded_by:session,responded_at:new Date().toISOString()}).eq('id',r.id);
-    if(error){alert('Could not save: '+error.message);return;}
+    if(error){notify('Could not save: '+error.message);return;}
     await addActivityRow(r.lead_id,{kind:'system',body:'Pricing set by '+currentUser().name});
     closePricing();await refresh();
   }
@@ -2991,7 +3066,7 @@ async function assessLikelihood(id){
     l.assessment={likelihood:Math.max(0,Math.min(100,parseInt(p.likelihood)||0)),temperature:['Hot','Warm','Cold'].includes(p.temperature)?p.temperature:'Warm',rationale:p.rationale||'',signals:Array.isArray(p.signals)?p.signals.slice(0,4):[],at:iso(today())};
     if(!l.temp)l.temp=l.assessment.temperature;
     render();
-  }catch(e){console.error(e);if(btn){btn.innerHTML='Couldn\u2019t assess — tap to retry';btn.disabled=false;}else alert('Assessment failed. Please try again.');}
+  }catch(e){console.error(e);if(btn){btn.innerHTML='Couldn\u2019t assess — tap to retry';btn.disabled=false;}else notify('Assessment failed. Please try again.');}
 }
 function visitsBlock(l){
   const rv=l.revisits||[];const editable=can('edit',l);const terminal=['booked','lost','not_qualified'].includes(l.stage);
@@ -3004,7 +3079,7 @@ function visitsBlock(l){
       <div class="fact"><div class="k">Revisits</div><div class="v mono" style="font-size:19px">${rv.length}</div></div>
     </div>${control}${hist}</div>`;
 }
-async function logRevisit(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const date=document.getElementById('rv_date').value||iso(today());const note=((document.getElementById('rv_note')||{}).value||'').trim();const visitNo=(l.source==='walkin'?1:0)+(l.revisits||[]).length+1;await addActivityRow(id,{kind:'revisit',body:note||('Revisited (visit #'+visitNo+')'),date});await refresh();}
+async function logRevisit(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const date=document.getElementById('rv_date').value||iso(today());const note=((document.getElementById('rv_note')||{}).value||'').trim();const visitNo=(l.source==='walkin'?1:0)+(l.revisits||[]).length+1;await addActivityRow(id,{kind:'revisit',body:note||('Revisited (visit #'+visitNo+')'),date});await refreshLead(id);}
 function timelineHTML(l){
   const log=l.log||[];
   const hasCreation=log.some(e=>e.kind==='system'&&(/^walk-in at|^lead captured from/i.test(String(e.t||''))||/bulk import/i.test(String(e.t||''))));
@@ -3282,7 +3357,7 @@ function openEdit(id){const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))
 function closeEdit(){document.getElementById('editScrim').classList.remove('on');}
 async function saveEdit(){const id=editLeadId;const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;
   const g=fid=>((document.getElementById(fid)||{}).value||'').trim();
-  const name=g('e_name');if(!name){alert('Name is required.');return;}
+  const name=g('e_name');if(!name){notify('Name is required.');return;}
   const patch={name,email:g('e_email'),budget:g('e_budget'),notes:g('e_notes')};
   if(l.source==='walkin'){patch.location=g('e_location');patch.company_name=g('e_company');}
   const pe=document.getElementById('e_project');if(pe&&projId(pe.value))patch.project_id=projId(pe.value);
@@ -3344,25 +3419,25 @@ function renderCpManager(){
   const s=document.getElementById('cp_search');if(s){s.focus();s.setSelectionRange(s.value.length,s.value.length);}
 }
 function cpMgrSearch(v){cpMgrFilter=v;renderCpManager();}
-async function cpMgrAdd(){const el=document.getElementById('cp_new');const n=(el&&el.value||'').trim();if(!n)return;const list=cpNames().slice();if(list.some(x=>x.toLowerCase()===n.toLowerCase())){alert('That CP is already in the list.');return;}list.push(n);if(await saveCpList(list)){cpMgrFilter='';renderCpManager();}}
-async function cpMgrImport(){const el=document.getElementById('cp_bulk');const raw=(el&&el.value||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);if(!raw.length)return;const list=cpNames().concat(raw);if(await saveCpList(list)){alert('Imported. The list now has '+cpNames().length+' CPs.');cpMgrFilter='';renderCpManager();}}
+async function cpMgrAdd(){const el=document.getElementById('cp_new');const n=(el&&el.value||'').trim();if(!n)return;const list=cpNames().slice();if(list.some(x=>x.toLowerCase()===n.toLowerCase())){notify('That CP is already in the list.');return;}list.push(n);if(await saveCpList(list)){cpMgrFilter='';renderCpManager();}}
+async function cpMgrImport(){const el=document.getElementById('cp_bulk');const raw=(el&&el.value||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);if(!raw.length)return;const list=cpNames().concat(raw);if(await saveCpList(list)){notify('Imported. The list now has '+cpNames().length+' CPs.');cpMgrFilter='';renderCpManager();}}
 async function cpMgrRemove(name){if(!confirm('Remove “'+name+'” from the CP list?'))return;const list=cpNames().filter(n=>n!==name);if(await saveCpList(list))renderCpManager();}
 async function cpMerge(){
   if(currentUser().role!=='sales_head')return;
   const from=((document.getElementById('cp_merge_from')||{}).value||'').trim();
   const into=((document.getElementById('cp_merge_into')||{}).value||'').trim();
-  if(!from||!into){alert('Pick both the duplicate and the name to keep.');return;}
-  if(from.toLowerCase()===into.toLowerCase()){alert('Pick two different names.');return;}
+  if(!from||!into){notify('Pick both the duplicate and the name to keep.');return;}
+  if(from.toLowerCase()===into.toLowerCase()){notify('Pick two different names.');return;}
   if(!confirm('Merge "'+from+'" into "'+into+'"?\nAll its leads and bookings move to "'+into+'", and "'+from+'" is removed from the list.'))return;
   const {error}=await sb.from('leads').update({cp_name:into}).eq('cp_name',from);   // walk-in CP
-  if(error){alert('Merge failed: '+error.message);return;}
+  if(error){notify('Merge failed: '+error.message);return;}
   const affected=(db.leads||[]).filter(l=>l.booking&&(l.booking.closingCp||'')===from);   // closing CP on bookings
   for(const l of affected){const b=Object.assign({},l.booking,{closingCp:into});await sb.from('leads').update({booking:b}).eq('id',l.id);}
   const list=cpNames().filter(n=>n.toLowerCase()!==from.toLowerCase());
   if(!list.some(n=>n.toLowerCase()===into.toLowerCase()))list.push(into);
   await saveCpList(list);
   await refresh();renderCpManager();
-  alert('Merged "'+from+'" → "'+into+'".');
+  notify('Merged "'+from+'" → "'+into+'".');
 }
 function openBooking(id,status){
   const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;bookingLeadId=id;bookingStatus=status||'Booked';const b=l.booking||{};
@@ -3404,12 +3479,12 @@ async function saveBooking(){
   const id=bookingLeadId;const l=db.leads.find(x=>x.id===id);if(!l)return;
   const av=numOf(document.getElementById('bk_av').value),sz=numOf(document.getElementById('bk_size').value);
   const g=id=>document.getElementById(id).value.trim();
-  if(!g('bk_apartment')){alert('Enter the unit booked.');document.getElementById('bk_apartment').focus();return;}
-  if(!av){alert('Enter the Agreement Value.');document.getElementById('bk_av').focus();return;}
-  if(!sz){alert('Enter the apartment size (sq.ft).');document.getElementById('bk_size').focus();return;}
+  if(!g('bk_apartment')){notify('Enter the unit booked.');document.getElementById('bk_apartment').focus();return;}
+  if(!av){notify('Enter the Agreement Value.');document.getElementById('bk_av').focus();return;}
+  if(!sz){notify('Enter the apartment size (sq.ft).');document.getElementById('bk_size').focus();return;}
   const closingSource=document.getElementById('bk_csource').value;
   const closingCp=closingSource==='Channel Partner'?g('bk_ccp'):'';
-  if(closingSource==='Channel Partner'&&!closingCp){alert('Enter the channel partner who closed the deal.');document.getElementById('bk_ccp').focus();return;}
+  if(closingSource==='Channel Partner'&&!closingCp){notify('Enter the channel partner who closed the deal.');document.getElementById('bk_ccp').focus();return;}
   const booking={apartment:g('bk_apartment'),location:g('bk_location'),company:g('bk_company'),applicantAge:g('bk_appage'),coApplicant:g('bk_coapp'),coApplicantAge:g('bk_coappage'),coApplicantCompany:g('bk_cocompany'),agreementValue:av||null,size:sz||null,realization:(sz>0?Math.round(av/sz):null),paymentStructure:document.getElementById('bk_pay').value,closingSource,closingCp,at:(document.getElementById('bk_date').value||iso(today()))};
   if(!await updateLead(id,{stage:'booked',deal_status:bookingStatus,next_follow_up:null,booking}))return;
   await addActivityRow(id,{kind:'system',body:'Booked 🎉'+(booking.apartment?' — '+booking.apartment:'')+(booking.agreementValue?' · AV ₹'+booking.agreementValue.toLocaleString('en-IN'):'')});
@@ -3421,7 +3496,7 @@ function bookingFactsHTML(l){const b=l.booking;if(!b)return '';
   return `<div class="block"><label>Booking details</label><div class="facts">${rows.map(([k,v])=>`<div class="fact"><div class="k">${k}</div><div class="v mono">${v}</div></div>`).join('')}</div><div style="margin-top:10px"><button class="act" onclick="openBooking('${l.id}')">Edit booking details</button></div></div>`;}
 async function markLost(id,reason){if(!reason)return;const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;if(!await updateLead(id,{stage:'lost',lost_reason:reason,next_follow_up:null}))return;await addActivityRow(id,{kind:'system',body:'Lost — '+reason});await refresh();}
 async function reopen(id){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const stage=l.qualified?'qualified':(l.ownerId?'assigned':'new');if(!await updateLead(id,{stage,lost_reason:'',nq_reason:''}))return;await addActivityRow(id,{kind:'system',body:'Reopened'});await refresh();}
-async function deleteLead(id){if(!can('delete'))return;const l=db.leads.find(x=>x.id===id);const kind=l.source==='walkin'?'walk-in':'lead';if(!confirm('Delete this '+kind+' permanently? This cannot be undone.'))return;const {error}=await sb.from('leads').delete().eq('id',id);if(error){alert('Delete failed: '+error.message);return;}closeDrawer();await refresh();}
+async function deleteLead(id){if(!can('delete'))return;const l=db.leads.find(x=>x.id===id);const kind=l.source==='walkin'?'walk-in':'lead';if(!confirm('Delete this '+kind+' permanently? This cannot be undone.'))return;const {error}=await sb.from('leads').delete().eq('id',id);if(error){notify('Delete failed: '+error.message);return;}closeDrawer();await refresh();}
 
 /* ============ modal ============ */
 function openModal(){
@@ -3448,7 +3523,7 @@ function setSrc(s){modalSrc=s;document.querySelectorAll('#srcSeg button').forEac
 async function saveLead(){
   const u=currentUser();
   const name=document.getElementById('m_name').value.trim();
-  if(!name){alert('Name is required.');return;}
+  if(!name){notify('Name is required.');return;}
   const srcDetail=document.getElementById('m_srcdetail').value;
   let project,ownerId,stage;
   if(u.role==='sales'){project=u.project;ownerId=u.id;stage='assigned';}
@@ -3461,7 +3536,7 @@ async function saveLead(){
   const srcTxt=modalSrc==='digital'?('Lead captured from '+srcDetail):('Walk-in at '+srcDetail+' ('+(wsource==='CP'?('CP'+(cpName?' · '+cpName:'')):wsource==='Referral'?('Referral'+(refName?' · '+refName:'')):'Direct')+')');
   const row={company_id:myCompanyId,project_id:projId(project),owner_id:ownerId,name,phone:'',email:document.getElementById('m_email').value.trim(),source:modalSrc,src_detail:srcDetail,walkin_source:wsource,cp_name:cpName,location:modalSrc==='walkin'?document.getElementById('m_location').value.trim():'',company_name:modalSrc==='walkin'?document.getElementById('m_company').value.trim():'',budget:document.getElementById('m_budget').value.trim(),notes:document.getElementById('m_notes').value.trim(),stage,qualified:null,temp:null,next_follow_up:(modalSrc==='walkin'?addDays(2):null),walkin_phase:modalSrc==='walkin'?(document.getElementById('m_phase').value||null):null,referral_name:refName||null,referral_lead_id:refLink,assigned_at:(ownerId?wdate:null),created_at:wdate,created_by:session};
   const {data,error}=await sb.from('leads').insert(row).select().single();
-  if(error){alert('Could not save the lead: '+error.message);return;}
+  if(error){notify('Could not save the lead: '+error.message);return;}
   await addActivityRow(data.id,{kind:'system',body:srcTxt+' by '+u.name,date:wdate});
   if(ownerId&&u.role!=='sales')await addActivityRow(data.id,{kind:'system',body:'Assigned to '+userName(ownerId),date:wdate});
   closeModal();activeTab='pipeline';await refresh();
@@ -3485,7 +3560,7 @@ function openBulkAssign(){
   baMode='migrate';
   const proj=u.role==='project_head'?u.project:null;
   const people=assignees(proj);
-  if(!people.length){alert('No one to assign to.');return;}
+  if(!people.length){notify('No one to assign to.');return;}
   document.getElementById('baScrim').classList.add('on');
   renderBulkAssign(people);
 }
@@ -3506,7 +3581,7 @@ function renderBulkAssign(people){
 async function doBulkAssign(){
   if(!canBulkAssign())return;
   const ownerId=(document.getElementById('ba_owner')||{}).value||'';
-  if(!ownerId){alert('Choose who to assign to.');return;}
+  if(!ownerId){notify('Choose who to assign to.');return;}
   const list=baLeads.slice();if(!list.length){closeBulkAssign();return;}
   const go=document.getElementById('baGo');if(go){go.disabled=true;go.textContent='Working…';}
   const acts=[];
@@ -3593,7 +3668,7 @@ async function quickAssignTask(leadId){
   const el=document.getElementById('qt_'+leadId);if(!el)return;const body=(el.value||'').trim();if(!body){el.focus();return;}
   el.disabled=true;
   const {error}=await sb.from('tasks').insert({company_id:myCompanyId,lead_id:l.id,lead_name:l.name,assigned_to:l.ownerId,assigned_by:session,body,status:'open'});
-  if(error){alert('Could not assign: '+error.message);el.disabled=false;return;}
+  if(error){notify('Could not assign: '+error.message);el.disabled=false;return;}
   await addActivityRow(l.id,{kind:'system',body:'Assigned a task to '+userName(l.ownerId)+': '+body});
   el.value='';el.disabled=false;el.placeholder='✓ Task sent to '+userName(l.ownerId);
   await loadAll();
@@ -3643,7 +3718,7 @@ function runAsk(){
   const box=document.getElementById('askBox');if(!box)return;const q=(box.value||'').trim();lastAsk=q;
   if(!q)return;
   const {preds,labels}=parseAsk(q);
-  if(!preds.length){alert("I couldn't spot a filter in that. Try words like: revisited · project head not met · lost · booked · qualified · competitor · wonderwall not proposed · last 30 days · phase 1 · Earthscape · a salesperson's name.");return;}
+  if(!preds.length){notify("I couldn't spot a filter in that. Try words like: revisited · project head not met · lost · booked · qualified · competitor · wonderwall not proposed · last 30 days · phase 1 · Earthscape · a salesperson's name.");return;}
   const res=scoped().filter(l=>!l.mergedInto&&preds.every(p=>p(l)));
   openLeadList('“'+q+'”'+(labels.length?' — '+labels.join(' + '):''),res);
 }
@@ -3835,10 +3910,10 @@ function rbResultsHTML(res){
   return head+rbColTable(res.slice(0,50))+(total>50?`<div class="ai-tag" style="margin-top:8px">Showing first 50 rows · use ⬇ CSV to download all ${total}.</div>`:'');
 }
 function rbExportCSV(){
-  const res=rbMatches();if(!res.length){alert('Nothing to export yet.');return;}
+  const res=rbMatches();if(!res.length){notify('Nothing to export yet.');return;}
   let cols,data;
   if(reportGroupBy){const c=reportCol(reportGroupBy);const g={};res.forEach(l=>{let k=c?rbCell(c,l):'';k=(k===''||k==null)?'—':k;g[k]=(g[k]||0)+1;});cols=[c?c.label:'Group','Count'];data=Object.entries(g).sort((a,b)=>b[1]-a[1]).map(([k,n])=>[k,String(n)]);}
-  else{const cs=REPORT_COLS.filter(c=>reportCols.includes(c.k));if(!cs.length){alert('Pick at least one column first.');return;}cols=cs.map(c=>c.label);data=res.map(l=>cs.map(c=>rbCell(c,l)));}
+  else{const cs=REPORT_COLS.filter(c=>reportCols.includes(c.k));if(!cs.length){notify('Pick at least one column first.');return;}cols=cs.map(c=>c.label);data=res.map(l=>cs.map(c=>rbCell(c,l)));}
   const esc=s=>{s=String(s==null?'':s);return /[",\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
   const csv=[cols.map(esc).join(',')].concat(data.map(r=>r.map(esc).join(','))).join('\r\n');
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);
@@ -3848,7 +3923,7 @@ function rbRefresh(){const el=document.getElementById('rbResults');if(el)el.inne
 function rbShow(){openLeadList('Report — '+(rbNameVal||'results'),rbMatches());}
 function rbReports(){return myPrefs.reports||[];}
 function rbSavedChips(){const list=rbReports();if(!list.length)return '';return `<div class="rb-saved"><div style="font-size:12px;color:var(--soft);margin:12px 0 6px;font-weight:600">Saved reports</div>${list.map((r,i)=>`<button class="sfchip" onclick="rbLoad(${i})">${escapeHtml(r.name)}<span class="xx" style="margin-left:6px" onclick="event.stopPropagation();rbDelReport(${i})">✕</span></button>`).join('')}</div>`;}
-async function rbSave(){const name=(rbNameVal||'').trim();if(!name){alert('Name the report first.');return;}const list=rbReports().slice();const rep={name,filters:JSON.parse(JSON.stringify(rbFilters)),match:rbMatch,cols:reportCols.slice(),groupBy:reportGroupBy};const ex=list.findIndex(r=>r.name.toLowerCase()===name.toLowerCase());if(ex>=0)list[ex]=rep;else list.push(rep);if(await savePrefs(Object.assign({},myPrefs,{reports:list}))){rbRerender();}}
+async function rbSave(){const name=(rbNameVal||'').trim();if(!name){notify('Name the report first.');return;}const list=rbReports().slice();const rep={name,filters:JSON.parse(JSON.stringify(rbFilters)),match:rbMatch,cols:reportCols.slice(),groupBy:reportGroupBy};const ex=list.findIndex(r=>r.name.toLowerCase()===name.toLowerCase());if(ex>=0)list[ex]=rep;else list.push(rep);if(await savePrefs(Object.assign({},myPrefs,{reports:list}))){rbRerender();}}
 function rbLoad(i){const r=rbReports()[i];if(!r)return;rbFilters=r.filters?JSON.parse(JSON.stringify(r.filters)):[];rbMatch=r.match||'AND';reportCols=(r.cols&&r.cols.length)?r.cols.slice():RB_DEF_COLS.slice();reportGroupBy=r.groupBy||'';rbNameVal=r.name;rbRerender();}
 async function rbDelReport(i){const list=rbReports().slice();list.splice(i,1);if(await savePrefs(Object.assign({},myPrefs,{reports:list})))rbRerender();}
 function rbReset(){rbFilters=[];rbMatch='AND';rbNameVal='';reportCols=RB_DEF_COLS.slice();reportGroupBy='';rbRerender();}
@@ -4088,7 +4163,7 @@ async function waSuggest(id){
     if(openId===id)renderDrawer();
   }catch(e){
     if(b){b.disabled=false;b.textContent='✨ Suggest WhatsApp messages';}
-    alert('Could not generate messages: '+(e.message||e)+'\n\nIf this keeps happening, the AI helper may not be set up on this environment yet.');
+    notify('Could not generate messages: '+(e.message||e)+'\n\nIf this keeps happening, the AI helper may not be set up on this environment yet.');
   }
 }
 function waNudgeBlock(l){
@@ -4135,7 +4210,7 @@ function waSetTone(id,tone){
 }
 function waOpen(id){
   const l=db.leads.find(x=>x.id===id);if(!l)return;const ph=waPhone(l);
-  if(!ph){alert('No phone number on this lead.');return;}
+  if(!ph){notify('No phone number on this lead.');return;}
   const msg=((document.getElementById('wa_msg_'+id)||{}).value)||'';
   window.open('https://wa.me/'+ph+'?text='+encodeURIComponent(msg),'_blank');
 }
@@ -4289,7 +4364,7 @@ async function msgRecord(l,tpl){
   const sent=Object.assign({},msgSentMap(l));sent[tpl.id]=iso(today());
   if(!await updateLead(l.id,{msg_sent:sent}))return false;
   await addActivityRow(l.id,{kind:'note',body:'WhatsApp follow-up sent — '+tpl.name});
-  await refresh();return true;
+  await refreshLead(l.id);return true;
 }
 function msgPair(leadId,tplId){
   const l=db.leads.find(x=>x.id===leadId);const tpl=msgTemplates().find(t=>t.id===tplId);
@@ -4298,7 +4373,7 @@ function msgPair(leadId,tplId){
 async function msgSendWA(leadId,tplId){
   const p=msgPair(leadId,tplId);if(!p)return;
   const href=msgWaHref(p.l,msgMerge(p.tpl.body,p.l));
-  if(!href){alert('No phone number on this walk-in — use Copy instead, then paste it into WhatsApp.');return;}
+  if(!href){notify('No phone number on this walk-in — use Copy instead, then paste it into WhatsApp.');return;}
   window.open(href,'_blank');            // open FIRST — popup blockers need this inside the click
   await msgRecord(p.l,p.tpl);
   if(msgPickLead)renderMsgPicker();      // keep the open window in step
@@ -4306,7 +4381,7 @@ async function msgSendWA(leadId,tplId){
 async function msgCopyAndMark(leadId,tplId){
   const p=msgPair(leadId,tplId);if(!p)return;
   const ok=msgCopyText(msgMerge(p.tpl.body,p.l));   // copy first, inside the gesture
-  if(!ok){alert('Could not copy automatically — select the text and copy it manually.');return;}
+  if(!ok){notify('Could not copy automatically — select the text and copy it manually.');return;}
   await msgRecord(p.l,p.tpl);
   if(msgPickLead)renderMsgPicker();      // keep the open window in step
 }
@@ -4409,8 +4484,8 @@ function msgWizGo(n){
   const nm=document.getElementById('wz_name');if(nm)msgWiz.name=nm.value;
   const bd=document.getElementById('wz_body');if(bd)msgWiz.body=bd.value;
   const dy=document.getElementById('wz_day');if(dy)msgWiz.day=parseInt(dy.value,10);
-  if(n===2&&!String(msgWiz.name||'').trim()){alert('Give the message a name first — just for you, the customer never sees it.');return;}
-  if(n===4&&!String(msgWiz.body||'').trim()){alert('Write the message first.');return;}
+  if(n===2&&!String(msgWiz.name||'').trim()){notify('Give the message a name first — just for you, the customer never sees it.');return;}
+  if(n===4&&!String(msgWiz.body||'').trim()){notify('Write the message first.');return;}
   msgWiz.step=n;renderMsgManager();
 }
 function msgWizSample(){
@@ -4478,7 +4553,7 @@ function msgWizToken(k){
 async function msgWizSave(){
   const w=msgWiz;if(!w)return;
   const name=String(w.name||'').trim(),body=String(w.body||'').trim();
-  if(!name||!body){alert('The message needs a name and some text.');return;}
+  if(!name||!body){notify('The message needs a name and some text.');return;}
   // day and when are mutually exclusive — a template with both would be evaluated twice
   let day=null,when=null;
   if(w.kind==='day'){day=parseInt(w.day,10);if(isNaN(day)||day<0)day=0;}
@@ -4500,7 +4575,7 @@ async function msgRemoveTpl(scope,id){
   const src=scope==='mine'?msgMyTemplates():msgCompanyTemplates();
   const t=src.find(x=>x.id===id);
   if(scope==='company'&&!msgCanManageCompany())return;
-  if(scope==='company'&&src.length<=1){alert('Keep at least one company message.');return;}
+  if(scope==='company'&&src.length<=1){notify('Keep at least one company message.');return;}
   if(!confirm('Remove "'+((t&&t.name)||'this message')+'"?'))return;
   const list=src.filter(x=>x.id!==id);
   if(!(scope==='mine'?await saveMyTemplates(list):await saveCompanyTemplates(list)))return;
@@ -4529,7 +4604,7 @@ async function cpApplySuggestion(idx){const s=(window._cpSugg||[])[idx];if(!s)re
 function cpMergePick(){const sel=document.getElementById('cp_merge_pick');if(!sel||!sel.value)return;const nm=sel.value,box=document.getElementById('cp_merge_chips');
   if(box&&!box.querySelector('[data-name="'+(window.CSS&&CSS.escape?CSS.escape(nm):nm)+'"]')){const chip=document.createElement('span');chip.setAttribute('data-name',nm);chip.style.cssText='display:inline-flex;align-items:center;gap:5px;background:#EEF2F7;border:1px solid var(--line);border-radius:14px;padding:3px 5px 3px 11px;font-size:12.5px';chip.innerHTML=escapeHtml(nm)+' <button type="button" onclick="this.parentNode.remove()" style="border:none;background:none;cursor:pointer;font-size:15px;line-height:1;color:var(--soft);padding:0 2px">×</button>';box.appendChild(chip);}
   sel.value='';}
-async function cpAddMerge(){const chips=[...document.querySelectorAll('#cp_merge_chips [data-name]')].map(c=>c.getAttribute('data-name'));if(chips.length<2){alert('Pick at least two spellings that are the same partner.');return;}let canon=((document.getElementById('cp_merge_canon')||{}).value||'').trim()||chips.slice().sort((a,b)=>b.length-a.length)[0];const map=Object.assign({},cpAliasMap());chips.forEach(v=>{map[v.toLowerCase()]=canon;});map[canon.toLowerCase()]=canon;if(await cpSaveAliases(map))render();}
+async function cpAddMerge(){const chips=[...document.querySelectorAll('#cp_merge_chips [data-name]')].map(c=>c.getAttribute('data-name'));if(chips.length<2){notify('Pick at least two spellings that are the same partner.');return;}let canon=((document.getElementById('cp_merge_canon')||{}).value||'').trim()||chips.slice().sort((a,b)=>b.length-a.length)[0];const map=Object.assign({},cpAliasMap());chips.forEach(v=>{map[v.toLowerCase()]=canon;});map[canon.toLowerCase()]=canon;if(await cpSaveAliases(map))render();}
 async function cpUnmerge(canon){const map=Object.assign({},cpAliasMap());Object.keys(map).forEach(k=>{if(map[k]===canon)delete map[k];});if(await cpSaveAliases(map))render();}
 function cpMergeBlock(){
   const _r=currentUser().role;if(_r!=='sales_head'&&_r!=='project_head')return '';
@@ -4704,6 +4779,36 @@ function notifyEvents(){
   (it.doneTasks||[]).forEach(t=>ev.push({key:'tkd_'+t.id,title:'Task done · '+(t.lead_name||''),msg:userName(t.assigned_to)+' completed'+(t.response?': '+t.response:''),go:()=>openDrawer(t.lead_id)}));
   return ev;
 }
+/* Replaces the browser's blocking notify(). Same call signature — notify('message') — so it
+   drops in everywhere, but it doesn't freeze the page or lose the user's place. */
+/* Theme: Auto (follow the device) → Light → Dark → Auto. */
+function themeMode(){try{return localStorage.getItem('bm_theme')||'auto';}catch(e){return 'auto';}}
+function themeIcon(){const m=themeMode();return m==='dark'?'🌙':m==='light'?'☀️':'🌗';}
+function themeLabel(){const m=themeMode();return 'Theme: '+(m==='auto'?'follows your device':m)+' — click to change';}
+function cycleTheme(){
+  const next={auto:'light',light:'dark',dark:'auto'}[themeMode()];
+  try{if(next==='auto')localStorage.removeItem('bm_theme');else localStorage.setItem('bm_theme',next);}catch(e){}
+  if(next==='auto')delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme=next;
+  render();
+  notify('Theme: '+(next==='auto'?'following your device':next));
+}
+function notify(msg){
+  const s=String(msg==null?'':msg);
+  const bad=/could not|couldn't|cannot|can't|failed|unable|error|violat/i.test(s);
+  const good=/^(merged|updated|saved|added|done|linked|copied|imported|assigned|removed|cleared)/i.test(s)||/\bcopied\b/i.test(s);
+  const kind=bad?'bad':good?'good':'warn';
+  const t={bad:['Something went wrong','#C0433A','⚠'],warn:['Check this','#D9982B','⚠'],good:['Done','#2E7D32','✓']}[kind];
+  const wrap=document.getElementById('toastWrap');
+  if(!wrap){console.warn('notify:',s);return;}                 // never silently swallow a message
+  const d=document.createElement('div');d.className='toast';d.style.borderLeftColor=t[1];
+  d.innerHTML=`<button class="tx" title="Dismiss">×</button><b style="color:${t[1]}">${t[2]} ${escapeHtml(t[0])}</b><span class="tc">${escapeHtml(s)}</span>`;
+  let gone=false;const kill=()=>{if(gone)return;gone=true;d.style.opacity='0';d.style.transform='translateX(26px)';setTimeout(()=>d.remove(),260);};
+  d.querySelector('.tx').onclick=e=>{e.stopPropagation();kill();};
+  d.onclick=kill;
+  wrap.appendChild(d);
+  while(wrap.children.length>3)wrap.firstChild.remove();       // stack of three, per the spec
+  setTimeout(kill,kind==='bad'?9000:5000);                     // errors linger longer
+}
 function showToast(ev){
   const wrap=document.getElementById('toastWrap');if(!wrap)return;
   const d=document.createElement('div');d.className='toast';
@@ -4766,7 +4871,7 @@ function closeReminder(){document.getElementById('remScrim').classList.remove('o
 function saveReminder(){
   if(!remDraft)return;
   const when=(document.getElementById('remWhen')||{}).value;
-  if(!when){alert('Pick a date and time first.');return;}
+  if(!when){notify('Pick a date and time first.');return;}
   const l=db.leads.find(x=>x.id===remDraft.leadId);
   const rem={id:'rem_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),leadId:remDraft.leadId,leadName:l?l.name:'',noteKey:remDraft.noteKey,text:remDraft.text,dueAt:when,fired:false};
   const list=myReminders().filter(r=>r.noteKey!==remDraft.noteKey||r.fired); // one pending reminder per note
@@ -4873,7 +4978,7 @@ async function loadMessages(){const {data}=await sb.from('messages').select('*')
 function renderMessages(msgs){const box=document.getElementById('chatMsgs');if(!box)return;const atBottom=box.scrollHeight-box.scrollTop-box.clientHeight<80;
   box.innerHTML=msgs.length?msgs.map(m=>{const mine=m.member_id===session;return `<div style="display:flex;margin-bottom:8px;${mine?'justify-content:flex-end':''}"><div style="max-width:76%;background:${mine?'var(--brand)':'#fff'};color:${mine?'#fff':'var(--ink)'};border:1px solid ${mine?'var(--brand)':'var(--line)'};padding:8px 12px;border-radius:12px"><div style="font-size:11px;opacity:.75;margin-bottom:2px">${escapeHtml(memberName(m.member_id)||'—')} · ${fmtTime(m.created_at)}</div><div style="font-size:13.5px;white-space:pre-wrap;word-break:break-word">${escapeHtml(m.body)}</div></div></div>`;}).join(''):'<div class="locked-note">No messages yet. Say hello 👋</div>';
   if(atBottom)box.scrollTop=box.scrollHeight;}
-async function sendMessage(){const inp=document.getElementById('chatInput');const t=(inp.value||'').trim();if(!t)return;inp.value='';const {error}=await sb.from('messages').insert({company_id:myCompanyId,member_id:session,body:t});if(error){alert('Could not send: '+error.message);inp.value=t;return;}await loadMessages();}
+async function sendMessage(){const inp=document.getElementById('chatInput');const t=(inp.value||'').trim();if(!t)return;inp.value='';const {error}=await sb.from('messages').insert({company_id:myCompanyId,member_id:session,body:t});if(error){notify('Could not send: '+error.message);inp.value=t;return;}await loadMessages();}
 /* ============ boot ============ */
 async function boot(){
   tdLoad();
@@ -4945,7 +5050,34 @@ function navInit(){
 }
 navInit();
 boot();
+/* Step between records without closing the panel — the spec calls this the single biggest
+   productivity win. J/K mirror the arrow buttons in the panel header. */
+function drawerList(){
+  const leads=visible().filter(l=>!l.mergedInto);
+  if(activeTab!=='all')return leads;
+  const p=dtPrefs();const sc=dtCol(p.sortK)||dtCol('captured');   // match what the table shows
+  return leads.slice().sort(function(a,b){
+    const va=sc.sort(a),vb=sc.sort(b);
+    if(va<vb)return -1*p.sortDir; if(va>vb)return 1*p.sortDir;
+    return (a.name||'').localeCompare(b.name||'');});
+}
+function drawerPos(){const list=drawerList();return {list:list,i:list.findIndex(function(l){return l.id===openId;})};}
+function drawerStep(d){
+  const q=drawerPos();if(q.i<0)return;
+  const n=q.i+d; if(n<0||n>=q.list.length)return;
+  openDrawer(q.list[n].id);
+  const dr=document.getElementById('drawer');if(dr)dr.scrollTop=0;
+}
 document.addEventListener('keydown',function(e){
+  // J / K step through records while the panel is open — but never while typing
+  if(openId&&!e.metaKey&&!e.ctrlKey&&!e.altKey){
+    const t=e.target,tag=(t&&t.tagName||'').toLowerCase();
+    const typing=tag==='input'||tag==='textarea'||tag==='select'||(t&&t.isContentEditable);
+    if(!typing){
+      if(e.key==='j'||e.key==='J'){e.preventDefault();drawerStep(1);return;}
+      if(e.key==='k'||e.key==='K'){e.preventDefault();drawerStep(-1);return;}
+    }
+  }
   if(e.key!=='Escape')return;
   const openM=[...document.querySelectorAll('.modal-scrim.on')];
   if(openM.length){openM.forEach(m=>m.classList.remove('on'));if(chatTimer){clearInterval(chatTimer);chatTimer=null;}return;}
