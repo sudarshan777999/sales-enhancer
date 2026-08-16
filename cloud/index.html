@@ -1374,6 +1374,12 @@
   .rtable{width:100%;border-collapse:collapse;background:#fff;border:1px solid #EADFC2;border-radius:10px;overflow:hidden;font-size:13px;box-shadow:none;}
   .rtable th{text-align:left;background:#F3E9D2;color:#7a5a2a;text-transform:none;letter-spacing:normal;font-weight:600;font-size:12px;padding:9px 11px;border-bottom:1px solid #EADFC2;}
   .rtable td{padding:8px 11px;border-bottom:1px solid #F1E7CE;}
+  .rtable .rnum{text-align:right;white-space:nowrap;}
+  .rtable tr.rtot td{border-top:1px solid #EADFC2;border-bottom:0;background:#FBF6EA;}
+  .rshare{display:inline-block;vertical-align:middle;width:calc(100% - 44px);min-width:40px;height:7px;
+    border-radius:4px;background:#EFE4CA;overflow:hidden;margin-right:8px;}
+  .rshare i{display:block;height:100%;background:#B0473B;border-radius:4px;}
+  .rpct{font-size:12px;color:#7a5a2a;}
   .rbar-row{display:flex;align-items:center;gap:12px;margin-bottom:9px;}
   .rbar-row .rl{width:90px;font-size:13px;font-weight:500;flex:none;}
   .rbar-row .rt{flex:1;height:26px;background:#fff;border-radius:6px;overflow:hidden;border:1px solid #EADFC2;}
@@ -4951,12 +4957,33 @@ function rMonthLabel(ym){if(!ym)return '';const p=ym.split('-');return ['','Janu
 function parseLines(t){return String(t||'').split('\n').map(l=>l.split(',').map(x=>x.trim())).filter(r=>r[0]&&r.some(x=>x!==''));}
 function srcCat(l){if(l.source==='walkin')return l.walkinSource==='CP'?'CP':l.walkinSource==='Referral'?'Referral':'Direct';return (l.srcDetail==='Referral')?'Referral':'Digital';}
 function reportScope(){let ls=db.leads.slice();if(reportProject!=='All')ls=ls.filter(l=>l.project===reportProject);return ls;}
+// People type a note after the reason ("Price / negotiation gap — wanted 3L more"),
+// and the whole string was being used as a column heading, so nearly every lead
+// invented its own column: a dozen paragraph-wide headings scrolling off the slide.
+// Group on the category — the part before the em dash — as the pie beside it already
+// does, and turn the table the right way round: long reason labels belong down the
+// left, the four sources across the top. Biggest cause first, so it reads at a glance.
 function crossReasonSlide(title,leads,reasonFn,cats,slide){
-  const rs=[...new Set(leads.map(reasonFn).filter(Boolean))];
-  if(!rs.length)return slide(title,`<div style="color:#7F6E3A">No records this month.</div>`);
-  const head=`<tr><th>Source</th>${rs.map(r=>`<th>${r}</th>`).join('')}<th>Total</th></tr>`;
-  const body=cats.map(c=>{const cl=leads.filter(l=>srcCat(l)===c);if(!cl.length)return '';const cells=rs.map(r=>`<td class="mono">${cl.filter(l=>reasonFn(l)===r).length}</td>`).join('');return `<tr><td>${c}</td>${cells}<td class="mono"><b>${cl.length}</b></td></tr>`;}).join('');
-  return slide(title,`<div style="overflow-x:auto"><table class="rtable">${head}<tbody>${body}</tbody></table></div>`);
+  const cat=l=>{const v=String(reasonFn(l)||'').split(' — ')[0].trim();return v||'(no reason given)';};
+  const total=leads.length;
+  if(!total)return slide(title,`<div style="color:#7F6E3A">No records this month.</div>`);
+  const rows=[...new Set(leads.map(cat))]
+    .map(r=>({r,n:leads.filter(l=>cat(l)===r).length}))
+    .sort((a,b)=>b.n-a.n||a.r.localeCompare(b.r));
+  const used=cats.filter(c=>leads.some(l=>srcCat(l)===c));     // no empty source columns
+  const head=`<tr><th>Reason</th>${used.map(c=>`<th class="rnum">${c}</th>`).join('')}`
+    +`<th class="rnum">Total</th><th style="width:22%">Share</th></tr>`;
+  const body=rows.map(({r,n})=>{
+    const cells=used.map(c=>{const v=leads.filter(l=>cat(l)===r&&srcCat(l)===c).length;
+      return `<td class="rnum mono">${v||'<span style="color:#C9B98E">·</span>'}</td>`;}).join('');
+    const pct=Math.round(n/total*100);
+    return `<tr><td>${escapeHtml(r)}</td>${cells}<td class="rnum mono"><b>${n}</b></td>
+      <td><span class="rshare"><i style="width:${pct}%"></i></span><span class="mono rpct">${pct}%</span></td></tr>`;
+  }).join('');
+  const foot=`<tr class="rtot"><td><b>All reasons</b></td>`
+    +used.map(c=>`<td class="rnum mono"><b>${leads.filter(l=>srcCat(l)===c).length}</b></td>`).join('')
+    +`<td class="rnum mono"><b>${total}</b></td><td></td></tr>`;
+  return slide(title,`<table class="rtable"><thead>${head}</thead><tbody>${body}</tbody><tfoot>${foot}</tfoot></table>`);
 }
 function reportHTML(){
   if(!reportMonth)reportMonth=iso(today()).slice(0,7);
