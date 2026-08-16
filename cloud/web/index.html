@@ -890,7 +890,12 @@
     max-height:88vh;display:flex;flex-direction:column;box-shadow:var(--shadow-lift);
     padding-bottom:env(safe-area-inset-bottom,0);}
   .sheet-grab{width:36px;height:5px;border-radius:var(--r-full);background:var(--line);margin:9px auto 4px;flex:none;}
-  .sheet-t{font-family:'Space Grotesk';font-weight:650;font-size:16px;padding:6px 18px 10px;border-bottom:1px solid var(--line2);}
+  .sheet-t{display:flex;align-items:center;gap:10px;font-family:'Space Grotesk';font-weight:650;font-size:16px;padding:6px 18px 10px;border-bottom:1px solid var(--line2);}
+  .sheet-t>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .sheet-x{flex:none;width:36px;height:36px;margin:-6px -8px -6px 0;border:0;background:transparent;border-radius:var(--r-full);
+    color:var(--soft);font-size:17px;line-height:1;cursor:pointer;}
+  .sheet-x:hover{background:var(--canvas);color:var(--ink);}
+  @media(max-width:760px){.sheet-x{width:44px;height:44px;}}
   .sheet-b{overflow-y:auto;padding:12px 14px 18px;}
   .sheet-row{display:flex;align-items:center;gap:12px;width:100%;border:0;background:transparent;
     font-family:inherit;font-size:16px;color:var(--ink);padding:13px 10px;border-radius:var(--r-sm);text-align:left;min-height:48px;}
@@ -1404,13 +1409,13 @@
 <nav class="mtabs" id="mtabs" role="navigation" aria-label="Main"></nav>
 <div class="sheet-scrim" id="moreScrim" onclick="if(event.target===this)closeMore()">
   <div class="sheet" role="dialog" aria-modal="true" aria-label="More">
-    <div class="sheet-grab"></div><div class="sheet-t">More</div>
+    <div class="sheet-grab"></div><div class="sheet-t"><span>More</span><button class="sheet-x" onclick="closeMore()" title="Close (Esc)" aria-label="Close">&#10005;</button></div>
     <div class="sheet-b" id="moreBody"></div>
   </div>
 </div>
 <div class="sheet-scrim" id="qlScrim" onclick="if(event.target===this)closeQuickLog()">
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="qlTitle">
-    <div class="sheet-grab"></div><div class="sheet-t" id="qlTitle">Log outcome</div>
+    <div class="sheet-grab"></div><div class="sheet-t"><span id="qlTitle">Log outcome</span><button class="sheet-x" onclick="closeQuickLog()" title="Close (Esc)" aria-label="Close">&#10005;</button></div>
     <div class="sheet-b" id="qlBody"></div>
   </div>
 </div>
@@ -5865,23 +5870,35 @@ async function boot(){
  * We never call history.back() ourselves to "give an entry back" — that was the
  * bug: the counters desynchronised and the second swipe fell through and quit.
  */
-const NAV_CLOSERS={setPwScrim:'closeSetPw',modalScrim:'closeModal',editScrim:'closeEdit',bulkScrim:'closeBulk',baScrim:'closeBulkAssign',
+const NAV_CLOSERS={qlScrim:'closeQuickLog',moreScrim:'closeMore',setPwScrim:'closeSetPw',modalScrim:'closeModal',editScrim:'closeEdit',bulkScrim:'closeBulk',baScrim:'closeBulkAssign',
   bookScrim:'closeBooking',chatScrim:'closeChat',cpScrim:'closeCpManager',filterScrim:'closeFilters',
   listScrim:'closeLeadList',msgScrim:'closeMsgManager',msgPickScrim:'closeMsgPicker',pieScrim:'closePie',
   priceScrim:'closePricing',remScrim:'closeReminder',schemeScrim:'closeSchemes',teamScrim:'closeTeam'};
 // Everything "back" could step out of, TOP-MOST FIRST.
-function navSteps(){
+// Everything currently covering the screen, TOP-MOST FIRST. Bottom sheets count:
+// they were missing here, so neither Escape nor the back gesture could close the
+// "Log outcome" sheet — the only way out was a lucky tap on the scrim.
+function overlayClosers(){
   const out=[];
   const np=document.getElementById('notifyPanel');
   if(np&&!np.classList.contains('hidden'))out.push(closeNotify);
-  // later in the DOM = stacked on top, so walk the open dialogs in reverse
-  const open=Array.from(document.querySelectorAll('.modal-scrim.on'));
-  for(let i=open.length-1;i>=0;i--){
-    const el=open[i];const fn=window[NAV_CLOSERS[el.id]];
-    out.push(typeof fn==='function'?fn:function(){el.classList.remove('on');});
-  }
+  // Order by what is actually painted on top: sheets sit at z-index 130 and modals at
+  // 80, so DOM order alone got this backwards and closed the modal *underneath* an
+  // open sheet. Z-index first, DOM order only as the tie-break.
+  const open=Array.from(document.querySelectorAll('.modal-scrim.on,.sheet-scrim.on'));
+  const dom=el=>Array.prototype.indexOf.call(document.body.children,el);
+  open.map(el=>({el,z:parseInt(getComputedStyle(el).zIndex,10)||0,d:dom(el)}))
+      .sort((a,b)=>(b.z-a.z)||(b.d-a.d))
+      .forEach(({el})=>{
+        const fn=window[NAV_CLOSERS[el.id]];
+        out.push(typeof fn==='function'?fn:function(){el.classList.remove('on');});
+      });
   const dr=document.getElementById('drawer');
   if(dr&&dr.classList.contains('on'))out.push(closeDrawer);
+  return out;
+}
+function navSteps(){
+  const out=overlayClosers();
   const u=(typeof currentUser==='function')?currentUser():null;
   if(u&&u.role!=='reception'&&typeof activeTab!=='undefined'&&activeTab&&activeTab!=='pipeline')
     out.push(function(){setTab('pipeline');});
@@ -6243,10 +6260,10 @@ document.addEventListener('keydown',function(e){
     }
   }
   if(e.key!=='Escape')return;
-  const openM=[...document.querySelectorAll('.modal-scrim.on')];
-  if(openM.length){openM.forEach(m=>m.classList.remove('on'));if(chatTimer){clearInterval(chatTimer);chatTimer=null;}return;}
-  const np=document.getElementById('notifyPanel');if(np&&!np.classList.contains('hidden')){closeNotify();return;}
-  if(openId){closeDrawer();return;}
+  // One ordered list shared with the back gesture, so the two never disagree — and it
+  // closes the TOP-most overlay only, instead of dismissing every open modal at once.
+  const closers=overlayClosers();
+  if(closers.length){e.preventDefault();closers[0]();return;}
 });
 setInterval(pollNotify,20000);
 document.addEventListener('contextmenu',showNoteCtx);
