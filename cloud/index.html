@@ -399,8 +399,13 @@
   .edit-block{background:var(--t-warn-bg);border:1px solid #F0E0C0;border-radius:11px;padding:13px;}
   .edit-block .eh{font-size:11px;font-weight:700;color:#9A6B12;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;}
   .edit-block .r{display:flex;gap:9px;margin-bottom:9px;}
-  .bell{position:relative;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 8px;font-size:15px;line-height:1;}
-  .bell:hover{border-color:var(--brand);}
+  .bell{position:relative;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);
+    background:var(--surface);border-radius:8px;padding:6px 8px;font-size:15px;line-height:1;color:var(--soft);}
+  .bell:hover{border-color:var(--brand);color:var(--brand-ink);}
+  /* stroked icons: sized by the box, coloured by the text */
+  .ic-svg{display:inline-block;vertical-align:-2px;flex:none;}
+  .mtab .ic-svg,.bell .ic-svg,.sheet-row .ic-svg,.tab .ic-svg{display:block;vertical-align:baseline;}
+  .sheet-row .ic .ic-svg,.tab .ic .ic-svg,.umenu .ic-svg{margin:0 auto;}
   .bell .badge{position:absolute;top:-6px;right:-6px;background:var(--lost);color:#fff;font-family:'Space Grotesk';font-size:10px;font-weight:700;min-width:17px;height:17px;border-radius:9px;display:none;place-items:center;padding:0 4px;}
   .notify-panel{position:absolute;right:24px;top:62px;width:344px;max-height:70vh;overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 44px rgba(21,34,56,.18);z-index:55;}
   .notify-panel .nhead{padding:14px 16px;font-family:'Space Grotesk';font-weight:600;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px;}
@@ -988,8 +993,102 @@
     .fab .fab-t{display:none;}
     .fab:active{transform:translateY(1px);}
 
-    /* the tab bar must never sit on top of the last row */
-    main,main.wide{padding-bottom:120px;}
+    /* clear both the tab bar and the FAB above it */
+    main,main.wide{padding-bottom:152px;}
+  }
+
+  @media(max-width:760px){
+    /* the sheet needs the same grabber the other sheets have */
+    .drawer::before{content:'';position:absolute;top:8px;left:50%;transform:translateX(-50%);
+      width:36px;height:5px;border-radius:var(--r-full);background:var(--line);z-index:2;}
+    .dr-head{padding-top:20px;}
+    /* status choices wrapped 2-then-1 at three different widths */
+    .drawer .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+    .drawer .actions>.act,.drawer .actions>.btn{width:100%;justify-content:center;text-align:center;}
+    .drawer .actions>.act.wide,.drawer .actions>.btn.wide{grid-column:1 / -1;}
+    /* inputs carry their own labels and truncate in half a row */
+    .drawer .actions>select,.drawer .actions>input,.drawer .actions>textarea,
+    .drawer .actions>label,.drawer .actions>.field{grid-column:1 / -1;width:100%;}
+    /* a collapsed disclosure read as an empty grey slab */
+    .det{background:transparent !important;border:0;border-bottom:1px solid var(--line2);border-radius:0;padding:0;}
+    .det>label{padding:0 2px;justify-content:flex-start;font-size:14.5px;font-weight:600;color:var(--ink);}
+    .det>label{justify-content:space-between;}
+    .det .det-caret{order:2;font-size:15px;}
+  }
+
+  @media(max-width:760px){
+    .sheet-row{min-height:52px;font-size:15.5px;}
+    .sheet-val{margin-left:auto;font-size:13.5px;font-weight:600;color:var(--soft);}
+  }
+
+  @media(max-width:760px){
+    /* sections had ~60px of dead air between them */
+    .fu-sec{padding:0;}
+    .fu-sec>h3{padding:16px 16px 7px;margin:0;}
+    .fu-row{padding:11px 16px;gap:12px;}
+    /* an inline icon should sit on the text baseline, not float above it */
+    .fu-row .ic-svg,.lc-meta .ic-svg,.play-why .ic-svg{display:inline-block;vertical-align:-2px;}
+    /* the overdue count should look overdue */
+    .fu-sec.is-over>h3 .b{background:var(--t-bad-bg);color:var(--t-bad-fg);}
+    .fu-sec.is-over>h3{color:var(--t-bad-fg);}
+  }
+
+  @media(max-width:760px){
+    /* Boxed panels inside a 14px-padded main lose 28px of an already narrow
+       screen and stack a border inside a border. Full-bleed reads native. */
+    main .panel,main .dt-wrap,main .fu-wrap,main .vcal{
+      margin-left:-14px;margin-right:-14px;border-left:0;border-right:0;
+      border-radius:0;box-shadow:none;border-top:1px solid var(--line);}
+    main .panel{padding-left:16px;padding-right:16px;}
+    main .panel h3,main .fu-wrap h3{display:flex;align-items:center;gap:8px;
+      margin:2px 0 10px;font-size:13px;font-weight:700;letter-spacing:.06em;
+      text-transform:uppercase;color:var(--soft);}
+    .h3-ic{display:inline-flex;color:var(--soft);}
+    /* the reason ran to three lines of prose per row */
+    .play-why{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+    .play-n{font-size:15.5px;letter-spacing:-.01em;}
+    /* a full-width filled Send on every row shouted over the content */
+    .play-msg{gap:8px;}
+    .play-msg .act{flex:1;justify-content:center;min-height:40px;}
+    .play-msg .btn{flex:none;min-height:40px;padding:0 18px !important;}
+  }
+
+  @media(max-width:760px){
+    /* ---- lead card ---- */
+    .lc-list{display:flex;flex-direction:column;background:var(--surface);}
+    .lc{display:flex;flex-direction:column;align-items:stretch;gap:5px;width:100%;
+      padding:13px 16px 14px;border:0;border-top:1px solid var(--line2);background:transparent;
+      font-family:inherit;text-align:left;cursor:pointer;}
+    .lc:first-child{border-top:0;}
+    .lc:active{background:var(--canvas);}
+    .lc-top{display:flex;align-items:baseline;gap:10px;}
+    .lc-n{flex:1;min-width:0;font-size:15.5px;font-weight:650;color:var(--ink);letter-spacing:-.01em;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .lc-stage{flex:none;display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:650;}
+    .lc-stage i{width:6px;height:6px;border-radius:50%;flex:none;}
+    .lc-meta{font-size:12.5px;color:var(--soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .lc-marks{display:flex;flex-wrap:wrap;gap:5px;margin-top:2px;}
+    .lc-pill{font-size:11.5px;font-weight:600;padding:3px 8px;border-radius:var(--r-full);
+      background:var(--t-mute-bg);color:var(--t-mute-fg);white-space:nowrap;}
+    .lc-pill.info{background:var(--t-info-bg);color:var(--t-info-fg);}
+    /* the mute tone nearly matches the dark surface, so it needs an edge to read as a pill */
+    .lc-pill.mute{background:var(--t-mute-bg);color:var(--t-mute-fg);box-shadow:inset 0 0 0 1px var(--line2);}
+    .lc-pill.over,.lc-pill.late{background:var(--t-bad-bg);color:var(--t-bad-fg);}
+    .lc-pill.due,.lc-pill.today{background:var(--t-warn-bg);color:var(--t-warn-fg);}
+    .lc-pill.soon,.lc-pill.ok{background:var(--t-good-bg);color:var(--t-good-fg);}
+  }
+
+  @media(max-width:760px){
+    /* icon buttons read cleaner without their boxes at this size */
+    .bell{border-color:transparent;background:transparent;}
+    .bell:hover,.bell:active{background:var(--canvas);border-color:transparent;}
+    .mtab .mi{display:flex;align-items:center;justify-content:center;height:22px;}
+    .mtab{gap:5px;font-size:11px;letter-spacing:.01em;}
+    .mtab.on .ic-svg{stroke-width:2.1;}
+    /* the strips scroll; their scrollbars were thick grey slabs across the page */
+    .kpis,.sfbar,#savedBar,.dt-scroll,main table,.board{scrollbar-width:none;-ms-overflow-style:none;}
+    .kpis::-webkit-scrollbar,.sfbar::-webkit-scrollbar,#savedBar::-webkit-scrollbar,
+    .dt-scroll::-webkit-scrollbar,main table::-webkit-scrollbar,.board::-webkit-scrollbar{height:0;width:0;display:none;}
   }
 
   @media(max-width:760px){
@@ -1091,7 +1190,8 @@
     .whoami{gap:8px;}
     /* the WhatsApp action wraps under the play instead of squeezing the text to 172px */
     .play-row .play-msg{flex:1 1 100% !important;}
-    .play-row .play-msg .act,.play-row .play-msg .btn{flex:1;justify-content:center;}
+    .play-row .play-msg .act{flex:1;justify-content:center;}
+    .play-row .play-msg .btn{flex:none;}
     /* clear the sandbox banner so the tab labels are never hidden while testing */
     .is-sandbox .mtabs{bottom:26px;}
     .is-sandbox .fab{bottom:calc(100px + env(safe-area-inset-bottom,0));}
@@ -2454,7 +2554,7 @@ function receptionFormHTML(){
   const reps=salespeople();
   const ownerOpts=`<option value="">Choose salesperson…</option>`+reps.map(r=>`<option value="${r.id}" ${rcLastOwner===r.id?'selected':''}>${r.name}${r.project?' · '+r.project:''}</option>`).join('');
   const subOpts=RC_SUBSOURCES.map(s=>`<option>${s}</option>`).join('');
-  const sessionHTML=rcSession.length?`<div class="rc-log"><div class="rc-log-h">Entered today (${rcSession.length})</div>${rcSession.map(e=>`<div class="rc-log-row"><b>${escapeHtml(e.name)}${e.revisit?' <span style="color:#B26A00">↩ revisit</span>':''}</b><span>${escapeHtml(e.src)} · 📅 ${fmtDate(e.date)} → ${escapeHtml(e.owner)}</span></div>`).join('')}</div>`:'';
+  const sessionHTML=rcSession.length?`<div class="rc-log"><div class="rc-log-h">Entered today (${rcSession.length})</div>${rcSession.map(e=>`<div class="rc-log-row"><b>${escapeHtml(e.name)}${e.revisit?' <span style="color:#B26A00">↩ revisit</span>':''}</b><span>${escapeHtml(e.src)} · ${ICON('visits',13)} ${fmtDate(e.date)} → ${escapeHtml(e.owner)}</span></div>`).join('')}</div>`:'';
   const noReps=reps.length?'':`<div class="rc-warn">No salespeople have a login yet. Ask the Sales Head to add them before entering walk-ins.</div>`;
   return `<div class="rc-col">
     <form class="rc-card" onsubmit="event.preventDefault();rcSubmit();return false;">
@@ -2519,9 +2619,9 @@ function render(){
   document.getElementById('whoami').innerHTML=`
     <div class="u-av ${u.role==='sales_head'?'head':u.role==='project_head'?'ph':'sales'}">${initials(u.name)}</div>
     <div><div class="nm">${u.name}</div><div class="rl">${ROLE_LABEL[u.role]}</div></div>
-    <button class="bell" onclick="toggleNotify()" title="Alerts">🔔<span class="badge" id="notifyBadge"></span></button>
-    <button class="bell" onclick="openChat()" title="Team chat">💬</button>
-    <button class="bell umenu-btn" onclick="toggleUserMenu(event)" title="Settings and account" aria-haspopup="menu">⋯</button>
+    <button class="bell" onclick="toggleNotify()" title="Alerts" aria-label="Alerts">${ICON('bell')}<span class="badge" id="notifyBadge"></span></button>
+    <button class="bell" onclick="openChat()" title="Team chat" aria-label="Team chat">${ICON('chat')}</button>
+    <button class="bell umenu-btn" onclick="toggleUserMenu(event)" title="Settings and account" aria-label="Settings and account" aria-haspopup="menu">${ICON('more')}</button>
     <div class="umenu" id="umenu" role="menu">
       <button role="menuitem" onclick="closeUserMenu();palOpen()"><span>⌘</span>Command palette<kbd>⌘K</kbd></button>
       <button role="menuitem" onclick="closeUserMenu();openKeys()"><span>⌨</span>Keyboard shortcuts<kbd>?</kbd></button>
@@ -2592,22 +2692,60 @@ function targetsPanel(){
   return `<div class="panel"><h3>Targets &amp; incentives · ${rMonthLabel(m)}</h3><div style="overflow-x:auto"><table style="box-shadow:none"><thead><tr><th>Salesperson</th><th>Target (bookings)</th><th>Potential incentive ₹</th><th>Actual</th><th>Earned</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" style="color:var(--soft)">No salespeople yet.</td></tr>'}</tbody></table></div><div class="ai-tag" style="margin-top:8px">Earned = potential × (actual ÷ target), capped at the full amount.</div></div>`;
 }
 async function saveTarget(memberId){const m=iso(today()).slice(0,7);const target=parseInt(document.getElementById('tg_t_'+memberId).value)||0;const incentive=parseFloat(document.getElementById('tg_i_'+memberId).value)||0;const {error}=await sb.from('targets').upsert({company_id:myCompanyId,member_id:memberId,month:m,target,incentive},{onConflict:'member_id,month'});if(error){notify('Could not save target: '+error.message);return;}await refresh();}
+/* ============ icon set ============
+   Emoji render differently on every OS, carry their own colour and never line up
+   with text. One stroked set, sized by font-size, coloured by currentColor. */
+const ICON_PATHS={
+  pipeline:'M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01',
+  plays:'M12 3a9 9 0 100 18 9 9 0 000-18zM15.5 8.5l-2 5-5 2 2-5 5-2z',
+  followups:'M12 4a8 8 0 100 16 8 8 0 000-16zM12 8v4l2.5 2.5M5 3L2.5 5.5M19 3l2.5 2.5',
+  visits:'M4 6.5A1.5 1.5 0 015.5 5h13A1.5 1.5 0 0120 6.5v12a1.5 1.5 0 01-1.5 1.5h-13A1.5 1.5 0 014 18.5v-12zM4 10h16M8.5 3v4M15.5 3v4',
+  tasks:'M9 12.5l2.2 2.2L15.5 10M5 4.5h14a.5.5 0 01.5.5v14a.5.5 0 01-.5.5H5a.5.5 0 01-.5-.5V5a.5.5 0 01.5-.5z',
+  all:'M3.5 7.5l8.5-4 8.5 4-8.5 4-8.5-4zM3.5 12l8.5 4 8.5-4M3.5 16.5l8.5 4 8.5-4',
+  funnel:'M3.5 5h17l-6.5 7.5v6l-4 2.5v-8.5L3.5 5z',
+  cp:'M9 11a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM2.5 20c0-3.3 2.9-5.5 6.5-5.5s6.5 2.2 6.5 5.5M17 4.5a3.5 3.5 0 010 6.8M18.5 14.8c2 .8 3.5 2.6 3.5 5.2',
+  ageing:'M7 3h10M7 21h10M7 3c0 4 5 5.2 5 9s-5 5-5 9M17 3c0 4-5 5.2-5 9s5 5 5 9',
+  stats:'M3.5 20.5V4M3.5 20.5H21M7.5 16l4-4.5 3.5 3 5-6',
+  lostanalytics:'M3.5 20.5V4M3.5 20.5H21M7.5 9l4 4.5 3.5-3 5 6',
+  leaderboard:'M8 4h8v5a4 4 0 01-8 0V4zM8 5.5H5V7a3 3 0 003 3M16 5.5h3V7a3 3 0 01-3 3M12 13v4M9 20.5h6',
+  builder:'M3.5 4.5h7v6h-7v-6zM13.5 4.5h7v6h-7v-6zM3.5 13.5h7v6h-7v-6zM13.5 13.5h7v6h-7v-6z',
+  crossproject:'M3.5 6.5h4l9 11h4M17.5 3.5l3 3-3 3M3.5 17.5h4l2.5-3M14 9l2.5-2.5h4M17.5 14.5l3 3-3 3',
+  report:'M6 3.5h7l5 5v12H6v-17zM13 3.5v5h5M9 13h7M9 16.5h5',
+  more:'M6 12h.01M12 12h.01M18 12h.01',
+  bell:'M12 3.5a5.5 5.5 0 00-5.5 5.5c0 4-1.5 5.5-2 6.5h15c-.5-1-2-2.5-2-6.5A5.5 5.5 0 0012 3.5zM10 19a2 2 0 004 0',
+  chat:'M20.5 12a8.5 8.5 0 01-12.3 7.6L3.5 20.5l1-4.6A8.5 8.5 0 1120.5 12z',
+  keys:'M4 6.5h16v11H4v-11zM7.5 10h.01M11 10h.01M14.5 10h.01M8 14h8',
+  power:'M12 3.5v8M7.5 6.2a7.5 7.5 0 109 0',
+  edit:'M4 20h4l10.5-10.5a2.1 2.1 0 00-3-3L5 17v3z',
+  close:'M6 6l12 12M18 6L6 18',
+  theme:'M12 3.5a8.5 8.5 0 000 17 8.5 8.5 0 010-17z'
+};
+function ICON(name,size){
+  const d=ICON_PATHS[name];if(!d)return '';
+  // a dot drawn as a zero-length stroke is nearly invisible next to real strokes
+  const body=(name==='more')
+    ? '<circle cx="5.5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18.5" cy="12" r="1.7"/>'
+    : `<path d="${d}"/>`;
+  return `<svg class="ic-svg" viewBox="0 0 24 24" width="${size||20}" height="${size||20}"
+    fill="${name==='more'?'currentColor':'none'}" stroke="currentColor" stroke-width="1.7"
+    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${body}</svg>`;
+}
 const NAV_META={
-  pipeline:{icon:'📋',color:'1B4965',group:'Work'},
-  plays:{icon:'🧭',color:'C0524A',group:'Work'},
-  followups:{icon:'⏰',color:'E0A32E',group:'Work'},
-  visits:{icon:'📅',color:'2C5D80',group:'Work'},
-  tasks:{icon:'✅',color:'2E7D32',group:'Work'},
-  all:{icon:'🗂️',color:'5C6879',group:'Work'},
-  funnel:{icon:'🔻',color:'2C5D80',group:'Insights'},
-  cp:{icon:'🤝',color:'7A5AB6',group:'Insights'},
-  ageing:{icon:'⌛',color:'B26A00',group:'Insights'},
-  stats:{icon:'📈',color:'2C9C9A',group:'Insights'},
-  lostanalytics:{icon:'📉',color:'C0524A',group:'Insights'},
-  leaderboard:{icon:'🏆',color:'D98A00',group:'Insights'},
-  builder:{icon:'🧱',color:'5C6879',group:'Insights'},
-  crossproject:{icon:'🔀',color:'2C9C9A',group:'More'},
-  report:{icon:'📄',color:'1B4965',group:'More'},
+  pipeline:{icon:ICON('pipeline'),color:'1B4965',group:'Work'},
+  plays:{icon:ICON('plays'),color:'C0524A',group:'Work'},
+  followups:{icon:ICON('followups'),color:'E0A32E',group:'Work'},
+  visits:{icon:ICON('visits'),color:'2C5D80',group:'Work'},
+  tasks:{icon:ICON('tasks'),color:'2E7D32',group:'Work'},
+  all:{icon:ICON('all'),color:'5C6879',group:'Work'},
+  funnel:{icon:ICON('funnel'),color:'2C5D80',group:'Insights'},
+  cp:{icon:ICON('cp'),color:'7A5AB6',group:'Insights'},
+  ageing:{icon:ICON('ageing'),color:'B26A00',group:'Insights'},
+  stats:{icon:ICON('stats'),color:'2C9C9A',group:'Insights'},
+  lostanalytics:{icon:ICON('lostanalytics'),color:'C0524A',group:'Insights'},
+  leaderboard:{icon:ICON('leaderboard'),color:'D98A00',group:'Insights'},
+  builder:{icon:ICON('builder'),color:'5C6879',group:'Insights'},
+  crossproject:{icon:ICON('crossproject'),color:'2C9C9A',group:'More'},
+  report:{icon:ICON('report'),color:'1B4965',group:'More'},
 };
 const NAV_GROUPS=['Work','Insights','More'];
 function renderTabs(){
@@ -2658,14 +2796,42 @@ function cardHTML(l){
   if(l.stage==='not_qualified'&&l.nqReason)reason=`<div class="reason-tag">Disqualified · <b>${l.nqReason}</b>${l.disqualifiedBy?' · by '+l.disqualifiedBy:''}</div>`;
   if(l.stage==='lost'&&l.lostReason)reason=`<div class="reason-tag">Lost · <b>${l.lostReason}</b></div>`;
   return `<div class="card ${crit?'crit':attn?'attn':''}" style="--l:${st.color}" onclick="openDrawer('${l.id}')">
-    <div class="top"><div><div class="nm">${l.name}</div><div class="proj">${l.project||'—'} · <span title="${l.source==='walkin'?'Walk-in date':'Captured'}">📅 ${fmtDate(l.createdAt)}</span></div></div><span class="src ${l.source}">${l.source==='digital'?'Digital':'Walk-in'}</span></div>
-    <div class="meta">${(can('edit',l)&&isOpenLead(l))?`<button class="ql-btn" title="Log outcome" aria-label="Log outcome for ${escapeHtml(l.name)}" onclick="openQuickLog('${l.id}',event)">⚡</button>`:''}${l.ownerId?`<div class="avatar" title="${userName(l.ownerId)}">${initials(userName(l.ownerId))}</div>`:`<div class="avatar none" title="Unassigned">–</div>`}${l.viaGre?`<span class="tchip" style="background:var(--t-good-bg);color:var(--t-good-fg)" title="Entered at the front desk (GRE)">GRE</span>`:''}${l.pendingRevisit?`<span class="tchip" style="background:var(--t-warn-bg);color:var(--t-warn-fg)" title="Marked as a revisit by the front desk — needs merge">↩ Revisit · merge</span>`:''}${l.dealStatus?`<span class="tchip" style="background:var(--t-info-bg);color:var(--t-info-fg)">${l.dealStatus}</span>`:''}${(l.metProjectHead===false&&(l.revisits&&l.revisits.length))?`<span class="tchip" style="background:var(--t-bad-bg);color:var(--t-bad-fg)" title="Revisited but no Project-Head meeting">No PH mtg</span>`:''}${(l.revisits&&l.revisits.length)?`<span class="tchip" style="background:var(--t-note-bg);color:var(--t-note-fg);font-weight:700" title="Came back ${l.revisits.length} time${l.revisits.length===1?'':'s'} after the first walk-in">↩ ${l.revisits.length} revisit${l.revisits.length===1?'':'s'}</span>`:''}${(l.plannedVisit&&isOpenLead(l))?`<span class="tchip" style="background:${l.plannedVisit<iso(today())?'#FBE3E1':'#E8F0FA'};color:${l.plannedVisit<iso(today())?'#A03027':'#25506F'}" title="Next visit planned${l.plannedVisit<iso(today())?' — date passed, no revisit logged':''}">📅${fmtDate(l.plannedVisit)}</span>`:''}${rnrCount(l)?`<span class="tchip" style="background:var(--t-bad-bg);color:var(--t-bad-fg)" title="Ring-no-response attempts">☎ RNR ×${rnrCount(l)}</span>`:''}${(l.labels||[]).map(n=>`<span class="lchip" style="background:${labelColor(n)}">${n}</span>`).join('')}${slaHTML}${dueHTML}${l.budget?`<span class="budget">₹${l.budget}</span>`:''}</div>
+    <div class="top"><div><div class="nm">${l.name}</div><div class="proj">${l.project||'—'} · <span title="${l.source==='walkin'?'Walk-in date':'Captured'}">${ICON('visits',13)} ${fmtDate(l.createdAt)}</span></div></div><span class="src ${l.source}">${l.source==='digital'?'Digital':'Walk-in'}</span></div>
+    <div class="meta">${(can('edit',l)&&isOpenLead(l))?`<button class="ql-btn" title="Log outcome" aria-label="Log outcome for ${escapeHtml(l.name)}" onclick="openQuickLog('${l.id}',event)">⚡</button>`:''}${l.ownerId?`<div class="avatar" title="${userName(l.ownerId)}">${initials(userName(l.ownerId))}</div>`:`<div class="avatar none" title="Unassigned">–</div>`}${l.viaGre?`<span class="tchip" style="background:var(--t-good-bg);color:var(--t-good-fg)" title="Entered at the front desk (GRE)">GRE</span>`:''}${l.pendingRevisit?`<span class="tchip" style="background:var(--t-warn-bg);color:var(--t-warn-fg)" title="Marked as a revisit by the front desk — needs merge">↩ Revisit · merge</span>`:''}${l.dealStatus?`<span class="tchip" style="background:var(--t-info-bg);color:var(--t-info-fg)">${l.dealStatus}</span>`:''}${(l.metProjectHead===false&&(l.revisits&&l.revisits.length))?`<span class="tchip" style="background:var(--t-bad-bg);color:var(--t-bad-fg)" title="Revisited but no Project-Head meeting">No PH mtg</span>`:''}${(l.revisits&&l.revisits.length)?`<span class="tchip" style="background:var(--t-note-bg);color:var(--t-note-fg);font-weight:700" title="Came back ${l.revisits.length} time${l.revisits.length===1?'':'s'} after the first walk-in">↩ ${l.revisits.length} revisit${l.revisits.length===1?'':'s'}</span>`:''}${(l.plannedVisit&&isOpenLead(l))?`<span class="tchip" style="background:${l.plannedVisit<iso(today())?'#FBE3E1':'#E8F0FA'};color:${l.plannedVisit<iso(today())?'#A03027':'#25506F'}" title="Next visit planned${l.plannedVisit<iso(today())?' — date passed, no revisit logged':''}">${ICON('visits',13)}${fmtDate(l.plannedVisit)}</span>`:''}${rnrCount(l)?`<span class="tchip" style="background:var(--t-bad-bg);color:var(--t-bad-fg)" title="Ring-no-response attempts">☎ RNR ×${rnrCount(l)}</span>`:''}${(l.labels||[]).map(n=>`<span class="lchip" style="background:${labelColor(n)}">${n}</span>`).join('')}${slaHTML}${dueHTML}${l.budget?`<span class="budget">₹${l.budget}</span>`:''}</div>
     ${reason}</div>`;
 }
 function isPhone(){try{return window.matchMedia('(max-width:760px)').matches;}catch(e){return false;}}
 function setPipeView(v){pipeView=v;try{localStorage.setItem('bm_pipe_view',v);}catch(e){}render();}
 function pipeToggle(){return `<div class="pipe-toolbar"><div class="seg pipe-seg"><button class="${pipeView!=='list'?'on':''}" onclick="setPipeView('board')">▦ Board</button><button class="${pipeView==='list'?'on':''}" onclick="setPipeView('list')">☰ List</button></div></div>`;}
+// One phone card used by both lead lists. Purpose-built rather than reusing table
+// cells, which carried their own line breaks and duplicated the source twice.
+function leadCardsHTML(leads,sorter){
+  const t=iso(today());
+  const rows=leads.slice().sort(sorter||((a,b)=>parseD(b.createdAt)-parseD(a.createdAt)));
+  return rows.map(l=>{
+    const st=STAGES[l.stage]||{label:l.stage,color:'#8A97A8'};
+    const src=l.source==='digital'?'Digital':'Walk-in';
+    const via=l.source==='walkin'&&l.walkinSource==='CP'&&l.cpName?('CP · '+l.cpName)
+      :(l.srcDetail||(l.source==='walkin'?'Direct':''));
+    const meta=[l.ownerId?userName(l.ownerId):'Unassigned',src+(via?' · '+via:''),l.project||''].filter(Boolean).join(' · ');
+    const marks=[];
+    if(l.nextFollowUp&&isOpenLead(l)){
+      const d=dueState(l.nextFollowUp);
+      marks.push(`<span class="lc-pill ${d.cls}">${l.nextFollowUp<t?'Overdue':'Due'} ${fmtDate(l.nextFollowUp)}</span>`);
+    }
+    if(l.plannedVisit&&l.plannedVisit>=t)marks.push(`<span class="lc-pill info">Visit ${fmtDate(l.plannedVisit)}</span>`);
+    const rv=(l.revisits||[]).length;
+    if(rv)marks.push(`<span class="lc-pill mute">${rv} revisit${rv>1?'s':''}</span>`);
+    (l.labels||[]).forEach(n=>marks.push(`<span class="lc-pill" style="background:${labelColor(n)}1f;color:${labelColor(n)}">${escapeHtml(n)}</span>`));
+    return `<button class="lc" onclick="openDrawer('${l.id}')">
+      <span class="lc-top"><span class="lc-n">${escapeHtml(l.name)}</span>
+        <span class="lc-stage" style="color:${st.color}"><i style="background:${st.color}"></i>${st.label}</span></span>
+      <span class="lc-meta">${escapeHtml(meta)}</span>
+      ${marks.length?`<span class="lc-marks">${marks.join('')}</span>`:''}</button>`;
+  }).join('');
+}
 function pipelineListHTML(leads){
+  if(isPhone())return filterBanner()+`<div class="lc-list">${leadCardsHTML(leads)}</div>`;
   const rows=leads.slice().sort((a,b)=>parseD(b.createdAt)-parseD(a.createdAt)).map(l=>{const st=STAGES[l.stage];
     const via=l.source==='walkin'?(l.walkinSource==='CP'?('CP'+(l.cpName?' · '+l.cpName:'')):l.walkinSource==='Referral'?('Referral'+(l.referralName?' · '+l.referralName:'')):'Direct'):'—';
     const fu=l.stage==='qualified'&&l.nextFollowUp?`<span class="pill ${dueState(l.nextFollowUp).cls}" style="font-size:11px">${fmtDate(l.nextFollowUp)}</span>`:'—';
@@ -2712,9 +2878,9 @@ function followupsHTML(leads){
   const groups={over:[],today:[],upcoming:[]};
   due.forEach(l=>{const d=dueState(l.nextFollowUp);groups[d.cls==='over'?'over':d.cls==='today'?'today':'upcoming'].push(l);});
   const noFU=leads.filter(l=>l.stage==='qualified'&&!l.nextFollowUp);
-  const sec=(title,arr)=>arr.length?`<div class="fu-sec"><h3>${title}<span class="b">${arr.length}</span></h3>`+arr.map(l=>{const last=l.log[l.log.length-1];
+  const sec=(title,arr)=>arr.length?`<div class="fu-sec ${title==='Overdue'?'is-over':''}"><h3>${title}<span class="b">${arr.length}</span></h3>`+arr.map(l=>{const last=l.log[l.log.length-1];
     return `<div class="fu-row" onclick="openDrawer('${l.id}')"><div class="date">${fmtDate(l.nextFollowUp)}<small>${parseD(l.nextFollowUp).toLocaleDateString('en-IN',{weekday:'short'})}</small></div>
-    <div class="who"><b>${l.name}</b><br><span>${userName(l.ownerId)} · ${l.project||'—'} · 📅 ${fmtDate(l.createdAt)}</span></div><div class="note">${last?last.t:''}</div></div>`;}).join('')+`</div>`:'';
+    <div class="who"><b>${l.name}</b><br><span>${userName(l.ownerId)} · ${l.project||'—'} · ${ICON('visits',13)} ${fmtDate(l.createdAt)}</span></div><div class="note">${last?last.t:''}</div></div>`;}).join('')+`</div>`:'';
   let inner=sec('Overdue',groups.over)+sec('Today',groups.today)+sec('Upcoming',groups.upcoming)+sec('No date set',noFU);
   if(!inner)inner='<div class="fu-empty">No follow-ups scheduled. Qualified leads with a next-contact date show up here as reminders.</div>';
   return `<div class="fu-wrap">${inner}</div>`;
@@ -2772,7 +2938,8 @@ function visitRow(l){
 // 32x16 tap target. On a phone the same information reads better as an agenda.
 function visitAgendaHTML(ents){
   const t=iso(today());
-  const rows=ents.slice().sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0);
+  // the month grid silently dropped dateless entries; a list would show "Invalid Date"
+  const rows=ents.filter(e=>e&&/^\d{4}-\d{2}-\d{2}$/.test(e.d)).sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0);
   const byDay={};rows.forEach(e=>{(byDay[e.d]=byDay[e.d]||[]).push(e);});
   _visitDays={};Object.keys(byDay).forEach(k=>{_visitDays[k]=byDay[k].map(e=>e.l);});
   const days=Object.keys(byDay).sort();
@@ -2874,7 +3041,7 @@ function visitsHTML(leads){
     <div class="note">${(e.planned&&e.planned!==e.d)?('planned for '+fmtDate(e.planned)):'on the planned day'}</div></div>`;
   const happened=keptRecent.length?`<div class="fu-sec"><h3>Happened · last ${visitRange} days<span class="b">${keptRecent.length}</span></h3>${keptRecent.map(happenedRow).join('')}</div>`:'';
   const list=`<div class="fu-wrap">${missed}<div class="fu-sec"><h3>Planned · next ${visitRange} days<span class="b">${inRange.length}</span></h3>${agenda}</div>${happened}</div>`;
-  const help=`<div style="font-size:11.5px;color:var(--soft);line-height:1.55;margin-bottom:12px">Set a date on a lead under <b>Add an update → 📅 Next visit planned on</b>. Tick <b>Log as a revisit</b> when they turn up — the visit is kept on record as <b>happened</b>, not erased.</div>`;
+  const help=`<div style="font-size:11.5px;color:var(--soft);line-height:1.55;margin-bottom:12px">Set a date on a lead under <b>Add an update → ${ICON('visits',14)} Next visit planned on</b>. Tick <b>Log as a revisit</b> when they turn up — the visit is kept on record as <b>happened</b>, not erased.</div>`;
   return filterBanner()+help+stats+`<div class="rb-cfg-row" style="margin:12px 0"><span class="rb-cfg-l">Window</span><div class="rb-colchips">${rangeChips}</div></div>`+visitCalendarHTML(ents)+list+visitTeamHTML(leads);
 }
 /* ============ the data table — All leads ============ *
@@ -2996,18 +3163,12 @@ function tableHTML(leads){
   // A 16-column table is 1,265px wide — on a phone that is two-axis scrolling and
   // 36px header cells. Same rows, same sort, same paging, rendered as cards instead.
   if(isPhone()){
-    const cards=page.map(l=>{
-      const cell=k=>{const c=dtCol(k);return c?c.cell(l):'';};
-      return `<button class="dtc" onclick="openDrawer('${l.id}')">
-        <span class="dtc-top">${cell('name')}${cell('stage')}</span>
-        <span class="dtc-sub">${cell('owner')} · ${cell('source')} · ${cell('captured')}</span>
-        <span class="dtc-sub">Follow-up ${cell('nextfu')||'—'}</span></button>`;
-    }).join('');
+    const cards=leadCardsHTML(page,()=>0);   // already sorted by the table's own key
     const sortSel=`<select class="field" style="width:auto;padding:8px 10px;font-size:13px" onchange="dtSort(this.value)">`
       +DT_COLS.filter(c=>!c.nosort).map(c=>`<option value="${c.k}" ${p.sortK===c.k?'selected':''}>Sort: ${escapeHtml(c.label)}</option>`).join('')+`</select>`;
     return filterBanner()+`<div class="dt-wrap">
       <div class="dt-toolbar">${sortSel}<button class="btn ghost" style="padding:8px 12px" onclick="dtSort('${p.sortK}')">${p.sortDir===1?'▲ Asc':'▼ Desc'}</button></div>
-      ${total?`<div class="dtc-list">${cards}</div>`:empty}${total?foot:''}</div>`;
+      ${total?`<div class="lc-list">${cards}</div>`:empty}${total?foot:''}</div>`;
   }
   return filterBanner()+`<div class="dt-wrap">${toolbar}
     <div class="dt-scroll">${total?`<table class="dt ${p.density}"><caption class="sr-only">All leads</caption><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`:empty}</div>
@@ -3154,7 +3315,7 @@ function renderDrawer(){
           <button class="x" onclick="drawerStep(-1)" title="Previous lead (K)" ${q.i<=0?'disabled':''}>‹</button>
           <span class="dr-pos">${q.i+1} of ${q.list.length}</span>
           <button class="x" onclick="drawerStep(1)" title="Next lead (J)" ${q.i>=q.list.length-1?'disabled':''}>›</button></span>`;})()}
-      ${can('edit',l)?`<button class="x" onclick="openEdit('${l.id}')" title="Edit details">✎</button><button class="x" onclick="closeDrawer()" title="Close (Esc)">✕</button>`:`<button class="x" onclick="closeDrawer()" title="Close (Esc)">✕</button>`}</div>
+      ${can('edit',l)?`<button class="x" onclick="openEdit('${l.id}')" title="Edit details" aria-label="Edit details">${ICON('edit',18)}</button><button class="x" onclick="closeDrawer()" title="Close (Esc)" aria-label="Close">${ICON('close',18)}</button>`:`<button class="x" onclick="closeDrawer()" title="Close (Esc)">✕</button>`}</div>
       <div style="margin-top:12px;display:flex;align-items:center;gap:9px;flex-wrap:wrap"><span class="stage-now" style="background:${st.color}1c;color:${st.color}"><i style="background:${st.color}"></i>${st.label}</span>${msgTopBar(l)}</div></div>
     <div class="dr-body">
       <div class="det"><label onclick="this.closest('.det').classList.toggle('open')"><span class="det-caret">▸</span> Personal details</label>
@@ -3322,7 +3483,7 @@ function updateBlock(l){
         <input type="date" class="field" id="upd_rvd_${l.id}" style="display:none;max-width:170px" value="${iso(today())}"/>`;
   // Planned (future) revisit — "the customer said he'll come on Saturday". Shows on the Visits calendar.
   const pvOn=!!l.plannedVisit;
-  const pvCtrl=`<label style="${cbLab}" title="The customer said they'll visit again on this date — it appears on the Visits calendar"><input type="checkbox" id="upd_pv_${l.id}" ${pvOn?'checked':''} onchange="document.getElementById('upd_pvd_${l.id}').style.display=this.checked?'':'none'"/> 📅Next visit planned on</label>
+  const pvCtrl=`<label style="${cbLab}" title="The customer said they'll visit again on this date — it appears on the Visits calendar"><input type="checkbox" id="upd_pv_${l.id}" ${pvOn?'checked':''} onchange="document.getElementById('upd_pvd_${l.id}').style.display=this.checked?'':'none'"/> ${ICON('visits',14)} Next visit planned on</label>
         <input type="date" class="field" id="upd_pvd_${l.id}" style="${pvOn?'':'display:none;'}max-width:170px" value="${l.plannedVisit||addDays(3)}"/>`;
   const fuControls=mustFollow
     ? `<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:11px;align-items:center">
@@ -4174,7 +4335,7 @@ function leadRowMini(l){
   const assign=canAssignTask(l)?`<div class="mini-assign"><input class="field" id="qt_${l.id}" placeholder="Assign a task to ${escapeHtml(userName(l.ownerId))}…" onkeydown="if(event.key==='Enter')quickAssignTask('${l.id}')"/><button class="btn" onclick="quickAssignTask('${l.id}')">Send</button></div>`:'';
   return `<div class="mini-lead">
     <div class="mini-top"><div><b>${escapeHtml(l.name)}</b> <span class="tchip" style="background:${st.color}1c;color:${st.color}">${st.label}</span>${l.viaGre?` <span class="tchip" style="background:var(--t-good-bg);color:var(--t-good-fg)">GRE</span>`:''}${l.dealStatus?` <span class="tchip" style="background:var(--t-info-bg);color:var(--t-info-fg)">${l.dealStatus}</span>`:''}</div><button class="btn ghost" style="padding:5px 11px" onclick="openFromList('${l.id}')">Open</button></div>
-    <div class="mini-sub">${l.project||'—'} · ${l.ownerId?escapeHtml(userName(l.ownerId)):'Unassigned'} · 📅 ${fmtDate(l.createdAt)}${(l.revisits||[]).length?' · ↩ '+l.revisits.length:''}${(l.metProjectHead===false&&(l.revisits||[]).length)?' · <span style="color:#A03027">no PH mtg</span>':''}${l.lostTo?' · lost to '+escapeHtml(l.lostTo):''}</div>
+    <div class="mini-sub">${l.project||'—'} · ${l.ownerId?escapeHtml(userName(l.ownerId)):'Unassigned'} · ${ICON('visits',13)} ${fmtDate(l.createdAt)}${(l.revisits||[]).length?' · ↩ '+l.revisits.length:''}${(l.metProjectHead===false&&(l.revisits||[]).length)?' · <span style="color:#A03027">no PH mtg</span>':''}${l.lostTo?' · lost to '+escapeHtml(l.lostTo):''}</div>
     <div class="mini-cmts">${cmtHTML}</div>${assign}</div>`;
 }
 function openLeadList(title,leads){
@@ -4627,7 +4788,7 @@ function dealCoachBlock(l){
   const t=dealCoach(l);
   if(!t){
     const lbl=l.stage==='booked'?'Booked — deal won 🎉':l.stage==='lost'?'Closed lost':l.stage==='not_qualified'?'Not qualified':'No action needed';
-    return `<div class="block coach"><label>🧭 Deal Coach — next best action</label>
+    return `<div class="block coach"><label>${ICON('plays',15)} Deal Coach — next best action</label>
       <div style="border:1px solid var(--line);border-left:3px solid #98A2B0;border-radius:10px;padding:12px 14px;background:var(--subtle)">
         <div style="font-family:'Space Grotesk';font-weight:600;font-size:14px;color:var(--soft)">${lbl}</div>
         <div style="color:var(--soft);font-size:12.5px;margin-top:3px">Nothing to do here — this lead is closed.</div>
@@ -4639,7 +4800,7 @@ function dealCoachBlock(l){
     if(t.act==='qualify'&&l.qualified!==true)btn=`<button class="btn" onclick="event.stopPropagation();qualify('${l.id}')">Mark qualified</button>`;
     else if(t.act==='follow')btn=`<button class="btn" onclick="event.stopPropagation();coachFollow('${l.id}',2)">Set follow-up (+2 days)</button>`;
   }
-  return `<div class="block"><label>🧭 Deal Coach — next best action</label>
+  return `<div class="block"><label>${ICON('plays',15)} Deal Coach — next best action</label>
     <div style="border:1px solid var(--line);border-left:3px solid ${dot};border-radius:10px;padding:12px 14px;background:var(--subtle)">
       <div style="font-family:'Space Grotesk';font-weight:600;font-size:14px">${t.label}</div>
       <div style="color:var(--soft);font-size:12.5px;margin-top:3px">${t.why}</div>
@@ -4694,7 +4855,7 @@ function waNudgeBlock(l){
   const st=waStale(l);
   const levelTxt={'still warm':'looks still warm','slowing down':'is slowing down','gone quiet':'has gone quiet'}[st.level];
   const c=waCache[l.id];
-  const head=`<label>💬 WhatsApp nudge</label>`;
+  const head=`<label>${ICON('chat',14)} WhatsApp nudge</label>`;
   if(!c){
     return `<div class="block">${head}
       <div style="font-size:12.5px;color:var(--soft);margin-bottom:10px">This lead <b style="color:var(--ink)">${levelTxt}</b>${st.days!=null?` · ${st.days} day${st.days===1?'':'s'} since the last update`:''}. Get three ready-to-send follow-ups — written from this lead's own comments — each crafted to actually pull a reply.</div>
@@ -4768,16 +4929,16 @@ function playsHTML(){
   // adds, removes or reorders a play — the coach decides what appears, messaging follows.
   const msgFor=l=>{const m=msgDue(l);if(!m||!can('edit',l))return '';const ph=waPhone(l);
     return `<div class="play-msg" style="display:flex;gap:6px;align-items:center" onclick="event.stopPropagation()">
-      <button class="act" style="white-space:nowrap" title="${escapeHtml(msgMerge(m.body,l))}" onclick="msgCopyAndMark('${l.id}','${m.id}')">💬 ${escapeHtml(m.name)}</button>
+      <button class="act" style="white-space:nowrap;display:inline-flex;align-items:center;gap:6px" title="${escapeHtml(msgMerge(m.body,l))}" onclick="msgCopyAndMark('${l.id}','${m.id}')">${ICON('chat',15)}<span>${escapeHtml(m.name)}</span></button>
       ${ph?`<button class="btn" style="padding:5px 10px" onclick="msgSendWA('${l.id}','${m.id}')">Send</button>`:''}</div>`;};
   const list=rows.length?rows.map(({l,t})=>`<div class="play-row" onclick="openDrawer('${l.id}')" style="display:flex;gap:12px;align-items:flex-start;padding:12px 4px;border-top:1px solid var(--line);cursor:pointer">
      <div style="width:9px;height:9px;border-radius:50%;background:${dotFor(t.cls)};margin-top:5px;flex:none"></div>
-     <div style="flex:1;min-width:0"><div style="font-family:'Space Grotesk';font-weight:600">${escapeHtml(l.name)} <span class="stg" style="background:${STAGES[l.stage].color}22;color:${STAGES[l.stage].color};font-size:11px">${STAGES[l.stage].label}</span></div>
-       <div style="font-size:13px;margin-top:2px"><b>${t.label}</b> <span style="color:var(--soft)">— ${t.why}</span></div></div>
+     <div class="play-body" style="flex:1;min-width:0"><div class="play-n" style="font-family:'Space Grotesk';font-weight:600">${escapeHtml(l.name)} <span class="stg" style="background:${STAGES[l.stage].color}22;color:${STAGES[l.stage].color};font-size:11px">${STAGES[l.stage].label}</span></div>
+       <div class="play-why" style="font-size:13px;margin-top:2px"><b>${t.label}</b> <span style="color:var(--soft)">— ${t.why}</span></div></div>
      ${msgFor(l)}
      ${isHead?`<div style="color:var(--soft);font-size:12px;white-space:nowrap;text-align:right">${l.ownerId?escapeHtml(userName(l.ownerId)):'Unassigned'}<br>${l.project||'—'}</div>`:''}
    </div>`).join(''):'<div style="padding:26px;text-align:center;color:var(--soft)">Nothing needs attention right now. 🎉</div>';
-  return `<div class="panel">${esc}<h3>🧭 Today's plays — ${rows.length} ranked by urgency</h3>${list}</div>`;
+  return `<div class="panel">${esc}<h3><span class="h3-ic">${ICON('plays',17)}</span>Today's plays — ${rows.length} ranked by urgency</h3>${list}</div>`;
 }
 /* ============ WhatsApp smart drip ============ *
  * Click-to-send: the app decides WHO is due, WHICH message and WITH WHAT TEXT,
@@ -4911,7 +5072,7 @@ function msgTopBar(l){
   if(!can('edit',l))return '';
   if(msgState(l)==='stop')return '';
   const due=msgDue(l);const ph=waPhone(l);
-  if(!due)return `<button class="mtop-link" onclick="openMsgPicker('${l.id}')" title="Pick a WhatsApp message">💬 WhatsApp</button>`;
+  if(!due)return `<button class="mtop-link" onclick="openMsgPicker('${l.id}')" title="Pick a WhatsApp message">${ICON('chat',14)} WhatsApp</button>`;
   return `<span class="mtop">💬 <b>${escapeHtml(due.name)}</b> due
     <button class="mtop-btn" onclick="msgCopyAndMark('${l.id}','${due.id}')">⧉ Copy</button>
     ${ph?`<button class="mtop-btn go" onclick="msgSendWA('${l.id}','${due.id}')">Send</button>`:''}
@@ -5272,8 +5433,8 @@ function renderNotify(){const p=document.getElementById('notifyPanel');const it=
   const myTasks=it.myTasks.filter(t=>keep('tk_'+t.id)),incoming=it.incoming.filter(t=>keep('in_'+t.id)),pendingPricing=it.pendingPricing.filter(r=>keep('pp_'+r.id)),pricedForMe=it.pricedForMe.filter(r=>keep('pf_'+r.id)),doneTasks=it.doneTasks.filter(t=>keep('tkd_'+t.id)),pendingT=it.pendingT.filter(t=>keep('pt_'+t.id)),declinedT=it.declinedT.filter(t=>keep('dt_'+t.id)),interests=it.interests.filter(c=>keep('ci_'+c.id)),stale=it.stale.filter(l=>keep('st_'+l.id)),overdue=it.overdue.filter(l=>keep('ov_'+l.id)),escalations=(it.escalations||[]).filter(e=>keep('esc_'+e.memberId)),missedV=(it.missedV||[]).filter(l=>keep('mv_'+l.id));
   const total=myTasks.length+incoming.length+pendingPricing.length+pricedForMe.length+doneTasks.length+pendingT.length+declinedT.length+interests.length+stale.length+overdue.length+escalations.length+missedV.length;
   let html=`<div class="nhead">Alerts${total?`<button class="nclear" onclick="clearAllNotif()">Clear all</button>`:''}</div>`;
-  if(missedV.length)html+=`<div class="nsec">📅 Missed visits · planned date passed, no revisit logged</div>`+missedV.map(l=>{const n=-dueState(l.plannedVisit).n;return `<div class="nrow" onclick="closeNotify();openDrawer('${l.id}')"><div class="ndot" style="background:var(--over)"></div><div class="nmeta"><b>${escapeHtml(l.name)}</b><span>${escapeHtml(l.project||'')} · ${l.ownerId?escapeHtml(userName(l.ownerId)):'unassigned'} — visit was planned ${fmtDate(l.plannedVisit)} (${n} day${n===1?'':'s'} ago)</span></div>${nx('mv_'+l.id)}</div>`;}).join('');
-  if(escalations.length)html+=`<div class="nsec">🧭 Deal Coach · salespeople needing attention</div>`+escalations.map(e=>`<div class="nrow" onclick="closeNotify();openNeglected('${e.memberId}')"><div class="ndot" style="background:var(--over)"></div><div class="nmeta"><b>${userName(e.memberId)}</b><span>${e.count} leads slipping (overdue, undecided, missed visits or gone cold) — coach them</span></div>${nx('esc_'+e.memberId)}</div>`).join('');
+  if(missedV.length)html+=`<div class="nsec">${ICON('visits',14)} Missed visits · planned date passed, no revisit logged</div>`+missedV.map(l=>{const n=-dueState(l.plannedVisit).n;return `<div class="nrow" onclick="closeNotify();openDrawer('${l.id}')"><div class="ndot" style="background:var(--over)"></div><div class="nmeta"><b>${escapeHtml(l.name)}</b><span>${escapeHtml(l.project||'')} · ${l.ownerId?escapeHtml(userName(l.ownerId)):'unassigned'} — visit was planned ${fmtDate(l.plannedVisit)} (${n} day${n===1?'':'s'} ago)</span></div>${nx('mv_'+l.id)}</div>`;}).join('');
+  if(escalations.length)html+=`<div class="nsec">${ICON('plays',15)} Deal Coach · salespeople needing attention</div>`+escalations.map(e=>`<div class="nrow" onclick="closeNotify();openNeglected('${e.memberId}')"><div class="ndot" style="background:var(--over)"></div><div class="nmeta"><b>${userName(e.memberId)}</b><span>${e.count} leads slipping (overdue, undecided, missed visits or gone cold) — coach them</span></div>${nx('esc_'+e.memberId)}</div>`).join('');
   if(incoming.length)html+=`<div class="nsec">Handoffs waiting for you</div>`+incoming.map(t=>`<div class="nrow"><div class="ndot" style="background:var(--assigned)"></div><div class="nmeta" style="flex:1"><b>${t.lead_name||'A lead'}</b><span>${userName(t.from_member)} wants to hand this to you${t.note?' — '+t.note:''}</span><div style="margin-top:7px;display:flex;gap:8px"><button class="btn" style="padding:5px 11px" onclick="acceptTransfer('${t.id}')">Accept</button><button class="btn ghost" style="padding:5px 11px" onclick="declineTransfer('${t.id}')">Decline</button></div></div>${nx('in_'+t.id)}</div>`).join('');
   if(myTasks.length)html+=`<div class="nsec">Tasks assigned to you</div>`+myTasks.map(t=>`<div class="nrow" onclick="closeNotify();openDrawer('${t.lead_id}')"><div class="ndot" style="background:var(--lost)"></div><div class="nmeta"><b>${t.lead_name||''}</b><span>${userName(t.assigned_by)}: ${escapeHtml(t.body)}</span></div>${nx('tk_'+t.id)}</div>`).join('');
   if(pendingPricing.length)html+=`<div class="nsec">Pricing approvals to set</div>`+pendingPricing.map(r=>`<div class="nrow" onclick="closeNotify();openPricing('respond','${r.id}')"><div class="ndot" style="background:var(--qualified)"></div><div class="nmeta"><b>${r.lead_name||''}</b><span>${userName(r.requested_by)} needs prices for ${(r.units||[]).map(x=>x.unit).join(', ')}</span></div>${nx('pp_'+r.id)}</div>`).join('');
@@ -5304,7 +5465,16 @@ function notifyEvents(){
    drops in everywhere, but it doesn't freeze the page or lose the user's place. */
 /* Theme: Auto (follow the device) → Light → Dark → Auto. */
 function themeMode(){try{return localStorage.getItem('bm_theme')||'auto';}catch(e){return 'auto';}}
-function themeIcon(){const m=themeMode();return m==='dark'?'🌙':m==='light'?'☀️':'🌗';}
+function themeIcon(){
+  const m=themeMode();
+  const body=m==='dark'
+    ? '<path d="M20 14.5A8.5 8.5 0 019.5 4a8.5 8.5 0 1010.5 10.5z"/>'
+    : m==='light'
+    ? '<circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6"/>'
+    : '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17" /><path d="M12 3.5a8.5 8.5 0 010 17z" fill="currentColor" stroke="none"/>';
+  return `<svg class="ic-svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+    stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+}
 function themeLabel(){const m=themeMode();return 'Theme: '+(m==='auto'?'follows your device':m)+' — click to change';}
 function cycleTheme(){
   const next={auto:'light',light:'dark',dark:'auto'}[themeMode()];
@@ -5584,7 +5754,7 @@ const NAV_KEYS=[['p','pipeline','Pipeline'],['t','plays',"Today's plays"],['v','
  * Bottom tab bar (4 destinations + More), and the three-tap outcome log. The spec's hard
  * acceptance criterion: log an outcome in <=3 taps without the keyboard appearing.
  */
-const MTABS=[['pipeline','Leads','📋'],['plays','Today','🧭'],['visits','Visits','📅'],['__more','More','⋯']];
+const MTABS=[['pipeline','Leads',ICON('pipeline',22)],['plays','Today',ICON('plays',22)],['visits','Visits',ICON('visits',22)],['__more','More',ICON('more',22)]];
 // The FAB floats over everything, so it has to stand down whenever a sheet,
 // drawer or modal owns the screen — :has() alone is not safe on older WebKit.
 function fabSync(){
@@ -5629,9 +5799,9 @@ function openMore(){
     allowed.map(function(k){const m=NAV_META[k];
       return `<button class="sheet-row" onclick="closeMore();setTab('${k}')"><span class="ic">${m.icon}</span>${escapeHtml(navLabel(k))}</button>`;}).join('')
     +`<div style="height:1px;background:var(--line2);margin:8px 2px"></div>`
-    +`<button class="sheet-row" onclick="closeMore();openKeys()"><span class="ic">⌨</span>Keyboard shortcuts</button>`
-    +`<button class="sheet-row" onclick="cycleTheme()"><span class="ic">${themeIcon()}</span>${escapeHtml(themeLabel())}</button>`
-    +`<button class="sheet-row" onclick="closeMore();signOut()"><span class="ic">⏻</span>Sign out</button>`;
+    +`<button class="sheet-row" onclick="closeMore();openKeys()"><span class="ic">${ICON('keys')}</span>Keyboard shortcuts</button>`
+    +`<button class="sheet-row" onclick="cycleTheme();openMore()"><span class="ic">${themeIcon()}</span>Theme<span class="sheet-val">${themeMode()==='auto'?'Automatic':themeMode()==='dark'?'Dark':'Light'}</span></button>`
+    +`<button class="sheet-row" onclick="closeMore();signOut()"><span class="ic">${ICON('power')}</span>Sign out</button>`;
   document.getElementById('moreScrim').classList.add('on');
   fabSync();
 }
