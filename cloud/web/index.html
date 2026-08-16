@@ -1690,7 +1690,7 @@ function boardColor(s){return BOARD_VIRTUAL[s]?BOARD_VIRTUAL[s].color:(STAGES[s]
 const PROJECTS=['Earthscape','Solcrest','Lagos'];
 const DIGITAL=['Website','Google Ads','Facebook / Meta','Property portal','Referral','WhatsApp'];
 const NQ_REASONS=['Budget mismatch','Just browsing / not serious','Wrong location','Not the decision maker','Timeline too far out','Invalid contact details'];
-const LOST_REASONS=['Went with a competitor','Price / negotiation gap','Postponed purchase','Went unresponsive','Location not suitable','Inventory Availability','Vaastu Issues','Home loan rejected'];
+const LOST_REASONS=['Went with a competitor','Price / negotiation gap','Postponed purchase','Went unresponsive','Location not suitable','Inventory availability','Vaastu issues','Home loan rejected'];
 const PAYMENT_STRUCTURES=['TES Pre EMI','Solcrest Payment Holiday','Normal CLP'];
 const PHASES=['Phase 1','Phase 2'];
 const DEAL_STATUSES=['First Contact Done','Prospect','Closed Won','Closed Lost'];
@@ -3840,7 +3840,7 @@ function dealStatusBlock(l){
   };
   const showLost=(cur==='Closed Lost')||(lostPickFor===l.id);
   const lostRow=showLost?`<div class="fu-form" style="margin-top:10px"><div class="r" style="margin-bottom:0;gap:8px;flex-wrap:wrap">
-      <select class="field" id="lr_${l.id}" style="flex:1;min-width:150px"><option value="">Reason for the loss…</option>${LOST_REASONS.map(r=>`<option ${l.lostReason===r?'selected':''}>${r}</option>`).join('')}</select>
+      <select class="field" id="lr_${l.id}" style="flex:1;min-width:150px"><option value="">Reason for the loss…</option>${(LOST_REASONS.indexOf(l.lostReason)<0&&l.lostReason?[l.lostReason].concat(LOST_REASONS):LOST_REASONS).map(r=>`<option ${l.lostReason===r?'selected':''}>${escapeHtml(r)}</option>`).join('')}</select>
       <input class="field" id="lc_${l.id}" style="flex:1;min-width:140px" placeholder="Lost to (competitor)" value="${(l.lostTo||'').replace(/"/g,'&quot;')}"/>
       <button class="act bad" onclick="closedLostBtn('${l.id}')">${cur==='Closed Lost'?'Update':'Mark Lost'}</button>
     </div></div>`:'';
