@@ -2922,8 +2922,8 @@ function renderMyTarget(){
 function targetsPanel(){
   const u=currentUser();const m=iso(today()).slice(0,7);
   const reps=salespeople(u.role==='project_head'?u.project:null);
-  const rows=reps.map(r=>{const t=db.targets.find(x=>x.member_id===r.id&&x.month===m)||{target:0,incentive:0};const actual=bookedThisMonth(r.id,m);const earned=t.target>0?Math.round((Number(t.incentive)||0)*Math.min(actual/t.target,1)):0;
-    return `<tr><td><b class="mono">${r.name}</b></td><td><input class="field" style="width:78px" id="tg_t_${r.id}" value="${t.target||0}"/></td><td><input class="field" style="width:130px" id="tg_i_${r.id}" value="${t.incentive||0}"/></td><td class="mono">${actual}</td><td class="mono">₹${earned.toLocaleString('en-IN')}</td><td><button class="act" onclick="saveTarget('${r.id}')">Save</button></td></tr>`;}).join('');
+  const rows=reps.map(r=>{const t=db.targets.find(x=>x.member_id===r.id&&x.month===m)||{target:0,incentive:0};const actualLeads=db.leads.filter(l=>l.ownerId===r.id&&l.stage==='booked'&&l.booking&&(l.booking.at||'').slice(0,7)===m);const actual=actualLeads.length;const earned=t.target>0?Math.round((Number(t.incentive)||0)*Math.min(actual/t.target,1)):0;
+    return `<tr><td><b class="mono">${r.name}</b></td><td><input class="field" style="width:78px" id="tg_t_${r.id}" value="${t.target||0}"/></td><td><input class="field" style="width:130px" id="tg_i_${r.id}" value="${t.incentive||0}"/></td><td class="mono">${drillN(actualLeads,r.name+' · booked '+rMonthLabel(m))}</td><td class="mono">₹${earned.toLocaleString('en-IN')}</td><td><button class="act" onclick="saveTarget('${r.id}')">Save</button></td></tr>`;}).join('');
   return `<div class="panel"><h3>Targets &amp; incentives · ${rMonthLabel(m)}</h3><div style="overflow-x:auto"><table style="box-shadow:none"><thead><tr><th>Salesperson</th><th>Target (bookings)</th><th>Potential incentive ₹</th><th>Actual</th><th>Earned</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" style="color:var(--soft)">No salespeople yet.</td></tr>'}</tbody></table></div><div class="ai-tag" style="margin-top:8px">Earned = potential × (actual ÷ target), capped at the full amount.</div></div>`;
 }
 async function saveTarget(memberId){const m=iso(today()).slice(0,7);const target=parseInt(document.getElementById('tg_t_'+memberId).value)||0;const incentive=parseFloat(document.getElementById('tg_i_'+memberId).value)||0;const {error}=await sb.from('targets').upsert({company_id:myCompanyId,member_id:memberId,month:m,target,incentive},{onConflict:'member_id,month'});if(error){notify('Could not save target: '+error.message);return;}await refresh();}
@@ -4641,7 +4641,10 @@ function makeReorderable(container,sectionKey,pred){
 }
 /* ---- drill-down list popup (shared by funnel numbers + ask box) ---- */
 let drillReg={},drillSeq=0,curList=null,listReturn=null;
-function drillN(arr,label){const k='d'+(drillSeq++);drillReg[k]={leads:arr,label};return `<span class="drill" onclick="event.stopPropagation();openDrill('${k}')">${arr.length}</span>`;}
+// `text` shows a different figure to the list length — the revisits bar counts visits
+// while the list it opens is the leads those visits belong to.
+function drillN(arr,label,text){const k='d'+(drillSeq++);drillReg[k]={leads:arr,label};
+  return `<span class="drill" onclick="event.stopPropagation();openDrill('${k}')">${text===undefined?arr.length:text}</span>`;}
 function openDrill(k){const d=drillReg[k];if(!d)return;openLeadList(d.label,d.leads);}
 function leadRowMini(l){
   const st=STAGES[l.stage];
@@ -4724,7 +4727,6 @@ function funnelHTML(){
   const allLeads=scoped().filter(l=>inRange(l)&&passesFilters(l));
   const dsCol={'First Contact Done':'#4A6FA5','Prospect':'#6C7A93','Booked':'#2C9C9A','Closed Won':'#2E9E5B','Closed Lost':'#C0524A'};
   const qualified=cnt(l=>l.qualified===true),disq=cnt(l=>l.stage==='not_qualified'),pending=cnt(l=>l.stage==='assigned'&&l.qualified===null),newp=cnt(l=>l.stage==='new'),activeQ=cnt(l=>l.stage==='qualified'),booked=cnt(l=>l.stage==='booked'),lost=cnt(l=>l.stage==='lost');
-  drillReg={};drillSeq=0;
   const A={pending:all.filter(l=>l.stage==='assigned'&&l.qualified===null),overdue:all.filter(l=>{const s=slaState(l);return s&&s.over;}),qualified:all.filter(l=>l.qualified===true),disq:all.filter(l=>l.stage==='not_qualified'),stalled:all.filter(l=>staleQualified(l)),newp:all.filter(l=>l.stage==='new'),activeQ:all.filter(l=>l.stage==='qualified'),booked:all.filter(l=>l.stage==='booked'),lost:all.filter(l=>l.stage==='lost')};
   const overdue=A.overdue.length;
   const stalled=A.stalled.length;
@@ -4762,9 +4764,9 @@ function funnelHTML(){
   const ltA={};allLeads.filter(l=>l.stage==='lost'&&l.lostTo).forEach(l=>{(ltA[l.lostTo]=ltA[l.lostTo]||[]).push(l);});
   const ltr=Object.entries(ltA).sort((a,b)=>b[1].length-a[1].length);const ltm=Math.max(1,...ltr.map(r=>r[1].length));
   const ltPanel=ltr.length?`<div class="panel"><h3>Lost to competitors</h3>${ltr.map(([n,arr])=>`<div class="barrow"><div class="lbl">${n}</div><div class="track"><div class="fillb" style="width:${Math.round(arr.length/ltm*100)}%;background:var(--over)">${drillN(arr,'Lost to '+n)}</div></div></div>`).join('')}</div>`:'';
-  const rvBy={};all.forEach(l=>{const r=(l.revisits||[]).length;if(r&&l.ownerId){const nm=userName(l.ownerId);rvBy[nm]=(rvBy[nm]||0)+r;}});
+  const rvBy={},rvLeads={};all.forEach(l=>{const r=(l.revisits||[]).length;if(r&&l.ownerId){const nm=userName(l.ownerId);rvBy[nm]=(rvBy[nm]||0)+r;(rvLeads[nm]=rvLeads[nm]||[]).push(l);}});
   const rvRows=Object.entries(rvBy).sort((a,b)=>b[1]-a[1]);const rvmax=Math.max(1,...rvRows.map(r=>r[1]));
-  const rvPanel=`<div class="panel"><h3>Revisits by salesperson</h3>${rvRows.length?rvRows.map(([n,v])=>`<div class="barrow"><div class="lbl">${n}</div><div class="track"><div class="fillb" style="width:${Math.round(v/rvmax*100)}%;background:var(--note)">${v}</div></div></div>`).join(''):'<div class="locked-note">No revisits logged in this window.</div>'}</div>`;
+  const rvPanel=`<div class="panel"><h3>Revisits by salesperson</h3>${rvRows.length?rvRows.map(([n,v])=>`<div class="barrow"><div class="lbl">${n}</div><div class="track"><div class="fillb" style="width:${Math.round(v/rvmax*100)}%;background:var(--note)">${drillN(rvLeads[n]||[],n+' · leads with revisits',v)}</div></div></div>`).join(''):'<div class="locked-note">No revisits logged in this window.</div>'}</div>`;
   // Ageing since qualification, by salesperson (all open qualified walk-ins, ignores the time window)
   const activeQual=scoped().filter(l=>l.source==='walkin'&&l.stage==='qualified'&&!l.mergedInto&&passesFilters(l));
   const ageBy={};activeQual.forEach(l=>{const nm=l.ownerId?userName(l.ownerId):'Unassigned';(ageBy[nm]=ageBy[nm]||[]).push(l);});
@@ -4774,7 +4776,7 @@ function funnelHTML(){
   const ageingPanel=`<div class="panel"><h3>Ageing since qualification — by salesperson</h3><div class="ai-tag" style="margin-bottom:10px">Open qualified walk-ins, grouped by deal stage. <b style="color:var(--lost)">Red = over 7 days</b> since they were qualified — chase or close them. (Shows all open ones, not limited to the window above.)</div>${ageReps.length?ageReps.map(nm=>{const arr=ageBy[nm].slice().sort((a,b)=>qualAgeDays(b)-qualAgeDays(a));const over=arr.filter(l=>qualAgeDays(l)>7).length;
     const rows=AGE_STAGES.map(s=>{const g=arr.filter(l=>(l.dealStatus||'')===s);return g.length?`<div class="age-row"><span class="age-lbl">${s}</span><span class="age-chips">${g.map(ageChip).join('')}</span></div>`:'';}).join('');
     const ns=arr.filter(l=>!AGE_STAGES.includes(l.dealStatus||''));const nsRow=ns.length?`<div class="age-row"><span class="age-lbl">No status</span><span class="age-chips">${ns.map(ageChip).join('')}</span></div>`:'';
-    return `<div class="age-rep"><div class="age-head"><b>${nm}</b> <span style="color:var(--soft);font-weight:400">${arr.length} qualified</span>${over?` · <span style="color:var(--lost);font-weight:600">${over} over 7 days</span>`:''}</div>${rows}${nsRow}</div>`;}).join(''):'<div class="locked-note">No open qualified walk-ins right now.</div>'}</div>`;
+    return `<div class="age-rep"><div class="age-head"><b>${nm}</b> <span style="color:var(--soft);font-weight:400">${drillN(arr,nm+' · open qualified')} qualified</span>${over?` · <span style="color:var(--lost);font-weight:600">${drillN(arr.filter(l=>qualAgeDays(l)>7),nm+' · over 7 days since qualifying')} over 7 days</span>`:''}</div>${rows}${nsRow}</div>`;}).join(''):'<div class="locked-note">No open qualified walk-ins right now.</div>'}</div>`;
   return filterNote+rb+slaPanel+targetsPanel()+funnel+stagePanel+ageingPanel+`<div class="split">${qualPanel}${tempPanel}</div>`+`<div class="panel"><h3>Deal status by salesperson</h3>${fnlDsTable(spMap,'Salesperson')}</div>`+`<div class="panel"><h3>Deal status by project</h3>${fnlDsTable(projMap,'Project')}</div>`+wwPanel+wwNPPanel+ltPanel+noPHPanel+rvPanel;
 }
 let ageGroup='rep';
