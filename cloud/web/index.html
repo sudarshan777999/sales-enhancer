@@ -1374,6 +1374,11 @@
   .rtable{width:100%;border-collapse:collapse;background:#fff;border:1px solid #EADFC2;border-radius:10px;overflow:hidden;font-size:13px;box-shadow:none;}
   .rtable th{text-align:left;background:#F3E9D2;color:#7a5a2a;text-transform:none;letter-spacing:normal;font-weight:600;font-size:12px;padding:9px 11px;border-bottom:1px solid #EADFC2;}
   .rtable td{padding:8px 11px;border-bottom:1px solid #F1E7CE;}
+  .fw-h{font-family:'Space Grotesk';font-weight:700;font-size:12.5px;text-transform:uppercase;
+    letter-spacing:.05em;margin-bottom:10px;}
+  .fw-cloud{display:flex;flex-wrap:wrap;align-items:baseline;gap:7px 12px;line-height:1.7;}
+  .fw-w{font-family:'Space Grotesk';font-weight:650;white-space:nowrap;}
+  .fw-w .drill{text-decoration-color:currentColor;}
   .rtable .rnum{text-align:right;white-space:nowrap;}
   .rtable tr.rtot td{border-top:1px solid #EADFC2;border-bottom:0;background:#FBF6EA;}
   .rshare{display:inline-block;vertical-align:middle;width:calc(100% - 44px);min-width:40px;height:7px;
@@ -4314,6 +4319,79 @@ function statsHTML(leads){
     <div class="panel"><h3>Outcomes</h3>${oPanel}</div>${wiPanel}`;
 }
 const THEME_STOP=new Set(('the a an and or but to of in on for with at by from is are was were be been being have has had do does did will would can could should shall may might must not no yes ok okay he she it they them his her their our your you i we us as this that these those there here then than so if else when while about into over under out up down off again once very more most also both each few other some such own same too call called calling spoke speak talk talked told tell said say says ask asked meet met meeting visit visited visiting follow followup followed following revisit revisited discuss discussed discussing customer client lead leads walkin walkins today tomorrow yesterday morning evening back next last week weeks day days month time still going want wants wanted need needs needed interested interest looking look see seen show showed shared send sent give given get got take took come came went make made done per via etc sir madam mr mrs ms number phone email name update details detail info soon later still yet done good great fine sure maybe pls please thanks thank just near option options comparing compare important tight also thing things bit lot able around').split(/\s+/));
+/* ============ distinctive-terms comparison ("fightin' words") ============
+ * A plain frequency cloud is the thing dataviz people rightly complain about: the
+ * biggest words are always "customer", "price", "call" — true of every deal, won or
+ * lost, so it tells you nothing. What is worth knowing is which words are LOPSIDED:
+ * far more common in comments on deals we won than deals we lost.
+ *
+ * Method: weighted log-odds ratio with an informative Dirichlet prior — Monroe,
+ * Colaresi & Quinn, "Fightin' Words" (Political Analysis, 2008), the standard way to
+ * pull the distinguishing vocabulary out of two samples. The prior is the combined
+ * corpus, which shrinks rare words towards zero so a single chatty note cannot invent
+ * a headline.
+ *
+ *   d_w = log( (y_w^A + a_w) / (n_A + a0 - y_w^A - a_w) )
+ *       - log( (y_w^B + a_w) / (n_B + a0 - y_w^B - a_w) )
+ *   var ~ 1/(y_w^A + a_w) + 1/(y_w^B + a_w)
+ *   z_w = d_w / sqrt(var)
+ *
+ * y = count of the term in that group, n = total tokens in it, a_w = prior pseudocount
+ * for the term (its share of the combined corpus x a0), a0 = total prior mass.
+ */
+const FW_STOP=new Set(Array.from(THEME_STOP).concat(
+  ('will shall going want wants wanted need needs needed like likes liked good bad nice sure yet still just only even much many lot bit'
+  +' mr mrs ms sir madam ji please thanks thank regards hi hello dear ok'
+  +' am pm min mins hour hours day days week weeks month months year years'
+  +' rs inr lakh lakhs lac lacs cr crore crores k l').split(' ')));
+function fwTokens(text){
+  const raw=String(text||'').toLowerCase().replace(/[^a-z0-9₹\s.-]/g,' ').split(/\s+/)
+    .map(w=>w.replace(/^[.-]+|[.-]+$/g,''))
+    .filter(w=>w.length>2&&w.length<24&&!FW_STOP.has(w)&&!/^\d+$/.test(w));
+  const out=raw.slice();
+  for(let i=0;i<raw.length-1;i++)out.push(raw[i]+' '+raw[i+1]);   // phrases carry more meaning than words
+  return out;
+}
+// Terms that lean towards one group or the other, strongest lean first.
+function fightinWords(A,B,commentsOf,opts){
+  opts=opts||{};
+  const a0=opts.prior||120, minLeads=opts.minLeads||2, top=opts.top||16;
+  const count=(leads)=>{const c={};let n=0;
+    leads.forEach(l=>{fwTokens(commentsOf(l)).forEach(t=>{c[t]=(c[t]||0)+1;n++;});});return {c:c,n:n};};
+  const leadsWith=(leads,t)=>leads.filter(l=>fwTokens(commentsOf(l)).indexOf(t)>=0);
+  const a=count(A), b=count(B);
+  if(a.n<40||b.n<40)return null;                       // too little written to say anything
+  const all={};Object.keys(a.c).forEach(k=>all[k]=(all[k]||0)+a.c[k]);
+  Object.keys(b.c).forEach(k=>all[k]=(all[k]||0)+b.c[k]);
+  const N=a.n+b.n;
+  const rows=[];
+  Object.keys(all).forEach(function(t){
+    if(all[t]<3)return;                                 // ignore one-offs outright
+    const inA=leadsWith(A,t), inB=leadsWith(B,t);
+    if(inA.length+inB.length<minLeads)return;           // must show up on more than one record
+    const aw=a0*(all[t]/N);
+    const ya=(a.c[t]||0)+aw, yb=(b.c[t]||0)+aw;
+    const d=Math.log(ya/(a.n+a0-ya))-Math.log(yb/(b.n+a0-yb));
+    const z=d/Math.sqrt(1/ya+1/yb);
+    rows.push({term:t,z:z,a:a.c[t]||0,b:b.c[t]||0,inA:inA,inB:inB});
+  });
+  // "booking", "amount" and "booking amount" are one finding, not three. Keep the phrase
+  // and drop the parts it swallows — a word only survives if it also stands on its own.
+  const collapse=list=>{
+    // Collect the phrases first: a unigram usually outranks the phrase containing it, so
+    // checking only higher-ranked terms would never catch "booking" under "booking amount".
+    const phrases=list.filter(r=>r.term.indexOf(' ')>0);
+    return list.filter(function(r){
+      if(r.term.indexOf(' ')>0)return true;
+      const mine=r.a+r.b;
+      return !phrases.some(function(pr){
+        return pr.term.split(' ').indexOf(r.term)>=0 && mine<=(pr.a+pr.b)*1.6;});
+    });
+  };
+  const won=collapse(rows.filter(r=>r.z>0).sort((x,y)=>y.z-x.z)).slice(0,top);
+  const lost=collapse(rows.filter(r=>r.z<0).sort((x,y)=>x.z-y.z)).slice(0,top);
+  return {won:won,lost:lost};
+}
 function dedupeTerms(items){const seen=new Set(),out=[];items.forEach(x=>{const k=x.term.toLowerCase();if(!seen.has(k)){seen.add(k);out.push(x);}});return out;}
 function themeChip(term,arr,mx,col){const k='d'+(drillSeq++);drillReg[k]={leads:arr,label:'Comments · '+term};const sz=13+Math.round((arr.length/Math.max(1,mx))*18);return `<span class="drill thchip" style="font-size:${sz}px;color:${col}" title="${arr.length} walk-in(s) · “${escapeHtml(term)}”" onclick="openDrill('${k}')">${escapeHtml(term)}<b>${arr.length}</b></span>`;}
 // Meaningful sales themes — bucket comment text into blockers/signals a sales head can act on.
@@ -5114,6 +5192,40 @@ function reportHTML(){
   // NQ & Closed-Lost categories
   const nqSlide=crossReasonSlide('NQ — Categories',inMonth.filter(l=>l.stage==='not_qualified'),l=>l.nqReason,cats,slide);
   const lostSlide=crossReasonSlide('Closed-Lost — Categories',inMonth.filter(l=>l.stage==='lost'),l=>l.lostReason,cats,slide);
+  // What the team writes about deals that close vs deals that die
+  const fwComments=l=>(l.log||[]).filter(e=>e.kind==='note'||e.kind==='revisit').map(e=>String(e.t||'')).join('  ');
+  const fwWon=inMonth.filter(l=>l.stage==='booked'), fwLost=inMonth.filter(l=>l.stage==='lost');
+  const fw=fightinWords(fwWon,fwLost,fwComments,{top:16});
+  const fwCloud=(rows,col,side)=>{
+    if(!rows.length)return `<div style="color:#7F6E3A;font-size:12.5px">Nothing stands out yet.</div>`;
+    const mx=Math.max.apply(null,rows.map(r=>Math.abs(r.z)));
+    return `<div class="fw-cloud">`+rows.map(function(r){
+      const sz=(13+Math.round(Math.abs(r.z)/mx*13));
+      const arr=side==='won'?r.inA:r.inB;
+      const tip=r.term+' — written '+r.a+'x on booked, '+r.b+'x on lost';
+      return `<span class="fw-w" style="font-size:${sz}px;color:${col}" title="${escapeHtml(tip)}">`
+        +drillN(arr,'“'+r.term+'” · '+(side==='won'?'booked':'lost'),escapeHtml(r.term))+`</span>`;
+    }).join('')+`</div>`;
+  };
+  const fwSlide=fw
+    ? slide('What we write about winners vs losers',
+        `<div style="display:flex;gap:26px;flex-wrap:wrap">
+           <div style="flex:1;min-width:260px">
+             <div class="fw-h" style="color:#2E7D52">Said far more about the ${drillN(fwWon,'Booked · '+rMonthLabel(reportMonth))} we booked</div>
+             ${fwCloud(fw.won,'#2E7D52','won')}</div>
+           <div style="flex:1;min-width:260px">
+             <div class="fw-h" style="color:#B0473B">Said far more about the ${drillN(fwLost,'Closed Lost · '+rMonthLabel(reportMonth))} we lost</div>
+             ${fwCloud(fw.lost,'#B0473B','lost')}</div>
+         </div>
+         <div style="margin-top:14px;font-size:11.5px;color:#7F6E3A;line-height:1.6">
+           Not the most common words — the most <b>lopsided</b> ones. Size is how strongly a term
+           leans to one side, by weighted log-odds with an informative Dirichlet prior
+           (Monroe, Colaresi &amp; Quinn, 2008), so a single talkative note cannot invent a headline.
+           Words shared evenly by both sides are dropped, which is why “price” or “call” may be absent.
+           Tap any word for the walk-ins whose comments contain it.
+         </div>`)
+    : slide('What we write about winners vs losers',
+        `<div style="color:#7F6E3A">Not enough written on booked and lost walk-ins this month to compare — this needs comments on both sides.</div>`);
   // Closed-Lost reason pie
   const lostLeads=inMonth.filter(l=>l.stage==='lost');const lostEntries=reasonCounts(lostLeads);
   const lostPieSlide=lostEntries.length
@@ -5127,7 +5239,7 @@ function reportHTML(){
     const bars=histRows.map(r=>`<div class="rbar-row"><div class="rl">${r[0]}</div><div class="rt"><div class="rf" style="width:${Math.round(numOf(r[3])/umax*100)}%;background:#C9B27A;color:#4a3a1a">${r[3]||''}</div></div></div>`).join('');
     histSlide=slide('Historic Sales Summary',`<table class="rtable"><thead><tr><th>Month</th><th>3.5 BHK (₹)</th><th>3 BHK (₹)</th><th>Units sold</th></tr></thead><tbody>${body}</tbody></table><div style="margin-top:14px">${bars}</div>`);
   } else histSlide=slide('Historic Sales Summary',`<div style="color:#7F6E3A">Add the historic realization trend via <b>Edit external data</b>. Format per line: <b>Month, 3.5BHK, 3BHK, Units</b></div>`);
-  return toolbar+editor+titleSlide+perfSlide+histSlide+srcSlide+cpSlide+statSlide+dsSlide+veSlide+nqSlide+lostSlide+lostPieSlide+clSlide;
+  return toolbar+editor+titleSlide+perfSlide+histSlide+srcSlide+cpSlide+statSlide+dsSlide+veSlide+nqSlide+lostSlide+lostPieSlide+fwSlide+clSlide;
 }
 function toggleReportEditor(){const e=document.getElementById('reportEditor');if(e)e.style.display=e.style.display==='none'?'':'none';}
 async function saveReport(){const rd=Object.assign({},db.reportData||{});rd.performanceText=document.getElementById('rd_perf').value;rd.historicText=document.getElementById('rd_hist').value;if(await saveReportData(rd))render();}
