@@ -294,6 +294,13 @@
   .x{margin-left:auto;border:1px solid var(--line);background:var(--surface);width:32px;height:32px;border-radius:8px;color:var(--soft);font-size:17px;display:grid;place-items:center;flex:none;}
   .x:hover{border-color:var(--brand);color:var(--brand);}
   .dr-body{overflow-y:auto;padding:18px 24px 40px;flex:1;}
+  /* stepping between leads: slide in from the direction of travel */
+  @keyframes drStepIn{
+    from{opacity:0;transform:translateX(var(--dr-from,24px));}
+    to  {opacity:1;transform:translateX(0);}
+  }
+  .dr-in{animation:drStepIn .3s cubic-bezier(.22,.61,.36,1) both;}
+  .dr-pos{display:inline-block;min-width:62px;text-align:center;}
   .dr-cols{display:flex;gap:26px;align-items:flex-start;}
   .dr-left{flex:1.15;min-width:0;} .dr-right{flex:1;min-width:0;}
   .det{background:var(--subtle);border:1px solid var(--line);border-radius:11px;padding:10px 13px;margin-bottom:16px;}
@@ -3587,9 +3594,9 @@ function renderDrawer(){
     <div class="dr-head"><div class="row1"><div><h2>${l.name}</h2><div class="sub">${l.email||(l.project||'—')}</div></div>
       ${(function(){const q=drawerPos();if(q.i<0||q.list.length<2)return '<span style="margin-left:auto"></span>';
         return `<span class="dr-step" style="margin-left:auto">
-          <button class="x" onclick="drawerStep(-1)" title="Previous lead (K)" ${q.i<=0?'disabled':''}>‹</button>
+          <button class="x" onclick="drawerStep(-1)" title="Previous lead (← or K)" ${q.i<=0?'disabled':''}>‹</button>
           <span class="dr-pos">${q.i+1} of ${q.list.length}</span>
-          <button class="x" onclick="drawerStep(1)" title="Next lead (J)" ${q.i>=q.list.length-1?'disabled':''}>›</button></span>`;})()}
+          <button class="x" onclick="drawerStep(1)" title="Next lead (→ or J)" ${q.i>=q.list.length-1?'disabled':''}>›</button></span>`;})()}
       ${can('edit',l)?`<button class="x" onclick="openEdit('${l.id}')" title="Edit details" aria-label="Edit details">${ICON('edit',18)}</button><button class="x" onclick="closeDrawer()" title="Close (Esc)" aria-label="Close">${ICON('close',18)}</button>`:`<button class="x" onclick="closeDrawer()" title="Close (Esc)">✕</button>`}</div>
       <div style="margin-top:12px;display:flex;align-items:center;gap:9px;flex-wrap:wrap"><span class="stage-now" style="background:${st.color}1c;color:${st.color}"><i style="background:${st.color}"></i>${st.label}</span>${msgTopBar(l)}</div></div>
     <div class="dr-body">
@@ -6323,7 +6330,7 @@ const KEY_HELP=[
   ['Anywhere',[['⌘K / Ctrl K','Command palette'],['/','Jump to search'],['F','Open filters'],
     ['C','New lead'],['?','This cheat sheet'],['Esc','Close panel, then cancel, then clear']]],
   ['Go to',NAV_KEYS.map(function(n){return ['G then '+n[0].toUpperCase(),n[2]];})],
-  ['With a lead open',[['J','Next lead'],['K','Previous lead'],['E','Edit details'],
+  ['With a lead open',[['→ / J','Next lead'],['← / K','Previous lead'],['E','Edit details'],
     ['S','Change deal status'],['A','Assign to someone']]]
 ];
 function openKeys(){document.getElementById('keysBody').innerHTML=
@@ -6350,7 +6357,23 @@ function drawerStep(d){
   const q=drawerPos();if(q.i<0)return;
   const n=q.i+d; if(n<0||n>=q.list.length)return;
   openDrawer(q.list[n].id);
-  const dr=document.getElementById('drawer');if(dr)dr.scrollTop=0;
+  const dr=document.getElementById('drawer');if(!dr)return;
+  dr.scrollTop=0;
+  const body=dr.querySelector('.dr-body');if(body)body.scrollTop=0;
+  // Moving right through the list should look like it: the incoming record enters from
+  // the right, and from the left going back. The head leads and the body follows a beat
+  // later, so it reads as one movement rather than two things twitching.
+  dr.style.setProperty('--dr-from',(d>0?'34px':'-34px'));
+  [dr.querySelector('.dr-head'),body].forEach(function(el,i){
+    if(!el)return;
+    el.classList.remove('dr-in');void el.offsetWidth;      // restart it on a reused node
+    el.style.animationDelay=(i?'45ms':'0ms');
+    el.classList.add('dr-in');
+    // The keyframe starts at opacity 0, so anywhere animations don't actually run the
+    // record would sit invisible. Drop the class once it should be over: a no-op if it
+    // played, and an instant restore to normal styling if it never did.
+    setTimeout(function(){el.classList.remove('dr-in');el.style.animationDelay='';},420);
+  });
 }
 let _gPending=0;
 document.addEventListener('keydown',function(e){
@@ -6390,8 +6413,8 @@ document.addEventListener('keydown',function(e){
     const t=e.target,tag=(t&&t.tagName||'').toLowerCase();
     const typing=tag==='input'||tag==='textarea'||tag==='select'||(t&&t.isContentEditable);
     if(!typing){
-      if(e.key==='j'||e.key==='J'){e.preventDefault();drawerStep(1);return;}
-      if(e.key==='k'||e.key==='K'){e.preventDefault();drawerStep(-1);return;}
+      if(e.key==='j'||e.key==='J'||e.key==='ArrowRight'){e.preventDefault();drawerStep(1);return;}
+      if(e.key==='k'||e.key==='K'||e.key==='ArrowLeft'){e.preventDefault();drawerStep(-1);return;}
     }
   }
   if(e.key!=='Escape')return;
