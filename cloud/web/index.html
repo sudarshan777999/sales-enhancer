@@ -912,9 +912,9 @@
       padding:6px 4px calc(6px + env(safe-area-inset-bottom,0));}
     .mtab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;border:0;background:transparent;
       font-family:inherit;font-size:11px;font-weight:600;color:var(--soft);padding:6px 2px;min-height:52px;border-radius:var(--r-sm);}
-    .mtab .mi{font-size:19px;line-height:1;}
+    .mtab .mi{font-size:19px;line-height:1;position:relative;display:inline-block;}
     .mtab.on{color:var(--brand-ink);}
-    .mtab .mn{position:absolute;transform:translate(14px,-4px);background:var(--lost);color:#fff;
+    .mtab .mn{position:absolute;top:-7px;left:100%;margin-left:-7px;background:var(--lost);color:#fff;
       font-size:10px;font-weight:700;min-width:17px;height:17px;border-radius:var(--r-full);display:grid;place-items:center;padding:0 4px;}
     /* toast must never cover the tab bar or the primary action */
     #toastWrap,.toastwrap{bottom:calc(74px + env(safe-area-inset-bottom,0)) !important;}
@@ -946,6 +946,157 @@
     #savedBar .sfchip{flex:none;}
     .foot{padding-bottom:8px;}
   }
+  /* ================= phone audit fixes =================
+     The header was four stacked rows before any content, two horizontally-scrolling strips
+     sat on top of each other, and the primary action was in the hardest-to-reach corner.
+     Rebuilt to the spec: thin chrome at the top, the primary action in the thumb zone. */
+  .fab{display:none;}
+  @media(max-width:760px){
+    /* --- header: two rows maximum --- */
+    header .head-in{padding:8px 12px 10px;}
+    .top{gap:8px;}
+    #filterBtn,#bulkBtn,#newBtn{display:none !important;}   /* moved to the thumb zone / More */
+    .logo .sub,.whoami .rl{display:none;}                    /* strapline + role label are desk detail */
+    .whoami .nm{font-size:14px;max-width:38vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .whoami{margin-left:auto;gap:6px;}
+    .bell,.umenu-btn{width:44px;height:44px;min-width:44px;border-radius:var(--r-sm);}
+    .search{width:100%;}
+    header .search input{height:44px;font-size:16px;}
+    .logo b,.logo .nm{font-size:15px;}
+    .logo .mark{width:34px;height:34px;}
+
+    /* --- one performance strip on Today, never two --- */
+    #myTarget{display:none;}
+
+    /* --- period chips: one scrolling row, not four wrapped ones --- */
+    #savedBar,.savedbar,.sfrow{display:flex !important;flex-wrap:nowrap !important;overflow-x:auto;gap:8px;
+      padding-bottom:6px;-webkit-overflow-scrolling:touch;}
+    #savedBar>*,.sfrow>*{flex:none;}
+
+    /* --- Today's plays: stack, don't squeeze --- */
+    .play-row{flex-wrap:wrap;padding:14px 2px !important;gap:8px !important;}
+    .play-row>div:nth-child(2){flex:1 1 100%;min-width:0;}
+    .play-row .act,.play-row .btn{width:100%;justify-content:center;}
+    .panel{padding:14px 14px;}
+    .panel h3{font-size:15px;}
+
+    /* --- primary action lives in the thumb zone --- */
+    .fab{display:flex;position:fixed;right:16px;bottom:calc(76px + env(safe-area-inset-bottom,0));z-index:105;
+      align-items:center;justify-content:center;width:56px;height:56px;padding:0;border:0;border-radius:var(--r-full);
+      background:var(--brand);color:#fff;font-family:inherit;font-size:28px;font-weight:400;line-height:1;
+      box-shadow:0 6px 20px rgba(28,25,20,.28);}
+    .fab .fab-t{display:none;}
+    .fab:active{transform:translateY(1px);}
+
+    /* the tab bar must never sit on top of the last row */
+    main,main.wide{padding-bottom:120px;}
+  }
+
+  @media(max-width:760px){
+    /* report tables are 520-640px wide inside panels that don't scroll, so they
+       were being clipped off the right edge rather than scrolled to */
+    main table{display:block;overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch;}
+    main table td{padding-top:11px;padding-bottom:11px;}
+    /* report and analytics controls that were still 30-35px */
+    .seg2 button{min-height:44px;}
+    .leaf{min-height:44px;display:flex;align-items:center;}
+    .lb-duel{min-height:44px;display:inline-flex;align-items:center;}
+    /* inline drill-down counts: vertical padding grows the hit box without moving the line */
+    .drill{padding:7px 4px;margin:-7px 0;}
+  }
+
+  @media(max-width:760px){
+    /* the FAB must never sit on the sheet or a modal's own buttons */
+    .fab.fab-hide{display:none !important;}
+    /* the title shared a row with five controls, so a two-word name wrapped to three lines */
+    .dr-head .row1{flex-wrap:wrap;}
+    .dr-head .row1>div:first-child{flex:1 1 100%;order:2;}
+    .dr-head .row1>.dr-step,.dr-head .row1>.x{order:1;}
+    .dr-head .row1>.dr-step{margin-left:0 !important;margin-right:auto;}
+    .dr-head h2{font-size:19px;}
+    /* the drawer's own controls to a 44pt floor */
+    .dr-head .x{min-width:44px;min-height:44px;}
+    .dr-step .x{min-width:40px;min-height:40px;}
+    /* small inline links ("all", "clear") need a real target */
+    .msgbar a,.msgbar button.link,a.link{min-height:36px;display:inline-flex;align-items:center;padding:0 6px;}
+    /* checkboxes were 13px squares */
+    input[type=checkbox],input[type=radio],.rc-check input{width:22px;height:22px;}
+    /* a checkbox's label is the real target — make the whole row tappable */
+    label:has(>input[type=checkbox]),label:has(>input[type=radio]),.rc-check{min-height:44px;display:flex;align-items:center;}
+    input[type=color]{height:44px !important;min-width:52px;}
+    /* segmented controls and inline links were 18-34px tall */
+    .seg button{min-height:44px;}
+    .mtop-link{min-height:44px;min-width:44px;padding:0 10px;}
+    .det>label{min-height:44px;}
+    .det .det-caret{font-size:13px;}
+  }
+
+  @media(max-width:760px){
+    /* 9-11px labels are unreadable at arm's length — 11.5px floor */
+    .src,.vch,.mn,.cmt-d,.dt-sortmark,.stg,.tchip,.kpi .lab,small{font-size:11.5px !important;}
+    .mn{font-size:10.5px !important;}
+  }
+
+  @media(max-width:760px){
+    /* all-leads as cards */
+    .dtc-list{display:flex;flex-direction:column;}
+    .dtc{display:flex;flex-direction:column;align-items:flex-start;gap:4px;width:100%;min-height:64px;
+      padding:12px 16px;border:0;border-top:1px solid var(--line2);background:transparent;
+      font-family:inherit;text-align:left;cursor:pointer;}
+    .dtc:active{background:var(--canvas);}
+    .dtc-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:15px;font-weight:650;color:var(--ink);}
+    .dtc-sub{font-size:12.5px;color:var(--soft);}
+    /* table cells carry their own line breaks; on one card line they must run inline */
+    .dtc-sub br{display:none;}
+    .dtc-sub div,.dtc-sub small,.dtc-sub span{display:inline;}
+    .dt-foot{flex-wrap:wrap;gap:8px;}
+    .dt-pg{min-width:40px;min-height:40px;}
+  }
+
+  @media(max-width:760px){
+    /* phone agenda replaces the month grid */
+    .vag{padding:4px 0 6px;}
+    .vag-h{display:flex;align-items:baseline;gap:8px;padding:12px 16px 6px;font-family:'Space Grotesk';
+      font-size:14px;font-weight:700;color:var(--ink);}
+    .vag-h span{font-size:12px;font-weight:500;color:var(--soft);}
+    .vag-h.now{color:var(--brand-ink);}
+    .vag-row{display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;min-height:56px;
+      padding:10px 16px;border:0;border-top:1px solid var(--line2);background:transparent;
+      font-family:inherit;text-align:left;cursor:pointer;}
+    .vag-row:active{background:var(--canvas);}
+    .vag-n{font-size:15px;font-weight:650;color:var(--ink);}
+    .vag-m{font-size:12.5px;color:var(--soft);}
+    .vag-row.kept .vag-n{color:var(--t-good-fg);}
+    .vag-row.over .vag-n{color:var(--t-bad-fg);}
+    .vag-row.now{background:var(--t-warn-bg);}
+    /* month nav and density switches were 30-34px tall */
+    .vcal-nav{min-width:44px;height:44px;font-size:16px;}
+    .dt-dens button,.dt-bar button{min-height:44px;}
+  }
+
+  @media(max-width:760px){
+    /* the wordmark is the last 180px stopping the header from being one row */
+    .logo>div:last-child{display:none;}
+    /* 384px of chrome above the first play on an 812px screen — halve the strips */
+    .kpi{padding:8px 12px;}
+    .kpi .lab{font-size:9.5px;}
+    .kpi .val{font-size:20px;line-height:1.15;}
+    .sfbar{padding:6px 0 2px;}
+    .sfbar .sfchip{padding:7px 12px;font-size:12.5px;}
+  }
+
+  @media(max-width:760px){
+    /* identity collapses to the avatar — the name is a desk luxury, and it cost a whole row */
+    .whoami .nm{display:none;}
+    .whoami{gap:8px;}
+    /* the WhatsApp action wraps under the play instead of squeezing the text to 172px */
+    .play-row .play-msg{flex:1 1 100% !important;}
+    .play-row .play-msg .act,.play-row .play-msg .btn{flex:1;justify-content:center;}
+    /* clear the sandbox banner so the tab labels are never hidden while testing */
+    .is-sandbox .mtabs{bottom:26px;}
+    .is-sandbox .fab{bottom:calc(100px + env(safe-area-inset-bottom,0));}
+  }
+
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
   /* ---------- data table (All leads) ---------- */
   .dt-wrap{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;}
@@ -1135,6 +1286,7 @@
 </div>
 
 <!-- Mobile: bottom tab bar, More sheet, and the three-tap quick-log sheet -->
+<button class="fab" id="fab" onclick="openModal()" aria-label="Add a new lead">＋<span class="fab-t"> New lead</span></button>
 <nav class="mtabs" id="mtabs" role="navigation" aria-label="Main"></nav>
 <div class="sheet-scrim" id="moreScrim" onclick="if(event.target===this)closeMore()">
   <div class="sheet" role="dialog" aria-modal="true" aria-label="More">
@@ -2616,7 +2768,29 @@ function visitRow(l){
     <div class="who"><b>${escapeHtml(l.name)}</b><br><span>${tag}${escapeHtml(userName(l.ownerId))} · ${escapeHtml(l.project||'—')}${(l.walkinSource==='CP'&&l.cpName)?' · CP '+escapeHtml(l.cpName):''}</span></div>
     <div class="note">${last?escapeHtml(last.t):''}</div></div>`;
 }
+// A 7-column month grid on a 375px screen gives each day 50px and each visit a
+// 32x16 tap target. On a phone the same information reads better as an agenda.
+function visitAgendaHTML(ents){
+  const t=iso(today());
+  const rows=ents.slice().sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0);
+  const byDay={};rows.forEach(e=>{(byDay[e.d]=byDay[e.d]||[]).push(e);});
+  _visitDays={};Object.keys(byDay).forEach(k=>{_visitDays[k]=byDay[k].map(e=>e.l);});
+  const days=Object.keys(byDay).sort();
+  if(!days.length)return `<div class="vcal"><div class="empty">No visits planned.</div></div>`;
+  const cls=e=>e.kind==='kept'?'kept':e.kind==='missed'?'over':e.d===t?'now':'';
+  const word=e=>e.kind==='kept'?'happened':e.kind==='missed'?'missed':'planned';
+  const body=days.map(ds=>{
+    const dt=parseD(ds);
+    const rel=ds===t?'Today':ds===addDays(1)?'Tomorrow':dt.toLocaleDateString('en-IN',{weekday:'long'});
+    const head=`<div class="vag-h ${ds===t?'now':''}">${rel} <span>${fmtDate(ds)}</span></div>`;
+    return head+byDay[ds].map(e=>`<button class="vag-row ${cls(e)}" onclick="openDrawer('${e.l.id}')">
+      <span class="vag-n">${e.kind==='kept'?'✓ ':''}${escapeHtml(e.l.name)}</span>
+      <span class="vag-m">${word(e)} · ${escapeHtml(userName(e.l.ownerId))}</span></button>`).join('');
+  }).join('');
+  return `<div class="vcal vag">${body}</div>`;
+}
 function visitCalendarHTML(ents){
+  if(isPhone())return visitAgendaHTML(ents);
   const mo=visitMonth||iso(today()).slice(0,7);
   const p=mo.split('-');const y=Number(p[0]),m=Number(p[1])-1;
   const first=new Date(y,m,1), lastDay=new Date(y,m+1,0).getDate();
@@ -2819,6 +2993,22 @@ function tableHTML(leads){
   const foot=`<div class="dt-foot"><span>Showing ${shown} lead${total===1?'':'s'}</span>
       <span style="margin-left:auto;display:flex;align-items:center;gap:8px">${pager}
       <select class="field" style="width:auto;padding:4px 8px;font-size:12.5px" onchange="dtSetSize(this.value)">${sizeOpts}</select></span></div>`;
+  // A 16-column table is 1,265px wide — on a phone that is two-axis scrolling and
+  // 36px header cells. Same rows, same sort, same paging, rendered as cards instead.
+  if(isPhone()){
+    const cards=page.map(l=>{
+      const cell=k=>{const c=dtCol(k);return c?c.cell(l):'';};
+      return `<button class="dtc" onclick="openDrawer('${l.id}')">
+        <span class="dtc-top">${cell('name')}${cell('stage')}</span>
+        <span class="dtc-sub">${cell('owner')} · ${cell('source')} · ${cell('captured')}</span>
+        <span class="dtc-sub">Follow-up ${cell('nextfu')||'—'}</span></button>`;
+    }).join('');
+    const sortSel=`<select class="field" style="width:auto;padding:8px 10px;font-size:13px" onchange="dtSort(this.value)">`
+      +DT_COLS.filter(c=>!c.nosort).map(c=>`<option value="${c.k}" ${p.sortK===c.k?'selected':''}>Sort: ${escapeHtml(c.label)}</option>`).join('')+`</select>`;
+    return filterBanner()+`<div class="dt-wrap">
+      <div class="dt-toolbar">${sortSel}<button class="btn ghost" style="padding:8px 12px" onclick="dtSort('${p.sortK}')">${p.sortDir===1?'▲ Asc':'▼ Desc'}</button></div>
+      ${total?`<div class="dtc-list">${cards}</div>`:empty}${total?foot:''}</div>`;
+  }
   return filterBanner()+`<div class="dt-wrap">${toolbar}
     <div class="dt-scroll">${total?`<table class="dt ${p.density}"><caption class="sr-only">All leads</caption><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`:empty}</div>
     ${total?foot:''}</div>`;
@@ -2906,9 +3096,9 @@ function lbBreakdown(r){
   return bits.length?bits.join(' &nbsp; '):'<span style="color:var(--soft)">no activity yet</span>';
 }
 /* ============ drawer ============ */
-function openDrawer(id){listReturn=null;openId=id;renderDrawer();document.getElementById('scrim').classList.add('on');document.getElementById('drawer').classList.add('on');urlWrite();}
+function openDrawer(id){listReturn=null;openId=id;renderDrawer();document.getElementById('scrim').classList.add('on');document.getElementById('drawer').classList.add('on');fabSync();urlWrite();}
 function openFromList(id){const ret=curList;closeLeadList();openDrawer(id);listReturn=ret;}
-function closeDrawer(){openId=null;document.getElementById('scrim').classList.remove('on');document.getElementById('drawer').classList.remove('on');if(listReturn){const lr=listReturn;listReturn=null;openLeadList(lr.title,db.leads.filter(l=>lr.ids.includes(l.id)));}urlWrite();}
+function closeDrawer(){openId=null;document.getElementById('scrim').classList.remove('on');document.getElementById('drawer').classList.remove('on');fabSync();if(listReturn){const lr=listReturn;listReturn=null;openLeadList(lr.title,db.leads.filter(l=>lr.ids.includes(l.id)));}urlWrite();}
 function getLead(){return db.leads.find(l=>l.id===openId);}
 function renderDrawer(){
   const l=getLead();if(!l)return;
@@ -3841,8 +4031,9 @@ function openModal(){
   if(u.role==='sales'){ownerFld.classList.add('hidden');}
   else{ownerFld.classList.remove('hidden');ownerSel.innerHTML=`<option value="">Unassigned (goes to New)</option>`+salespeople().map(r=>`<option value="${r.id}">${r.name}${r.project?' · '+r.project:''}</option>`).join('');}
   document.getElementById('modalScrim').classList.add('on');
+  fabSync();
 }
-function closeModal(){document.getElementById('modalScrim').classList.remove('on');}
+function closeModal(){document.getElementById('modalScrim').classList.remove('on');fabSync();}
 function onWsourceChange(){const v=document.getElementById('m_wsource').value;document.getElementById('wf_cp').classList.toggle('hidden',v!=='CP');document.getElementById('wf_ref').classList.toggle('hidden',v!=='Referral');document.getElementById('wf_reflink').classList.toggle('hidden',v!=='Referral');if(v==='Referral')fillReferralLinks();}
 function fillReferralLinks(){const sel=document.getElementById('m_reflink');if(!sel)return;sel.innerHTML='<option value="">— not in system —</option>'+scoped().slice().sort((a,b)=>a.name.localeCompare(b.name)).map(l=>`<option value="${l.id}">${l.name}${l.phone?' · '+l.phone:''}</option>`).join('');}
 function setSrc(s){modalSrc=s;document.querySelectorAll('#srcSeg button').forEach(b=>b.classList.toggle('on',b.dataset.s===s));const lab=document.getElementById('srcLabel'),sel=document.getElementById('m_srcdetail');const u=currentUser();
@@ -4576,7 +4767,7 @@ function playsHTML(){
   // A ready-made WhatsApp message rides along on the row when one is due. It never
   // adds, removes or reorders a play — the coach decides what appears, messaging follows.
   const msgFor=l=>{const m=msgDue(l);if(!m||!can('edit',l))return '';const ph=waPhone(l);
-    return `<div style="display:flex;gap:6px;align-items:center;flex-none" onclick="event.stopPropagation()">
+    return `<div class="play-msg" style="display:flex;gap:6px;align-items:center" onclick="event.stopPropagation()">
       <button class="act" style="white-space:nowrap" title="${escapeHtml(msgMerge(m.body,l))}" onclick="msgCopyAndMark('${l.id}','${m.id}')">💬 ${escapeHtml(m.name)}</button>
       ${ph?`<button class="btn" style="padding:5px 10px" onclick="msgSendWA('${l.id}','${m.id}')">Send</button>`:''}</div>`;};
   const list=rows.length?rows.map(({l,t})=>`<div class="play-row" onclick="openDrawer('${l.id}')" style="display:flex;gap:12px;align-items:flex-start;padding:12px 4px;border-top:1px solid var(--line);cursor:pointer">
@@ -5312,7 +5503,7 @@ async function sendMessage(){const inp=document.getElementById('chatInput');cons
 /* ============ boot ============ */
 async function boot(){
   tdLoad();
-  if(IS_SANDBOX){const b=document.createElement('div');b.textContent='● SANDBOX — test environment · not your live data';b.style.cssText='position:fixed;bottom:0;left:0;right:0;background:var(--lost);color:#fff;text-align:center;font-family:Inter,sans-serif;font-weight:600;font-size:12px;letter-spacing:.04em;padding:5px;z-index:200';document.body.appendChild(b);document.title='[SANDBOX] '+document.title;}
+  if(IS_SANDBOX){const b=document.createElement('div');b.textContent='● SANDBOX — test environment · not your live data';b.style.cssText='position:fixed;bottom:0;left:0;right:0;background:var(--lost);color:#fff;text-align:center;font-family:Inter,sans-serif;font-weight:600;font-size:12px;letter-spacing:.04em;padding:5px;z-index:200';document.body.appendChild(b);document.body.classList.add('is-sandbox');document.title='[SANDBOX] '+document.title;}
   pendingInvite=new URLSearchParams(location.search).get('invite');
   const {data:{session:s}}=await sb.auth.getSession();
   if(s){session=s.user.id;const mem=await loadMyMember();
@@ -5394,7 +5585,22 @@ const NAV_KEYS=[['p','pipeline','Pipeline'],['t','plays',"Today's plays"],['v','
  * acceptance criterion: log an outcome in <=3 taps without the keyboard appearing.
  */
 const MTABS=[['pipeline','Leads','📋'],['plays','Today','🧭'],['visits','Visits','📅'],['__more','More','⋯']];
+// The FAB floats over everything, so it has to stand down whenever a sheet,
+// drawer or modal owns the screen — :has() alone is not safe on older WebKit.
+function fabSync(){
+  const f=document.getElementById('fab');if(!f)return;
+  const over=!!document.querySelector('.drawer.on,.modal-back.on,.sheet.on,.scrim.on,[id$="Scrim"].on');
+  f.classList.toggle('fab-hide',over);
+}
 function renderMobileTabs(){
+  // the desktop hint is meaningless on a phone, and it truncates the placeholder
+  const sb=document.getElementById('search');
+  if(sb)sb.placeholder=isPhone()?'Search leads':'Search name or merge code…   ⌘K for commands';
+  const fab=document.getElementById('fab');
+  if(fab){const u0=currentUser();
+    fab.style.display=(isPhone()&&u0&&u0.role!=='reception'&&['pipeline','plays','all','visits'].indexOf(activeTab)>=0)?'':'none';}
+  fabSync();
+
   const el=document.getElementById('mtabs');if(!el)return;
   const u=currentUser();
   if(!u||u.role==='reception'){el.innerHTML='';return;}   // the front desk has one screen
@@ -5427,8 +5633,9 @@ function openMore(){
     +`<button class="sheet-row" onclick="cycleTheme()"><span class="ic">${themeIcon()}</span>${escapeHtml(themeLabel())}</button>`
     +`<button class="sheet-row" onclick="closeMore();signOut()"><span class="ic">⏻</span>Sign out</button>`;
   document.getElementById('moreScrim').classList.add('on');
+  fabSync();
 }
-function closeMore(){document.getElementById('moreScrim').classList.remove('on');}
+function closeMore(){document.getElementById('moreScrim').classList.remove('on');fabSync();}
 function navLabel(k){
   const map={pipeline:'Pipeline',plays:"Today's plays",visits:'Visits planned',followups:'Follow-ups due',
     tasks:'Tasks',all:'All leads',funnel:'Funnel',cp:'CP analytics',ageing:'Ageing',stats:'Follow-up stats',
@@ -5442,8 +5649,9 @@ function openQuickLog(id,ev){
   const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;
   qlLead=id;qlRenderOutcomes();
   document.getElementById('qlScrim').classList.add('on');
+  fabSync();
 }
-function closeQuickLog(){qlLead=null;document.getElementById('qlScrim').classList.remove('on');}
+function closeQuickLog(){qlLead=null;document.getElementById('qlScrim').classList.remove('on');fabSync();}
 function qlRenderOutcomes(){
   const l=db.leads.find(x=>x.id===qlLead);if(!l)return;
   document.getElementById('qlTitle').textContent=l.name;
