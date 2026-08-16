@@ -20,11 +20,11 @@
      paper, not screen. One confident brand colour; status hues are re-picked to sit in the
      same family instead of shouting over each other. */
   :root{
-    --canvas:#F4F3F0;--surface:#FFFFFF;--surface-2:#FAF9F6;--ink:#1B1A17;--soft:#75706A;
+    --canvas:#F4F3F0;--surface:#FFFFFF;--surface-2:#FAF9F6;--ink:#1B1A17;--soft:#6F6A64;
     --line:#E5E1DA;--line2:#F0EDE7;
     --brand:#2C4A43;--brand-ink:#1E3630;--brand-tint:#E9EFEC;--accent:#B0603A;--teal:#1F7A6E;
-    --new:#8B857D;--assigned:#3F6B8A;--qualified:#1F7A6E;
-    --booked:#2E7D52;--lost:#B0473B;--nq:#A29B92;
+    --new:#77716A;--assigned:#3F6B8A;--qualified:#1F7A6E;
+    --booked:#2E7D52;--lost:#B0473B;--nq:#7F7565;
     --amber:#BE8A2C;--over:#B0473B;
     --header-bg:rgba(255,255,255,.82);--hover:rgba(27,26,23,.04);--subtle:#F0EEE9;--soft-bg:#FAF9F6;
     /* three layers: contact shadow, ambient, and a long soft cast — reads crisp, not blurry */
@@ -380,7 +380,7 @@
   .barrow .lbl{width:130px;font-size:13px;font-weight:500;flex:none;display:flex;align-items:center;gap:7px;}
   .barrow .lbl .d{width:9px;height:9px;border-radius:3px;flex:none;}
   .barrow .track{flex:1;height:22px;background:var(--canvas);border-radius:6px;overflow:hidden;}
-  .barrow .fillb{height:100%;border-radius:6px;display:flex;align-items:center;padding-left:9px;color:#fff;font-family:'Space Grotesk';font-size:12px;font-weight:600;min-width:22px;}
+  .barrow .fillb{height:100%;border-radius:6px;display:flex;align-items:center;padding:0 9px;color:#fff;font-family:'Space Grotesk';font-size:12px;font-weight:600;min-width:max-content;white-space:nowrap;}
   .split{display:flex;gap:16px;} .split>*{flex:1;min-width:0;}
   .range-bar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:16px;}
   .range-bar .seg2{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;}
@@ -390,7 +390,7 @@
   .funnel-row{display:flex;align-items:center;gap:12px;margin-bottom:8px;}
   .funnel-row .fl{width:150px;flex:none;font-size:13px;font-weight:500;}
   .funnel-row .ft{flex:1;height:30px;background:var(--canvas);border-radius:7px;overflow:hidden;}
-  .funnel-row .ff{height:100%;border-radius:7px;display:flex;align-items:center;padding-left:11px;color:#fff;font-family:'Space Grotesk';font-weight:600;font-size:13px;white-space:nowrap;}
+  .funnel-row .ff{height:100%;border-radius:7px;display:flex;align-items:center;padding:0 11px;color:#fff;font-family:'Space Grotesk';font-weight:600;font-size:13px;white-space:nowrap;min-width:max-content;}
   .grp{display:flex;align-items:center;gap:12px;margin-bottom:11px;}
   .grp .gl{width:120px;flex:none;font-size:13px;font-weight:500;}
   .grp .gbars{flex:1;display:flex;flex-direction:column;gap:4px;}
@@ -997,6 +997,19 @@
     main,main.wide{padding-bottom:152px;}
   }
 
+  [data-theme="dark"] .report-slide{
+    --ink:#1B1A17;--soft:#6F6A64;--line:#E5E1DA;--line2:#F0EDE7;--canvas:#F4F3F0;--surface:#FFFFFF;
+    color:#1B1A17;
+  }
+  [data-theme="dark"] .report-slide *{border-color:var(--line);}
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]) .report-slide{
+      --ink:#1B1A17;--soft:#6F6A64;--line:#E5E1DA;--line2:#F0EDE7;--canvas:#F4F3F0;--surface:#FFFFFF;
+      color:#1B1A17;
+    }
+    :root:not([data-theme="light"]) .report-slide *{border-color:var(--line);}
+  }
+
   @media(max-width:760px){
     /* the sheet needs the same grabber the other sheets have */
     .drawer::before{content:'';position:absolute;top:8px;left:50%;transform:translateX(-50%);
@@ -1244,7 +1257,8 @@
   .sfchip.askc{background:#EEF4FB;border-color:#cfe0f2;color:#2C5D80;}
   .sfchip.askc .xx{margin-left:6px;opacity:.55;font-size:11px;}
   .sfchip.askc .xx:hover{opacity:1;color:var(--lost);}
-  .drill{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;}
+  .drill{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-decoration-thickness:1px;text-underline-offset:3px;}
+  .kpi .val .drill,.stat .v .drill{text-decoration-style:solid;text-decoration-color:var(--line);text-decoration-thickness:1.5px;text-underline-offset:4px;}
   .drill:hover{opacity:.72;}
   .mini-lead{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;background:var(--surface);}
   .mini-top{display:flex;justify-content:space-between;align-items:center;gap:10px;}
@@ -2670,6 +2684,7 @@ function render(){
   const total=scoped().length;
   document.getElementById('count').textContent=total+(u.role==='sales'?' of your leads':' leads in view');
   refreshNotifyBadge();renderSavedBar();renderMyTarget();renderTaskDock();navSync();urlWrite();renderMobileTabs();
+  contrastFix();
   document.body.dataset.tab=activeTab;
   if(activeTab==='crossproject'){const k=document.getElementById('kpis');if(k)k.innerHTML='';const sb=document.getElementById('savedBar');if(sb)sb.innerHTML='';}   // cross-project: no stats/filters
   if(openId)renderDrawer();
@@ -2720,6 +2735,60 @@ const ICON_PATHS={
   close:'M6 6l12 12M18 6L6 18',
   theme:'M12 3.5a8.5 8.5 0 000 17 8.5 8.5 0 010-17z'
 };
+// Text colour was hard-coded independently of the surface it lands on, so labels
+// failed WCAG AA in a dozen places — worst was white on an amber bar at 2.48:1, and
+// a 15% bar spilled its white label onto the pale track. There are too many call
+// sites to thread a colour through each, so this reads what is actually painted
+// (compositing alpha tints over their parent) and only moves text that fails.
+// Every leaf that actually holds text. Chasing this class by class turned into
+// whack-a-mole: bars, then tinted pills, then a translucent white pill over a dark
+// head, then a hard-coded red inside a red tint. Scanning the leaves catches all of
+// them and anything added later.
+const CONTRAST_SEL='*'
+function contrastFix(root){
+  const f=v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4);};
+  const L=c=>.2126*f(c[0])+.7152*f(c[1])+.0722*f(c[2]);
+  const set=(el,v)=>el.style.setProperty('color',v,'important');  // some rules use !important
+  const px=s=>{const m=String(s).match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)/);
+    return m?[+m[1],+m[2],+m[3],m[4]===undefined?1:+m[4]]:null;};
+  // the painted background: composite each translucent layer over the one behind it
+  const bgOf=el=>{
+    const stack=[];let e=el;
+    while(e&&e!==document.documentElement){
+      const c=px(getComputedStyle(e).backgroundColor);
+      if(c&&c[3]>0){stack.push(c);if(c[3]>=.999)break;}
+      e=e.parentElement;
+    }
+    let out=[255,255,255];
+    for(let k=stack.length-1;k>=0;k--){const c=stack[k],a=c[3];
+      out=[0,1,2].map(i=>Math.round(c[i]*a+out[i]*(1-a)));}
+    return out;
+  };
+  (root||document).querySelectorAll(CONTRAST_SEL).forEach(el=>{
+    if(el.children.length)return;                                // leaves only
+    if(!(el.textContent||'').trim())return;                      // that hold text
+    if(el.offsetParent===null&&el.tagName!=='BODY')return;        // and are on screen
+    const cs=getComputedStyle(el);
+    if(cs.backgroundImage&&cs.backgroundImage!=='none')return;   // gradients: leave alone
+    const fg=px(cs.color);if(!fg)return;
+    const bg=bgOf(el),lb=L(bg);
+    const ratio=c=>{const lf=L(c);return (Math.max(lf,lb)+.05)/(Math.min(lf,lb)+.05);};
+    // Passing text is left completely alone. Do NOT clear the inline colour here:
+    // render() rebuilds these nodes, so the inline value is the author's, and
+    // removing it once dropped a legitimate color:#A03027 onto a white button.
+    if(ratio(fg)>=4.5)return;
+    // Head for whichever extreme can actually reach AA on this surface. A luminance
+    // threshold gets mid-tones wrong: amber (L=.375) reads "dark" but only black
+    // clears it — 8.5:1 against 2.47:1 for white.
+    const toWhite=1.05/(lb+.05), toBlack=(lb+.05)/.05, up=toWhite>toBlack;
+    if(Math.max(toWhite,toBlack)<4.5){                           // nothing can pass; take the best
+      set(el,up?'#fff':'#14130F');return;}
+    let c=fg.slice(0,3),n=0;
+    while(ratio(c)<4.5&&n++<40)
+      c=c.map(v=>up?Math.min(255,Math.round(v+(255-v)*.15)+3):Math.max(0,Math.round(v*.88)-2));
+    set(el,ratio(c)>=4.5?'rgb('+c.join(',')+')':(up?'#fff':'#14130F'));
+  });
+}
 function ICON(name,size){
   const d=ICON_PATHS[name];if(!d)return '';
   // a dot drawn as a zero-length stroke is nearly invisible next to real strokes
@@ -3263,6 +3332,7 @@ function closeDrawer(){openId=null;document.getElementById('scrim').classList.re
 function getLead(){return db.leads.find(l=>l.id===openId);}
 function renderDrawer(){
   const l=getLead();if(!l)return;
+  setTimeout(()=>contrastFix(document.getElementById('drawer')),0);
   const u=currentUser();const st=STAGES[l.stage];
   const editable=can('edit',l);const canAssign=can('assign');const canDelete=can('delete');
   const isHead=u.role==='sales_head'||u.role==='project_head';
@@ -4651,7 +4721,7 @@ function srcCat(l){if(l.source==='walkin')return l.walkinSource==='CP'?'CP':l.wa
 function reportScope(){let ls=db.leads.slice();if(reportProject!=='All')ls=ls.filter(l=>l.project===reportProject);return ls;}
 function crossReasonSlide(title,leads,reasonFn,cats,slide){
   const rs=[...new Set(leads.map(reasonFn).filter(Boolean))];
-  if(!rs.length)return slide(title,`<div style="color:#9c8a63">No records this month.</div>`);
+  if(!rs.length)return slide(title,`<div style="color:#7F6E3A">No records this month.</div>`);
   const head=`<tr><th>Source</th>${rs.map(r=>`<th>${r}</th>`).join('')}<th>Total</th></tr>`;
   const body=cats.map(c=>{const cl=leads.filter(l=>srcCat(l)===c);if(!cl.length)return '';const cells=rs.map(r=>`<td class="mono">${cl.filter(l=>reasonFn(l)===r).length}</td>`).join('');return `<tr><td>${c}</td>${cells}<td class="mono"><b>${cl.length}</b></td></tr>`;}).join('');
   return slide(title,`<div style="overflow-x:auto"><table class="rtable">${head}<tbody>${body}</tbody></table></div>`);
@@ -4664,7 +4734,7 @@ function reportHTML(){
   const closures=all.filter(l=>l.stage==='booked'&&l.booking&&(l.booking.at||'').slice(0,7)===reportMonth);
   const cats=['Digital','CP','Direct','Referral'];
   const brand=`<div class="brand">bricks<br>&amp; milestones</div>`;
-  const foot=`<div style="text-align:right;color:#9c8a63;font-size:11px;margin-top:14px">www.bricksandmilestones.com</div>`;
+  const foot=`<div style="text-align:right;color:#7F6E3A;font-size:11px;margin-top:14px">www.bricksandmilestones.com</div>`;
   const slide=(title,inner)=>`<div class="report-slide">${brand}<h2>${title}</h2><div class="rule"></div>${inner}${foot}</div>`;
   const projOpts=['All',...PROJECTS].map(p=>`<option ${reportProject===p?'selected':''}>${p}</option>`).join('');
   const toolbar=`<div class="report-toolbar no-print">
@@ -4696,13 +4766,13 @@ function reportHTML(){
   // CP Contributions
   const cpMap={};inMonth.filter(l=>l.source==='walkin'&&l.walkinSource==='CP').forEach(l=>{const k=l.cpName||'(unnamed CP)';cpMap[k]=(cpMap[k]||0)+1;});
   const cpRows=Object.entries(cpMap).sort((a,b)=>b[1]-a[1]);
-  const cpBody=cpRows.length?cpRows.map(([n,c])=>`<tr><td>${n}</td><td class="mono">${c}</td></tr>`).join(''):'<tr><td colspan="2" style="color:#9c8a63">No CP visits this month.</td></tr>';
+  const cpBody=cpRows.length?cpRows.map(([n,c])=>`<tr><td>${n}</td><td class="mono">${c}</td></tr>`).join(''):'<tr><td colspan="2" style="color:#7F6E3A">No CP visits this month.</td></tr>';
   const cpSlide=slide('Channel Partner Contributions',`<table class="rtable"><thead><tr><th>Channel Partner</th><th>Visits</th></tr></thead><tbody>${cpBody}</tbody></table>`);
   // Closures
   const realVals=closures.map(l=>l.booking.realization).filter(v=>v);
   const avg=realVals.length?Math.round(realVals.reduce((a,v)=>a+v,0)/realVals.length):0;
   const clHead=`<tr><th>Unit</th><th>Applicant</th><th>Co-applicant</th><th>Age</th><th>SM</th><th>Source</th><th>Sub-source</th><th>Realization</th><th>Size</th><th>Location</th><th>Applicant Co.</th><th>Co-app Co.</th></tr>`;
-  const clBody=closures.length?closures.map(l=>{const b=l.booking;return `<tr><td>${b.apartment||'—'}</td><td>${l.name}</td><td>${b.coApplicant||'—'}</td><td class="mono">${b.applicantAge||''}${b.coApplicantAge?' & '+b.coApplicantAge:''}</td><td>${userName(l.ownerId)}</td><td>${srcCat(l)}</td><td>${l.cpName||l.srcDetail||'—'}</td><td class="mono">${b.realization?Number(b.realization).toLocaleString('en-IN'):'—'}</td><td class="mono">${b.size||'—'}</td><td>${b.location||'—'}</td><td>${b.company||'—'}</td><td>${b.coApplicantCompany||'—'}</td></tr>`;}).join(''):'<tr><td colspan="12" style="color:#9c8a63">No closures this month.</td></tr>';
+  const clBody=closures.length?closures.map(l=>{const b=l.booking;return `<tr><td>${b.apartment||'—'}</td><td>${l.name}</td><td>${b.coApplicant||'—'}</td><td class="mono">${b.applicantAge||''}${b.coApplicantAge?' & '+b.coApplicantAge:''}</td><td>${userName(l.ownerId)}</td><td>${srcCat(l)}</td><td>${l.cpName||l.srcDetail||'—'}</td><td class="mono">${b.realization?Number(b.realization).toLocaleString('en-IN'):'—'}</td><td class="mono">${b.size||'—'}</td><td>${b.location||'—'}</td><td>${b.company||'—'}</td><td>${b.coApplicantCompany||'—'}</td></tr>`;}).join(''):'<tr><td colspan="12" style="color:#7F6E3A">No closures this month.</td></tr>';
   const clSlide=slide('Closures',`<div style="overflow-x:auto"><table class="rtable" style="font-size:11.5px">${clHead}<tbody>${clBody}</tbody></table></div>${closures.length?`<div style="margin-top:12px;font-family:'Space Grotesk';font-weight:600;color:#5a4a2a">Average Realization — ₹${avg.toLocaleString('en-IN')}</div>`:''}`);
   // Visits — Status Summary
   const statuses=[['Booked','booked'],['Closed-Lost','lost'],['NQ','not_qualified'],['Q','qualified']];
@@ -4723,7 +4793,7 @@ function reportHTML(){
   const veTot=visitEff(all,veFrom,veTo);
   const veSlide=veRows.length
     ? slide('Visit Efficiency',`<table class="rtable"><thead><tr><th>Salesperson</th><th>Visits planned</th><th>Happened</th><th>Missed</th><th>Still upcoming</th><th>Kept rate</th></tr></thead><tbody>${veRows.map(function(r){return `<tr><td>${r.id==='—'?'Unassigned':userName(r.id)}</td><td class="mono">${r.e.planned}</td><td class="mono">${r.e.kept}</td><td class="mono">${r.e.missed}</td><td class="mono">${r.e.upcoming}</td><td class="mono"><b>${r.e.rate==null?'—':r.e.rate+'%'}</b></td></tr>`;}).join('')}<tr style="background:#F3E9D2"><td><b>Total</b></td><td class="mono"><b>${veTot.planned}</b></td><td class="mono"><b>${veTot.kept}</b></td><td class="mono"><b>${veTot.missed}</b></td><td class="mono"><b>${veTot.upcoming}</b></td><td class="mono"><b>${veTot.rate==null?'—':veTot.rate+'%'}</b></td></tr></tbody></table><div style="margin-top:12px;color:#5a4a2a;font-size:13px">Counts revisits <b>planned for ${rMonthLabel(reportMonth)}</b>. <b>Kept rate</b> = happened ÷ (happened + missed); visits still upcoming are excluded.</div>`)
-    : slide('Visit Efficiency',`<div style="color:#9c8a63">No revisits were planned for this month.</div>`);
+    : slide('Visit Efficiency',`<div style="color:#7F6E3A">No revisits were planned for this month.</div>`);
   // NQ & Closed-Lost categories
   const nqSlide=crossReasonSlide('NQ — Categories',inMonth.filter(l=>l.stage==='not_qualified'),l=>l.nqReason,cats,slide);
   const lostSlide=crossReasonSlide('Closed-Lost — Categories',inMonth.filter(l=>l.stage==='lost'),l=>l.lostReason,cats,slide);
@@ -4731,7 +4801,7 @@ function reportHTML(){
   const lostLeads=inMonth.filter(l=>l.stage==='lost');const lostEntries=reasonCounts(lostLeads);
   const lostPieSlide=lostEntries.length
     ? slide('Closed Lost — Reasons',`<div style="display:flex;gap:34px;align-items:center;flex-wrap:wrap"><div style="flex:none">${svgPie(lostEntries,240)}</div><div style="flex:1;min-width:230px">${pieLegend(lostEntries)}<div style="margin-top:12px;font-family:'Space Grotesk';font-weight:600;color:#5a4a2a">${lostLeads.length} closed-lost this month</div></div></div>`)
-    : slide('Closed Lost — Reasons',`<div style="color:#9c8a63">No closed-lost leads this month.</div>`);
+    : slide('Closed Lost — Reasons',`<div style="color:#7F6E3A">No closed-lost leads this month.</div>`);
   // Historic Sales Summary (external)
   const histRows=parseLines(rd.historicText);let histSlide;
   if(histRows.length){
@@ -4739,7 +4809,7 @@ function reportHTML(){
     const body=histRows.map(r=>`<tr><td>${r[0]}</td><td class="mono">${r[1]||'—'}</td><td class="mono">${r[2]||'—'}</td><td class="mono">${r[3]||'—'}</td></tr>`).join('');
     const bars=histRows.map(r=>`<div class="rbar-row"><div class="rl">${r[0]}</div><div class="rt"><div class="rf" style="width:${Math.round(numOf(r[3])/umax*100)}%;background:#C9B27A;color:#4a3a1a">${r[3]||''}</div></div></div>`).join('');
     histSlide=slide('Historic Sales Summary',`<table class="rtable"><thead><tr><th>Month</th><th>3.5 BHK (₹)</th><th>3 BHK (₹)</th><th>Units sold</th></tr></thead><tbody>${body}</tbody></table><div style="margin-top:14px">${bars}</div>`);
-  } else histSlide=slide('Historic Sales Summary',`<div style="color:#9c8a63">Add the historic realization trend via <b>Edit external data</b>. Format per line: <b>Month, 3.5BHK, 3BHK, Units</b></div>`);
+  } else histSlide=slide('Historic Sales Summary',`<div style="color:#7F6E3A">Add the historic realization trend via <b>Edit external data</b>. Format per line: <b>Month, 3.5BHK, 3BHK, Units</b></div>`);
   return toolbar+editor+titleSlide+perfSlide+histSlide+srcSlide+cpSlide+statSlide+dsSlide+veSlide+nqSlide+lostSlide+lostPieSlide+clSlide;
 }
 function toggleReportEditor(){const e=document.getElementById('reportEditor');if(e)e.style.display=e.style.display==='none'?'':'none';}
