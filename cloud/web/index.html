@@ -2906,7 +2906,7 @@ function render(){
   refreshNotifyBadge();renderSavedBar();renderMyTarget();renderTaskDock();navSync();urlWrite();renderMobileTabs();
   contrastFix();
   document.body.dataset.tab=activeTab;
-  if(activeTab==='crossproject'){const k=document.getElementById('kpis');if(k)k.innerHTML='';const sb=document.getElementById('savedBar');if(sb)sb.innerHTML='';}   // cross-project: no stats/filters
+  if(activeTab==='crossproject'||activeTab==='report'){const k=document.getElementById('kpis');if(k)k.innerHTML='';const sb=document.getElementById('savedBar');if(sb)sb.innerHTML='';}   // cross-project: no stats/filters
   if(openId)renderDrawer();
 }
 function bookedThisMonth(memberId,m){return db.leads.filter(l=>l.ownerId===memberId&&l.stage==='booked'&&l.booking&&(l.booking.at||'').slice(0,7)===m).length;}
@@ -5003,7 +5003,9 @@ function setReportProject(v){reportProject=v;render();}
 function rMonthLabel(ym){if(!ym)return '';const p=ym.split('-');return ['','January','February','March','April','May','June','July','August','September','October','November','December'][parseInt(p[1])]+' '+p[0];}
 function parseLines(t){return String(t||'').split('\n').map(l=>l.split(',').map(x=>x.trim())).filter(r=>r[0]&&r.some(x=>x!==''));}
 function srcCat(l){if(l.source==='walkin')return l.walkinSource==='CP'?'CP':l.walkinSource==='Referral'?'Referral':'Direct';return (l.srcDetail==='Referral')?'Referral':'Digital';}
-function reportScope(){let ls=db.leads.slice();if(reportProject!=='All')ls=ls.filter(l=>l.project===reportProject);return ls;}
+// Merged duplicates are hidden everywhere else (scoped() drops them), so counting them
+// here made every report number larger than the same figure elsewhere in the app.
+function reportScope(){let ls=db.leads.filter(l=>!l.mergedInto);if(reportProject!=='All')ls=ls.filter(l=>l.project===reportProject);return ls;}
 // People type a note after the reason ("Price / negotiation gap — wanted 3L more"),
 // and the whole string was being used as a column heading, so nearly every lead
 // invented its own column: a dozen paragraph-wide headings scrolling off the slide.
@@ -5081,9 +5083,16 @@ function reportHTML(){
   const clBody=closures.length?closures.map(l=>{const b=l.booking;return `<tr><td>${b.apartment||'—'}</td><td>${l.name}</td><td>${b.coApplicant||'—'}</td><td class="mono">${b.applicantAge||''}${b.coApplicantAge?' & '+b.coApplicantAge:''}</td><td>${userName(l.ownerId)}</td><td>${srcCat(l)}</td><td>${l.cpName||l.srcDetail||'—'}</td><td class="mono">${b.realization?Number(b.realization).toLocaleString('en-IN'):'—'}</td><td class="mono">${b.size||'—'}</td><td>${b.location||'—'}</td><td>${b.company||'—'}</td><td>${b.coApplicantCompany||'—'}</td></tr>`;}).join(''):'<tr><td colspan="12" style="color:#7F6E3A">No closures this month.</td></tr>';
   const clSlide=slide('Closures',`<div style="overflow-x:auto"><table class="rtable" style="font-size:11.5px">${clHead}<tbody>${clBody}</tbody></table></div>${closures.length?`<div style="margin-top:12px;font-family:'Space Grotesk';font-weight:600;color:#5a4a2a">Average Realization — ₹${avg.toLocaleString('en-IN')}</div>`:''}`);
   // Visits — Status Summary
-  const statuses=[['Booked','booked'],['Closed-Lost','lost'],['NQ','not_qualified'],['Q','qualified']];
-  const statBody=cats.map(c=>{const cl=inMonth.filter(l=>srcCat(l)===c);const cells=statuses.map(([lb,st])=>`<td class="mono">${drillN(cl.filter(l=>l.stage===st),c+' · '+lb)}</td>`).join('');return `<tr><td>${c}</td>${cells}<td class="mono"><b>${drillN(cl,c+' walk-ins')}</b></td></tr>`;}).join('');
-  const statTot=statuses.map(([lb,st])=>`<td class="mono"><b>${drillN(inMonth.filter(l=>l.stage===st),'All sources · '+lb)}</b></td>`).join('');
+  // The Total column is every walk-in from that source, but the status columns only
+  // covered four of the six stages — new and assigned had nowhere to go, so a row could
+  // read 15 across and 28 in Total. "In progress" carries them, and now it adds up.
+  const statuses=[['In progress',l=>l.stage==='new'||l.stage==='assigned'],
+                  ['Q',l=>l.stage==='qualified'],
+                  ['Booked',l=>l.stage==='booked'],
+                  ['Closed-Lost',l=>l.stage==='lost'],
+                  ['NQ',l=>l.stage==='not_qualified']];
+  const statBody=cats.map(c=>{const cl=inMonth.filter(l=>srcCat(l)===c);const cells=statuses.map(([lb,fn])=>`<td class="mono">${drillN(cl.filter(fn),c+' · '+lb)}</td>`).join('');return `<tr><td>${c}</td>${cells}<td class="mono"><b>${drillN(cl,c+' walk-ins')}</b></td></tr>`;}).join('');
+  const statTot=statuses.map(([lb,fn])=>`<td class="mono"><b>${drillN(inMonth.filter(fn),'All sources · '+lb)}</b></td>`).join('');
   const statSlide=slide('Visits — Status Summary',`<table class="rtable"><thead><tr><th>Source</th>${statuses.map(s=>`<th>${s[0]}</th>`).join('')}<th>Total</th></tr></thead><tbody>${statBody}<tr style="background:#F3E9D2"><td><b>Total</b></td>${statTot}<td class="mono"><b>${inMonth.length}</b></td></tr></tbody></table>`);
   // Deal Status Summary — the qualified-pipeline track (First Contact Done / Prospect / Closed Won / Closed Lost)
   const dsBody=cats.map(c=>{const cl=inMonth.filter(l=>srcCat(l)===c);const cells=DEAL_STATUSES.map(s=>`<td class="mono">${drillN(cl.filter(l=>(l.dealStatus||'')===s),c+' · '+s)}</td>`).join('');const withDs=cl.filter(l=>DEAL_STATUSES.includes(l.dealStatus||''));return `<tr><td>${c}</td>${cells}<td class="mono"><b>${drillN(withDs,c+' · in the deal track')}</b></td></tr>`;}).join('');
