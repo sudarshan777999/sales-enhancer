@@ -598,6 +598,20 @@
   }
   @media (max-width:400px){ .kpis{grid-template-columns:1fr 1fr;} .kpi .val{font-size:20px;} }
   .act.ds-on{background:var(--brand);color:#fff;border-color:var(--brand);}
+  /* front-desk customer search */
+  .rc-search{margin-bottom:14px;}
+  .rc-hint{font-size:12.5px;color:var(--soft);margin-top:8px;line-height:1.45;}
+  .rc-hits{margin-top:10px;border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;}
+  .rc-hit{display:flex;align-items:center;gap:12px;padding:11px 13px;border-top:1px solid var(--line2);}
+  .rc-hit:first-child{border-top:0;}
+  .rc-hit-m{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+  .rc-hit-m b{font-size:14.5px;}
+  .rc-hit-m span{font-size:12.5px;color:var(--soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .rc-hit .btn{flex:none;}
+  @media(max-width:760px){
+    .rc-hit{flex-wrap:wrap;}
+    .rc-hit .btn{flex:1 1 100%;min-height:44px;justify-content:center;}
+  }
   /* deal status: one connected track so it can only ever read as single-select */
   .dsteps{display:flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;background:var(--surface);}
   .dstep{flex:1 1 auto;min-width:0;border:0;border-left:1px solid var(--line);background:transparent;
@@ -2693,7 +2707,8 @@ function receptionFormHTML(){
         <div class="rc-field hidden" id="rc_cp_wrap"><label>Channel Partner name</label>${cpSelectHTML('rc_cp','')}</div>
       </div>
       <div class="rc-field"><label>Location (optional)</label><input class="field" id="rc_location" autocomplete="off" placeholder="Where they came from / area of interest"/></div>
-      <div class="rc-field"><label class="rc-check"><input type="checkbox" id="rc_revisit"/> This customer has visited before (revisit)</label></div>
+      <div class="rc-field"><label class="rc-check"><input type="checkbox" id="rc_revisit"/> This customer has visited before (revisit)</label>
+        <div class="rc-hint" style="margin-top:4px">Only tick this if you could not find them in the search above — it makes a second record that someone has to merge by hand.</div></div>
       <div class="rc-field"><label>Assign to salesperson *</label><select class="field" id="rc_owner">${ownerOpts}</select></div>
       <button class="btn rc-submit" type="submit">＋ Add walk-in</button>
     </form>
@@ -2703,7 +2718,74 @@ function receptionFormHTML(){
 // Two columns on a wide screen: the entry form first (it's the job), visits expected beside it.
 // On a phone they stack, form on top — it must never be pushed below the list again.
 function receptionScreenHTML(){
-  return `<div class="rc-cols">${receptionFormHTML()}<div class="rc-col">${rcVisitsHTML()}</div></div>`;
+  return rcSearchHTML()+`<div class="rc-cols">${receptionFormHTML()}<div class="rc-col">${rcVisitsHTML()}</div></div>`;
+}
+/* ---- returning customer: find them, log the revisit on the record they already have ----
+ * Reception's row policy only exposes leads with a planned visit inside a week, and it
+ * has no write access to leads at all, so both halves go through the narrow functions in
+ * migration-31 rather than widening what the front desk can read.
+ */
+let rcFound=null, rcSearching=false, rcSearchErr='';
+function rcSearchHTML(){
+  const rows=rcFound;
+  let body='';
+  if(rcSearching)body='<div class="rc-hint">Searching…</div>';
+  else if(rcSearchErr)body=`<div class="rc-warn">${escapeHtml(rcSearchErr)}</div>`;
+  else if(rows&&!rows.length)body='<div class="rc-hint">No customer matches that. Check the spelling, try the phone number, or add them as a new walk-in below.</div>';
+  else if(rows)body=`<div class="rc-hits">${rows.map(r=>{
+      const seen=r.last_visit?fmtDate(r.last_visit):'—';
+      const rv=r.revisit_count?` · ${r.revisit_count} revisit${r.revisit_count>1?'s':''}`:'';
+      return `<div class="rc-hit">
+        <div class="rc-hit-m"><b>${escapeHtml(r.name||'—')}</b>
+          <span>${escapeHtml(r.phone||'no phone')} · ${escapeHtml(r.owner_name||'Unassigned')} · ${escapeHtml(r.project||'—')}</span>
+          <span>Last seen ${seen}${rv}</span></div>
+        <button class="btn" onclick="rcRevisit('${r.id}')">Mark revisit</button></div>`;}).join('')}</div>`;
+  return `<div class="rc-card rc-search">
+    <h2>Returning customer?</h2>
+    <div class="rc-sub">Search by name or phone and log the revisit on the record they already have — no duplicate to merge later.</div>
+    <div class="r" style="gap:8px;align-items:center">
+      <input class="field" id="rc_q" autocomplete="off" placeholder="Name or phone number…"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();rcSearch();}"/>
+      <button class="btn" onclick="rcSearch()">Search</button>
+      ${rows?`<button class="btn ghost" onclick="rcClearSearch()">Clear</button>`:''}
+    </div>${body}</div>`;
+}
+function rcRepaint(){
+  const q=(document.getElementById('rc_q')||{}).value||'';
+  document.getElementById('main').innerHTML=receptionScreenHTML();
+  const el=document.getElementById('rc_q');if(el){el.value=q;el.focus();}
+}
+function rcClearSearch(){rcFound=null;rcSearchErr='';rcRepaint();}
+async function rcSearch(){
+  const q=((document.getElementById('rc_q')||{}).value||'').trim();
+  if(q.length<2){notify('Type at least two letters or digits.');return;}
+  rcSearching=true;rcSearchErr='';rcRepaint();
+  const {data,error}=await sb.rpc('reception_search_customers',{p_q:q});
+  rcSearching=false;
+  if(error){
+    rcSearchErr=/could not find the function|does not exist/i.test(error.message)
+      ? 'Run the database update (migration-31) first, then search again.'
+      : error.message;
+    rcFound=null;
+  } else {rcFound=data||[];}
+  rcRepaint();
+}
+async function rcRevisit(id){
+  const r=(rcFound||[]).find(x=>x.id===id);if(!r)return;
+  if(!confirm('Log a revisit today for '+r.name+'?\n\nIt is added to their existing record and '+(r.owner_name||'their salesperson')+' will see it.'))return;
+  const note='Revisit at the front desk'+(r.owner_name?'':'');
+  const {error}=await sb.rpc('reception_log_revisit',{p_lead:id,p_on:iso(today()),p_note:note});
+  if(error){
+    notify(/could not find the function|does not exist/i.test(error.message)
+      ? 'Run the database update (migration-31) first, then try again.'
+      : 'Could not log the revisit: '+error.message);
+    return;
+  }
+  rcSession.unshift({name:r.name,revisit:true,src:'Revisit',date:iso(today()),owner:r.owner_name||'—'});
+  rcFound=null;
+  const box=document.getElementById('rc_q');if(box)box.value='';
+  rcRepaint();
+  showToast({icon:'↩',title:'Revisit logged',msg:r.name+' → '+(r.owner_name||'their salesperson'),autoHide:5000});
 }
 function rcToggleSource(){const cp=document.getElementById('rc_source').value==='CP';
   document.getElementById('rc_cp_wrap').classList.toggle('hidden',!cp);
