@@ -2518,7 +2518,7 @@ function matchFilter(l,f){const v=f.value;switch(f.field){
   case 'comment':return (l.log||[]).some(e=>inc(e.t,v));
   case 'label':return (l.labels||[]).some(x=>String(x)===v||inc(x,v));
   case 'block':return (l.blocks||[]).includes(v);
-  case 'competitor':return inc(l.competitors,v);
+  case 'competitor':return inc(l.competitors,v)||inc(l.lostTo,v);   // 'also considering' OR 'lost to'
   case 'wwsug':return v==='yes'?!!l.wwSuggested:!l.wwSuggested;
   case 'wwvis':return v==='yes'?!!l.wwVisited:!l.wwVisited;
   case 'phase':return (l.walkinPhase||'')===v;
@@ -4152,6 +4152,34 @@ function closedLostPanels(leads){
   const rsRows=Object.entries(byRs).map(([k,arr])=>({label:k,arr})).sort((a,b)=>b.arr.length-a.arr.length);
   const byCp=group(l=>(l.walkinSource||'')==='CP'?(l.cpName||'(unnamed CP)'):l.source==='walkin'?'Direct walk-in':'Digital');
   const cpRows=Object.entries(byCp).map(([k,arr])=>({label:k,arr})).sort((a,b)=>b.arr.length-a.arr.length);
+  // Who we lost them to. Spelling varies ("Mana" / "mana"), so group on a normalised
+  // key and show the spelling used most often. "This month" here means lost this month
+  // — lostAt(), not the capture date the funnel's window uses.
+  const thisMo=iso(today()).slice(0,7);
+  const ltMap={};
+  lost.filter(l=>(l.lostTo||'').trim()).forEach(l=>{
+    const raw=String(l.lostTo).trim().replace(/\s+/g,' ');
+    const k=raw.toLowerCase();
+    (ltMap[k]=ltMap[k]||{spellings:{},arr:[]});
+    ltMap[k].spellings[raw]=(ltMap[k].spellings[raw]||0)+1;
+    ltMap[k].arr.push(l);
+  });
+  const ltRows=Object.values(ltMap).map(function(g){
+    // most-used spelling wins; on a tie prefer normal casing ("Mana" over "mana"/"MANA")
+    const looksLikeAName=x=>/^[A-Z][^A-Z]/.test(x)?0:1;
+    const label=Object.keys(g.spellings).sort((a,b)=>
+      g.spellings[b]-g.spellings[a] || looksLikeAName(a)-looksLikeAName(b) || a.localeCompare(b))[0];
+    return {label:label,arr:g.arr,mo:g.arr.filter(l=>(lostAt(l)||'').slice(0,7)===thisMo)};
+  }).sort((a,b)=>b.arr.length-a.arr.length);
+  const ltNoneCount=lost.filter(l=>!(l.lostTo||'').trim()).length;
+  const ltPanel=ltRows.length
+    ? `<table style="box-shadow:none;width:100%"><thead><tr><th>Lost to</th><th style="text-align:right">This month</th><th style="text-align:right">Total</th></tr></thead><tbody>`
+      +ltRows.map(r=>`<tr><td>${escapeHtml(r.label)}</td>
+          <td class="mono" style="text-align:right">${r.mo.length?drillN(r.mo,'Lost to '+r.label+' · '+rMonthLabel(thisMo)):'<span style="color:var(--soft)">·</span>'}</td>
+          <td class="mono" style="text-align:right"><b>${drillN(r.arr,'Lost to '+r.label)}</b></td></tr>`).join('')
+      +`</tbody></table>`
+       +(ltNoneCount?`<div style="font-size:11.5px;color:var(--soft);margin-top:8px">${drillN(lost.filter(l=>!(l.lostTo||'').trim()),'Lost with no competitor recorded')} lost with no competitor recorded.</div>`:'')
+    : `<div class="locked-note">No competitor recorded on any loss yet — fill "Lost to" when marking a deal lost.</div>`;
   const byMo=group(l=>(lostAt(l)||'').slice(0,7)||'unknown');
   const moRows=Object.entries(byMo).sort((a,b)=>a[0]<b[0]?1:-1).map(([ym,arr])=>({label:ym==='unknown'?'(unknown)':rMonthLabel(ym),arr}));
   // How far did we get before losing them? Buckets by how many times they came back.
@@ -4164,7 +4192,8 @@ function closedLostPanels(leads){
   return `<div class="panel"><h3>Closed Lost — analytics <span style="font-weight:400;color:var(--soft);font-size:12px">· ${lost.length} lost</span></h3>
     <div class="split"><div>${sub('By salesperson')}${bar(spRows,'#C0524A')}</div><div>${sub('By reason')}${bar(rsRows,'#A0453D')}</div></div>
     <div class="split" style="margin-top:4px"><div>${sub('By month (when lost) — tap for a reason pie 🥧')}${bar(moRows,'#7E57C2',r=>drillPie(r.arr,'Closed Lost · '+r.label))}</div><div>${sub('By channel partner')}${bar(cpRows,'#4A6FA5')}</div></div>
-    <div class="split" style="margin-top:4px"><div>${sub('Lost after how many revisits')}${bar(rvRows,'#B26A00')}${rvNote}</div><div></div></div>
+    <div class="split" style="margin-top:4px"><div>${sub('Lost after how many revisits')}${bar(rvRows,'#B26A00')}${rvNote}</div>
+      <div>${sub('Lost to which competitor — “this month” = lost this month')}${ltPanel}</div></div>
     <div class="ai-tag" style="margin-top:8px">Use the filter bar above (salesperson, period, etc.) to narrow this — it flows straight into these breakdowns. Tap a month for a downloadable reason pie; tap any other bar to open those lost leads.</div></div>`;
 }
 // Qualification snapshot: % qualified, % not-qualified, and the not-qualified reasons
