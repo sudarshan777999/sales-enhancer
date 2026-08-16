@@ -4201,7 +4201,8 @@ function statsHTML(leads){
   const qualified=leads.filter(l=>l.qualified===true).length;
   const avgFu=qualified?(totalFu/qualified).toFixed(1):'0';
   // follow-ups by salesperson
-  const bySp={};leads.forEach(l=>l.log.filter(e=>e.kind==='note').forEach(e=>{const who=e.by||'Unknown';bySp[who]=(bySp[who]||0)+1;}));  // a deleted member leaves no name
+  const bySp={},bySpL={};leads.forEach(l=>l.log.filter(e=>e.kind==='note').forEach(e=>{const who=e.by||'Unknown';bySp[who]=(bySp[who]||0)+1;
+    (bySpL[who]=bySpL[who]||[]).indexOf(l)<0&&bySpL[who].push(l);}));  // a deleted member leaves no name
   const spRows=Object.entries(bySp).sort((a,b)=>b[1]-a[1]);
   const spMax=Math.max(1,...spRows.map(r=>r[1]));
   // temperature split among qualified-active
@@ -4209,18 +4210,22 @@ function statsHTML(leads){
   const tMax=Math.max(1,temps.Hot,temps.Warm,temps.Cold);
   const tcol={Hot:'var(--hot)',Warm:'var(--warm)',Cold:'var(--cold)'};
   // outcomes
-  const outs=[['Active',active,'var(--assigned)'],['Booked',booked,'var(--booked)'],['Lost',lost,'var(--lost)'],['Not qualified',leads.filter(l=>l.stage==='not_qualified').length,'var(--nq)']];
-  const oMax=Math.max(1,...outs.map(o=>o[1]));
+  const outs=[['Active',leads.filter(l=>['new','assigned','qualified'].includes(l.stage)),'var(--assigned)'],
+    ['Booked',leads.filter(l=>l.stage==='booked'),'var(--booked)'],
+    ['Lost',leads.filter(l=>l.stage==='lost'),'var(--lost)'],
+    ['Not qualified',leads.filter(l=>l.stage==='not_qualified'),'var(--nq)']];
+  const oMax=Math.max(1,...outs.map(o=>o[1].length));
   let wiPanel='';const su=currentUser();
   if(su&&(su.role==='sales_head'||su.role==='project_head')){
     const wins=leads.filter(l=>l.source==='walkin');
-    const grp=src=>{const a=wins.filter(l=>(l.walkinSource||'Direct')===src);const q=a.filter(l=>l.qualified===true).length;const b=a.filter(l=>l.stage==='booked').length;return{n:a.length,q,b,qr:a.length?Math.round(q/a.length*100):0,cr:a.length?Math.round(b/a.length*100):0};};
+    const grp=src=>{const a=wins.filter(l=>(l.walkinSource||'Direct')===src);const qA=a.filter(l=>l.qualified===true),bA=a.filter(l=>l.stage==='booked');
+      return{a:a,qA:qA,bA:bA,n:a.length,q:qA.length,b:bA.length,qr:a.length?Math.round(qA.length/a.length*100):0,cr:a.length?Math.round(bA.length/a.length*100):0};};
     const D=grp('Direct'),C=grp('CP');
-    const row=(nm,g)=>`<tr><td><b class="mono">${nm}</b></td><td class="mono">${g.n}</td><td class="mono">${g.q} <span style="color:var(--soft)">(${g.qr}%)</span></td><td class="mono">${g.b} <span style="color:var(--soft)">(${g.cr}%)</span></td></tr>`;
+    const row=(nm,g)=>`<tr><td><b class="mono">${nm}</b></td><td class="mono">${drillN(g.a,nm+' walk-ins')}</td><td class="mono">${drillN(g.qA,nm+' · qualified')} <span style="color:var(--soft)">(${g.qr}%)</span></td><td class="mono">${drillN(g.bA,nm+' · booked')} <span style="color:var(--soft)">(${g.cr}%)</span></td></tr>`;
     wiPanel=`<div class="panel"><h3>Walk-ins — Direct vs Channel Partner</h3><table style="box-shadow:none"><thead><tr><th>Source</th><th>Walk-ins</th><th>Qualified</th><th>Booked (conv.)</th></tr></thead><tbody>${row('Direct',D)}${row('CP',C)}</tbody></table><div class="ai-tag" style="margin-top:10px">Qualified % = qualified ÷ walk-ins · Booked % = booked ÷ walk-ins (conversion).</div></div>`;
     const cpMap={};wins.filter(l=>(l.walkinSource||'')==='CP').forEach(l=>{const k=l.cpName||'(unnamed CP)';(cpMap[k]=cpMap[k]||[]).push(l);});
     const cpRows=Object.entries(cpMap).sort((a,b)=>b[1].length-a[1].length);
-    if(cpRows.length){wiPanel+=`<div class="panel"><h3>By channel partner</h3><table style="box-shadow:none"><thead><tr><th>CP</th><th>Walk-ins</th><th>Qualified</th><th>Booked</th></tr></thead><tbody>${cpRows.map(([nm,arr])=>{const q=arr.filter(l=>l.qualified===true).length;const b=arr.filter(l=>l.stage==='booked').length;return `<tr><td><b class="mono">${nm}</b></td><td class="mono">${arr.length}</td><td class="mono">${q}</td><td class="mono">${b}</td></tr>`;}).join('')}</tbody></table></div>`;}
+    if(cpRows.length){wiPanel+=`<div class="panel"><h3>By channel partner</h3><table style="box-shadow:none"><thead><tr><th>CP</th><th>Walk-ins</th><th>Qualified</th><th>Booked</th></tr></thead><tbody>${cpRows.map(([nm,arr])=>{const qA=arr.filter(l=>l.qualified===true),bA=arr.filter(l=>l.stage==='booked');return `<tr><td><b class="mono">${nm}</b></td><td class="mono">${drillN(arr,'CP · '+nm)}</td><td class="mono">${drillN(qA,'CP · '+nm+' · qualified')}</td><td class="mono">${drillN(bA,'CP · '+nm+' · booked')}</td></tr>`;}).join('')}</tbody></table></div>`;}
     const sc=(k,v)=>`<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`;
     const totalRevisits=leads.reduce((a,l)=>a+((l.revisits||[]).length),0);
     const winRevisitsSum=wins.reduce((a,l)=>a+((l.revisits||[]).length),0);
@@ -4231,38 +4236,42 @@ function statsHTML(leads){
     const bkN=wins.filter(l=>(l.revisits||[]).length===0&&l.stage==='booked').length;
     const convR=winRevisited?Math.round(bkR/winRevisited*100):0;
     const winsNot=wins.length-winRevisited;const convN=winsNot?Math.round(bkN/winsNot*100):0;
-    wiPanel+=`<div class="panel"><h3>Visits &amp; revisits</h3><div class="stat-grid">${sc('Total revisits',totalRevisits)}${sc('Walk-ins that revisited',winRevisited+' <small>('+revRate+'%)</small>')}${sc('Avg revisits / walk-in',avgRev)}${sc('Booked · revisited vs not',convR+'% <small>vs '+convN+'%</small>')}</div><div style="font-size:11.5px;color:var(--soft);line-height:1.55;margin-top:6px">Revisiting walk-ins convert at ${convR}% vs ${convN}% for one-time visitors.</div></div>`;
+    wiPanel+=`<div class="panel"><h3>Visits &amp; revisits</h3><div class="stat-grid">${sc('Total revisits',drillN(leads.filter(l=>(l.revisits||[]).length>0),'Leads with revisits',totalRevisits))}${sc('Walk-ins that revisited',drillN(wins.filter(l=>(l.revisits||[]).length>0),'Walk-ins that revisited')+' <small>('+revRate+'%)</small>')}${sc('Avg revisits / walk-in',avgRev)}${sc('Booked · revisited vs not',convR+'% <small>vs '+convN+'%</small>')}</div><div style="font-size:11.5px;color:var(--soft);line-height:1.55;margin-top:6px">Revisiting walk-ins convert at ${convR}% vs ${convN}% for one-time visitors.</div></div>`;
     // Per-salesperson revisits — the headline numbers above are company-wide, which
     // doesn't answer "how many revisits has this rep actually pulled in?"
     const rvBy={};wins.forEach(l=>{const k=l.ownerId||'—';(rvBy[k]=rvBy[k]||[]).push(l);});
     const rvRows=Object.entries(rvBy).map(function(en){
       const arr=en[1];
       const total=arr.reduce((a,l)=>a+((l.revisits||[]).length),0);
-      const withRv=arr.filter(l=>(l.revisits||[]).length>0).length;
-      const bk=arr.filter(l=>(l.revisits||[]).length>0&&l.stage==='booked').length;
-      return {id:en[0],walkins:arr.length,total:total,withRv:withRv,
+      const withRvA=arr.filter(l=>(l.revisits||[]).length>0);
+      const withRv=withRvA.length;
+      const bkA=arr.filter(l=>(l.revisits||[]).length>0&&l.stage==='booked');
+      const bk=bkA.length;
+      return {id:en[0],arr:arr,withRvA:withRvA,bkA:bkA,walkins:arr.length,total:total,withRv:withRv,
         avg:arr.length?(total/arr.length).toFixed(1):'0',
         rate:arr.length?Math.round(withRv/arr.length*100):0,booked:bk};
     }).sort((a,b)=>b.total-a.total);
     if(rvRows.length){
       const tot=rvRows.reduce((a,r)=>a+r.total,0);
-      const body=rvRows.map(r=>`<tr><td><b class="mono">${escapeHtml(r.id==='—'?'Unassigned':userName(r.id))}</b></td>
-        <td class="mono">${r.walkins}</td><td class="mono"><b>${r.total}</b></td><td class="mono">${r.withRv} <span style="color:var(--soft)">(${r.rate}%)</span></td>
-        <td class="mono">${r.avg}</td><td class="mono">${r.booked}</td></tr>`).join('');
+      const body=rvRows.map(r=>{const nm=r.id==='—'?'Unassigned':userName(r.id);
+        return `<tr><td><b class="mono">${escapeHtml(nm)}</b></td>
+        <td class="mono">${drillN(r.arr,nm+' · walk-ins')}</td><td class="mono"><b>${drillN(r.withRvA,nm+' · leads with revisits',r.total)}</b></td><td class="mono">${drillN(r.withRvA,nm+' · leads that revisited')} <span style="color:var(--soft)">(${r.rate}%)</span></td>
+        <td class="mono">${r.avg}</td><td class="mono">${drillN(r.bkA,nm+' · revisited and booked')}</td></tr>`;}).join('');
       wiPanel+=`<div class="panel"><h3>Revisits by salesperson</h3><div style="overflow-x:auto"><table style="box-shadow:none"><thead><tr><th>Salesperson</th><th>Walk-ins</th><th>Revisits</th><th>Customers who came back</th><th>Avg / walk-in</th><th>Booked after a revisit</th></tr></thead><tbody>${body}<tr style="background:var(--canvas)"><td><b>Team</b></td><td class="mono"><b>${wins.length}</b></td><td class="mono"><b>${tot}</b></td><td class="mono"><b>${winRevisited}</b></td><td class="mono"><b>${avgRev}</b></td><td class="mono"><b>${bkR}</b></td></tr></tbody></table></div><div style="font-size:11.5px;color:var(--soft);line-height:1.55;margin-top:9px"><b>Revisits</b> counts every return visit, so one customer coming three times counts as three. <b>Customers who came back</b> counts each person once. Follows the filters above.</div></div>`;
     }
   }
   const card=(k,v)=>`<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`;
-  const spPanel=spRows.length?spRows.map(([nm,n])=>`<div class="barrow"><div class="lbl">${nm}</div><div class="track"><div class="fillb" style="width:${Math.round(n/spMax*100)}%;background:var(--brand)">${n}</div></div></div>`).join(''):'<div class="locked-note">No follow-up comments logged yet.</div>';
-  const dsc={};DEAL_STATUSES.forEach(s=>dsc[s]=0);leads.forEach(l=>{if(l.dealStatus)dsc[l.dealStatus]=(dsc[l.dealStatus]||0)+1;});
+  const spPanel=spRows.length?spRows.map(([nm,n])=>`<div class="barrow"><div class="lbl">${nm}</div><div class="track"><div class="fillb" style="width:${Math.round(n/spMax*100)}%;background:var(--brand)">${drillN(bySpL[nm]||[],nm+' · leads they followed up',n)}</div></div></div>`).join(''):'<div class="locked-note">No follow-up comments logged yet.</div>';
+  const dsA={};DEAL_STATUSES.forEach(x=>dsA[x]=leads.filter(l=>l.dealStatus===x));
+  const dsc={};DEAL_STATUSES.forEach(x=>dsc[x]=dsA[x].length);
   const dsMax=Math.max(1,...DEAL_STATUSES.map(s=>dsc[s]));
   const dsCol={'First Contact Done':'#4A6FA5','Prospect':'#6C7A93','Booked':'#2C9C9A','Closed Won':'#2E9E5B','Closed Lost':'#C0524A'};
-  const tPanel=DEAL_STATUSES.map(s=>`<div class="barrow"><div class="lbl"><span class="d" style="background:${dsCol[s]}"></span>${s}</div><div class="track"><div class="fillb" style="width:${Math.round(dsc[s]/dsMax*100)}%;background:${dsCol[s]}">${dsc[s]}</div></div></div>`).join('');
-  const oPanel=outs.map(([nm,n,c])=>`<div class="barrow"><div class="lbl"><span class="d" style="background:${c}"></span>${nm}</div><div class="track"><div class="fillb" style="width:${Math.round(n/oMax*100)}%;background:${c}">${n}</div></div></div>`).join('');
+  const tPanel=DEAL_STATUSES.map(s=>`<div class="barrow"><div class="lbl"><span class="d" style="background:${dsCol[s]}"></span>${s}</div><div class="track"><div class="fillb" style="width:${Math.round(dsc[s]/dsMax*100)}%;background:${dsCol[s]}">${drillN(dsA[s],'Deal status · '+s)}</div></div></div>`).join('');
+  const oPanel=outs.map(([nm,arr,c])=>`<div class="barrow"><div class="lbl"><span class="d" style="background:${c}"></span>${nm}</div><div class="track"><div class="fillb" style="width:${Math.round(arr.length/oMax*100)}%;background:${c}">${drillN(arr,nm)}</div></div></div>`).join('');
   return `<div class="stat-grid">
-      ${card('Follow-ups logged',totalFu)}
-      ${card('RNR attempts',leads.reduce((a,l)=>a+rnrCount(l),0))}
-      ${card('Due now',dueNow)}
+      ${card('Follow-ups logged',drillN(leads.filter(l=>noteCount(l)>0),'Leads with follow-ups logged',totalFu))}
+      ${card('RNR attempts',drillN(leads.filter(l=>rnrCount(l)>0),'Leads with RNR attempts',leads.reduce((a,l)=>a+rnrCount(l),0)))}
+      ${card('Due now',drillN(leads.filter(l=>l.stage==='qualified'&&l.nextFollowUp&&dueState(l.nextFollowUp).n<=0),'Follow-ups due now'))}
       ${card('Avg follow-ups / qualified',avgFu)}
       ${card('Win rate',winRate+'%')}
     </div>
@@ -4644,7 +4653,7 @@ let drillReg={},drillSeq=0,curList=null,listReturn=null;
 // `text` shows a different figure to the list length — the revisits bar counts visits
 // while the list it opens is the leads those visits belong to.
 function drillN(arr,label,text){const k='d'+(drillSeq++);drillReg[k]={leads:arr,label};
-  return `<span class="drill" onclick="event.stopPropagation();openDrill('${k}')">${text===undefined?arr.length:text}</span>`;}
+  return `<span class="drill" onclick="event.stopPropagation();event.preventDefault();openDrill('${k}')">${text===undefined?arr.length:text}</span>`;}
 function openDrill(k){const d=drillReg[k];if(!d)return;openLeadList(d.label,d.leads);}
 function leadRowMini(l){
   const st=STAGES[l.stage];
@@ -4805,12 +4814,12 @@ function ageingTreeHTML(){
     const B=u.role==='sales_head'?'Project → Stage → Salesperson':'Stage → Salesperson';
     toggleBtns=`<div class="seg2"><button class="${ageGroup==='rep'?'on':''}" onclick="setAgeGroup('rep')">${A}</button><button class="${ageGroup==='stage'?'on':''}" onclick="setAgeGroup('stage')">${B}</button></div>`;
   }
-  const toggle=`<div class="range-bar"><span style="font-weight:600;font-size:13px;color:var(--soft)">${u.role==='sales'?'Your qualified walk-ins':'Branch by'}</span>${toggleBtns}<span style="margin-left:auto;color:var(--soft);font-size:12.5px">${total} qualified · <b style="color:${over?'var(--lost)':'inherit'}">${over} over 7 days</b> · avg ${avg}d</span></div>`;
+  const toggle=`<div class="range-bar"><span style="font-weight:600;font-size:13px;color:var(--soft)">${u.role==='sales'?'Your qualified walk-ins':'Branch by'}</span>${toggleBtns}<span style="margin-left:auto;color:var(--soft);font-size:12.5px">${drillN(base,'Open qualified walk-ins')} qualified · <b style="color:${over?'var(--lost)':'inherit'}">${drillN(base.filter(l=>qualAgeDays(l)>7),'Over 7 days since qualifying')} over 7 days</b> · avg ${avg}d</span></div>`;
   if(!total)return toggle+'<div class="panel"><div class="locked-note">No open qualified walk-ins right now.</div></div>';
   const groupBy=(arr,fn)=>{const m={};arr.forEach(l=>{const k=fn(l);(m[k]=m[k]||[]).push(l);});return m;};
   const overCount=arr=>arr.filter(l=>qualAgeDays(l)>7).length;
   const leaf=l=>{const d=qualAgeDays(l);return `<div class="leaf ${d>7?'red':''}" onclick="openDrawer('${l.id}')" title="Qualified ${d} day(s) ago"><span class="dot"></span>${escapeHtml(l.name)} <b>${d}d</b>${l.dealStatus?` <span class="ls">${l.dealStatus}</span>`:''}</div>`;};
-  const node=(label,arr,kids)=>{const o=overCount(arr);return `<details open class="tnode"><summary><span class="tcar">▸</span><span class="tsum">${label} <span class="tct">${arr.length}</span>${o?`<span class="tover">${o} over 7d</span>`:''}</span></summary><div class="tkids">${kids}</div></details>`;};
+  const node=(label,arr,kids)=>{const o=overCount(arr);return `<details open class="tnode"><summary><span class="tcar">▸</span><span class="tsum">${label} <span class="tct">${drillN(arr,String(label).replace(/^[^A-Za-z0-9]+/,''))}</span>${o?`<span class="tover">${drillN(arr.filter(l=>qualAgeDays(l)>7),String(label).replace(/^[^A-Za-z0-9]+/,'')+' · over 7 days')} over 7d</span>`:''}</span></summary><div class="tkids">${kids}</div></details>`;};
   const build=(arr,ds)=>{
     if(!ds.length)return arr.slice().sort((a,b)=>qualAgeDays(b)-qualAgeDays(a)).map(leaf).join('');
     const d=DIM[ds[0]];const g=groupBy(arr,d.get);
