@@ -1389,6 +1389,7 @@
     header,.perm-note,.band,.kpis,.foot,.scrim,.drawer,.modal-scrim,#notifyPanel,.report-toolbar,.no-print{display:none!important;}
     main{max-width:100%!important;margin:0!important;padding:0!important;}
     .report-slide{page-break-after:always;break-after:page;box-shadow:none!important;margin:0 0 10px;}
+    .drill{text-decoration:none!important;cursor:default;}
   }
 </style>
 </head>
@@ -2844,6 +2845,7 @@ async function rcSubmit(){
 /* ============ render ============ */
 function render(){
   const u=currentUser();if(!u)return;
+  drillReg={};drillSeq=0;         // every clickable count is re-registered below
   if(u.role==='reception'){renderReception();return;}
   // header context + identity
   const scopeTxt=u.role==='sales_head'?'All projects':(u.project||'');
@@ -3194,18 +3196,24 @@ function visitEntries(leads){
 // Kept vs missed for a set of leads, counting plans whose PLANNED date falls in [from,to].
 function visitEff(leads,from,to){
   const t=iso(today());let planned=0,kept=0,missed=0,upcoming=0;
+  // the counts, plus who is behind each one so a report number can open its list
+  const who={planned:[],kept:[],missed:[],upcoming:[]};
+  const add=(k,l)=>{if(who[k].indexOf(l)<0)who[k].push(l);};
   leads.forEach(l=>{
     const plans=visitPlansOf(l);
     const rows=plans.slice();
     if(l.plannedVisit&&!plans.some(p=>!p.done))rows.push({d:l.plannedVisit,done:null});
     rows.forEach(p=>{
       if(from&&p.d<from)return; if(to&&p.d>to)return;
-      planned++;
-      if(p.done)kept++; else if(p.d<t)missed++; else upcoming++;
+      planned++;add('planned',l);
+      if(p.done){kept++;add('kept',l);}
+      else if(p.d<t){missed++;add('missed',l);}
+      else {upcoming++;add('upcoming',l);}
     });
   });
   const decided=kept+missed;
-  return {planned:planned,kept:kept,missed:missed,upcoming:upcoming,rate:decided?Math.round(kept/decided*100):null};
+  return {planned:planned,kept:kept,missed:missed,upcoming:upcoming,
+          rate:decided?Math.round(kept/decided*100):null,leads:who};
 }
 function setVisitRange(n){visitRange=n;render();}
 function visitShiftMonth(d){const p=(visitMonth||iso(today()).slice(0,7)).split('-');visitMonth=iso(new Date(Number(p[0]),Number(p[1])-1+d,1)).slice(0,7);render();}
@@ -4105,7 +4113,7 @@ function svgPie(entries,size){
     ang=a2;});
   return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${paths}</svg>`;
 }
-function pieLegend(entries){const total=entries.reduce((a,e)=>a+e[1],0)||1;return entries.map((e,i)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:13px"><span style="width:12px;height:12px;border-radius:3px;background:${PIE_COLORS[i%PIE_COLORS.length]};flex:none"></span><span style="flex:1">${escapeHtml(e[0])}</span><b class="mono">${e[1]}</b><span style="color:var(--soft)">· ${Math.round(e[1]/total*100)}%</span></div>`).join('');}
+function pieLegend(entries,leadsFor){const total=entries.reduce((a,e)=>a+e[1],0)||1;return entries.map((e,i)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:13px"><span style="width:12px;height:12px;border-radius:3px;background:${PIE_COLORS[i%PIE_COLORS.length]};flex:none"></span><span style="flex:1">${escapeHtml(e[0])}</span><b class="mono">${leadsFor?drillN(leadsFor(e[0]),'Closed Lost · '+e[0]):e[1]}</b><span style="color:var(--soft)">· ${Math.round(e[1]/total*100)}%</span></div>`).join('');}
 // clickable count that opens the reason PIE (instead of the lead list)
 function drillPie(arr,label){const k='d'+(drillSeq++);drillReg[k]={leads:arr,label};return `<span class="drill" onclick="event.stopPropagation();openReasonPie('${k}')">${arr.length}</span>`;}
 let _pieKey=null;
@@ -4289,7 +4297,6 @@ function insightRows(leads,C,themes,col){
     return `<div class="ins-row" onclick="openDrill('${k}')" title="${arr.length} walk-in(s) — click to see them"><span class="ins-l">${th.emoji} ${th.label}</span><span class="ins-bar"><span class="ins-fill" style="width:${Math.max(6,Math.round(arr.length/mx*100))}%;background:${col}"></span></span><b class="ins-n">${arr.length}</b></div>`;}).join('');
 }
 function themesHTML(leads){
-  drillReg={};drillSeq=0;
   const commentsOf=l=>(l.log||[]).filter(e=>e.kind==='note'||e.kind==='revisit').map(e=>String(e.t||'')).join('  ').toLowerCase();
   const C={};leads.forEach(l=>C[l.id]=commentsOf(l));
   const norm=s=>String(s||'').toLowerCase().trim();
@@ -4974,15 +4981,15 @@ function crossReasonSlide(title,leads,reasonFn,cats,slide){
   const head=`<tr><th>Reason</th>${used.map(c=>`<th class="rnum">${c}</th>`).join('')}`
     +`<th class="rnum">Total</th><th style="width:22%">Share</th></tr>`;
   const body=rows.map(({r,n})=>{
-    const cells=used.map(c=>{const v=leads.filter(l=>cat(l)===r&&srcCat(l)===c).length;
-      return `<td class="rnum mono">${v||'<span style="color:#C9B98E">·</span>'}</td>`;}).join('');
+    const cells=used.map(c=>{const set=leads.filter(l=>cat(l)===r&&srcCat(l)===c);
+      return `<td class="rnum mono">${set.length?drillN(set,r+' · '+c):'<span style="color:#C9B98E">·</span>'}</td>`;}).join('');
     const pct=Math.round(n/total*100);
-    return `<tr><td>${escapeHtml(r)}</td>${cells}<td class="rnum mono"><b>${n}</b></td>
+    return `<tr><td>${escapeHtml(r)}</td>${cells}<td class="rnum mono"><b>${drillN(leads.filter(l=>cat(l)===r),r)}</b></td>
       <td><span class="rshare"><i style="width:${pct}%"></i></span><span class="mono rpct">${pct}%</span></td></tr>`;
   }).join('');
   const foot=`<tr class="rtot"><td><b>All reasons</b></td>`
-    +used.map(c=>`<td class="rnum mono"><b>${leads.filter(l=>srcCat(l)===c).length}</b></td>`).join('')
-    +`<td class="rnum mono"><b>${total}</b></td><td></td></tr>`;
+    +used.map(c=>`<td class="rnum mono"><b>${drillN(leads.filter(l=>srcCat(l)===c),'All reasons · '+c)}</b></td>`).join('')
+    +`<td class="rnum mono"><b>${drillN(leads,'All reasons')}</b></td><td></td></tr>`;
   return slide(title,`<table class="rtable"><thead>${head}</thead><tbody>${body}</tbody><tfoot>${foot}</tfoot></table>`);
 }
 function reportHTML(){
@@ -5014,18 +5021,18 @@ function reportHTML(){
   const perfRows=parseLines(rd.performanceText);
   const curVisits=inMonth.length,curSales=closures.length;
   const perfBody=perfRows.map(r=>`<tr><td>${r[0]}</td><td class="mono">${r[1]||''}</td><td class="mono">${r[2]||''}</td><td class="mono">${r[3]||''}</td></tr>`).join('')
-    +`<tr style="background:#F3E9D2;font-weight:600"><td>${rMonthLabel(reportMonth)} (live)</td><td class="mono">${curVisits}</td><td class="mono">${curSales}</td><td class="mono">${curSales}</td></tr>`;
+    +`<tr style="background:#F3E9D2;font-weight:600"><td>${rMonthLabel(reportMonth)} (live)</td><td class="mono">${drillN(inMonth,'Walk-ins · '+rMonthLabel(reportMonth))}</td><td class="mono">${drillN(closures,'Bookings · '+rMonthLabel(reportMonth))}</td><td class="mono">${drillN(closures,'Bookings · '+rMonthLabel(reportMonth))}</td></tr>`;
   const perfSlide=slide('Performance Overview',`<table class="rtable"><thead><tr><th>Month</th><th>Visits</th><th>Sales</th><th>Net Bookings After Cancellations</th></tr></thead><tbody>${perfBody}</tbody></table>`);
   // Source-wise Visits
   const scnt={};cats.forEach(c=>scnt[c]=0);inMonth.forEach(l=>{scnt[srcCat(l)]=(scnt[srcCat(l)]||0)+1;});
   const smax=Math.max(1,...cats.map(c=>scnt[c]));const stot=inMonth.length||1;
   const topCat=cats.slice().sort((a,b)=>scnt[b]-scnt[a])[0];
-  const srcBars=cats.map(c=>`<div class="rbar-row"><div class="rl">${c}</div><div class="rt"><div class="rf" style="width:${Math.round(scnt[c]/smax*100)}%">${scnt[c]}</div></div></div>`).join('');
+  const srcBars=cats.map(c=>`<div class="rbar-row"><div class="rl">${c}</div><div class="rt"><div class="rf" style="width:${Math.round(scnt[c]/smax*100)}%">${drillN(inMonth.filter(l=>srcCat(l)===c),c+' walk-ins · '+rMonthLabel(reportMonth))}</div></div></div>`).join('');
   const srcSlide=slide('Source-wise Visits',`${srcBars}<div style="margin-top:14px;color:#5a4a2a;font-size:14px">Majority visit contribution: <b>${topCat} (${Math.round(scnt[topCat]/stot*100)}%)</b>.</div>`);
   // CP Contributions
   const cpMap={};inMonth.filter(l=>l.source==='walkin'&&l.walkinSource==='CP').forEach(l=>{const k=l.cpName||'(unnamed CP)';cpMap[k]=(cpMap[k]||0)+1;});
   const cpRows=Object.entries(cpMap).sort((a,b)=>b[1]-a[1]);
-  const cpBody=cpRows.length?cpRows.map(([n,c])=>`<tr><td>${n}</td><td class="mono">${c}</td></tr>`).join(''):'<tr><td colspan="2" style="color:#7F6E3A">No CP visits this month.</td></tr>';
+  const cpBody=cpRows.length?cpRows.map(([n,c])=>`<tr><td>${n}</td><td class="mono">${drillN(inMonth.filter(l=>l.source==='walkin'&&l.walkinSource==='CP'&&(l.cpName||'(unnamed CP)')===n),'CP · '+n)}</td></tr>`).join(''):'<tr><td colspan="2" style="color:#7F6E3A">No CP visits this month.</td></tr>';
   const cpSlide=slide('Channel Partner Contributions',`<table class="rtable"><thead><tr><th>Channel Partner</th><th>Visits</th></tr></thead><tbody>${cpBody}</tbody></table>`);
   // Closures
   const realVals=closures.map(l=>l.booking.realization).filter(v=>v);
@@ -5035,12 +5042,12 @@ function reportHTML(){
   const clSlide=slide('Closures',`<div style="overflow-x:auto"><table class="rtable" style="font-size:11.5px">${clHead}<tbody>${clBody}</tbody></table></div>${closures.length?`<div style="margin-top:12px;font-family:'Space Grotesk';font-weight:600;color:#5a4a2a">Average Realization — ₹${avg.toLocaleString('en-IN')}</div>`:''}`);
   // Visits — Status Summary
   const statuses=[['Booked','booked'],['Closed-Lost','lost'],['NQ','not_qualified'],['Q','qualified']];
-  const statBody=cats.map(c=>{const cl=inMonth.filter(l=>srcCat(l)===c);const cells=statuses.map(([_,st])=>`<td class="mono">${cl.filter(l=>l.stage===st).length}</td>`).join('');return `<tr><td>${c}</td>${cells}<td class="mono"><b>${cl.length}</b></td></tr>`;}).join('');
-  const statTot=statuses.map(([_,st])=>`<td class="mono"><b>${inMonth.filter(l=>l.stage===st).length}</b></td>`).join('');
+  const statBody=cats.map(c=>{const cl=inMonth.filter(l=>srcCat(l)===c);const cells=statuses.map(([lb,st])=>`<td class="mono">${drillN(cl.filter(l=>l.stage===st),c+' · '+lb)}</td>`).join('');return `<tr><td>${c}</td>${cells}<td class="mono"><b>${drillN(cl,c+' walk-ins')}</b></td></tr>`;}).join('');
+  const statTot=statuses.map(([lb,st])=>`<td class="mono"><b>${drillN(inMonth.filter(l=>l.stage===st),'All sources · '+lb)}</b></td>`).join('');
   const statSlide=slide('Visits — Status Summary',`<table class="rtable"><thead><tr><th>Source</th>${statuses.map(s=>`<th>${s[0]}</th>`).join('')}<th>Total</th></tr></thead><tbody>${statBody}<tr style="background:#F3E9D2"><td><b>Total</b></td>${statTot}<td class="mono"><b>${inMonth.length}</b></td></tr></tbody></table>`);
   // Deal Status Summary — the qualified-pipeline track (First Contact Done / Prospect / Closed Won / Closed Lost)
-  const dsBody=cats.map(c=>{const cl=inMonth.filter(l=>srcCat(l)===c);const cells=DEAL_STATUSES.map(s=>`<td class="mono">${cl.filter(l=>(l.dealStatus||'')===s).length}</td>`).join('');const withDs=cl.filter(l=>DEAL_STATUSES.includes(l.dealStatus||'')).length;return `<tr><td>${c}</td>${cells}<td class="mono"><b>${withDs}</b></td></tr>`;}).join('');
-  const dsTot=DEAL_STATUSES.map(s=>`<td class="mono"><b>${inMonth.filter(l=>(l.dealStatus||'')===s).length}</b></td>`).join('');
+  const dsBody=cats.map(c=>{const cl=inMonth.filter(l=>srcCat(l)===c);const cells=DEAL_STATUSES.map(s=>`<td class="mono">${drillN(cl.filter(l=>(l.dealStatus||'')===s),c+' · '+s)}</td>`).join('');const withDs=cl.filter(l=>DEAL_STATUSES.includes(l.dealStatus||''));return `<tr><td>${c}</td>${cells}<td class="mono"><b>${drillN(withDs,c+' · in the deal track')}</b></td></tr>`;}).join('');
+  const dsTot=DEAL_STATUSES.map(s=>`<td class="mono"><b>${drillN(inMonth.filter(l=>(l.dealStatus||'')===s),'All sources · '+s)}</b></td>`).join('');
   const dsTotAll=inMonth.filter(l=>DEAL_STATUSES.includes(l.dealStatus||'')).length;
   const dsSlide=slide('Deal Status Summary',`<div style="overflow-x:auto"><table class="rtable"><thead><tr><th>Source</th>${DEAL_STATUSES.map(s=>`<th>${s}</th>`).join('')}<th>Total</th></tr></thead><tbody>${dsBody}<tr style="background:#F3E9D2"><td><b>Total</b></td>${dsTot}<td class="mono"><b>${dsTotAll}</b></td></tr></tbody></table></div><div style="margin-top:12px;color:#5a4a2a;font-size:13px"><b>First Contact Done</b> and <b>Prospect</b> are the open qualified pipeline; Closed Won / Closed Lost are decided.</div>`);
   // Visit efficiency — planned revisits vs the ones that actually happened, this month
@@ -5051,7 +5058,7 @@ function reportHTML(){
     .sort(function(a,b){return (b.e.rate==null?-1:b.e.rate)-(a.e.rate==null?-1:a.e.rate);});
   const veTot=visitEff(all,veFrom,veTo);
   const veSlide=veRows.length
-    ? slide('Visit Efficiency',`<table class="rtable"><thead><tr><th>Salesperson</th><th>Visits planned</th><th>Happened</th><th>Missed</th><th>Still upcoming</th><th>Kept rate</th></tr></thead><tbody>${veRows.map(function(r){return `<tr><td>${r.id==='—'?'Unassigned':userName(r.id)}</td><td class="mono">${r.e.planned}</td><td class="mono">${r.e.kept}</td><td class="mono">${r.e.missed}</td><td class="mono">${r.e.upcoming}</td><td class="mono"><b>${r.e.rate==null?'—':r.e.rate+'%'}</b></td></tr>`;}).join('')}<tr style="background:#F3E9D2"><td><b>Total</b></td><td class="mono"><b>${veTot.planned}</b></td><td class="mono"><b>${veTot.kept}</b></td><td class="mono"><b>${veTot.missed}</b></td><td class="mono"><b>${veTot.upcoming}</b></td><td class="mono"><b>${veTot.rate==null?'—':veTot.rate+'%'}</b></td></tr></tbody></table><div style="margin-top:12px;color:#5a4a2a;font-size:13px">Counts revisits <b>planned for ${rMonthLabel(reportMonth)}</b>. <b>Kept rate</b> = happened ÷ (happened + missed); visits still upcoming are excluded.</div>`)
+    ? slide('Visit Efficiency',`<table class="rtable"><thead><tr><th>Salesperson</th><th>Visits planned</th><th>Happened</th><th>Missed</th><th>Still upcoming</th><th>Kept rate</th></tr></thead><tbody>${veRows.map(function(r){const nm=r.id==='—'?'Unassigned':userName(r.id);return `<tr><td>${nm}</td><td class="mono">${drillN(r.e.leads.planned,nm+' · visits planned')}</td><td class="mono">${drillN(r.e.leads.kept,nm+' · visits happened')}</td><td class="mono">${drillN(r.e.leads.missed,nm+' · visits missed')}</td><td class="mono">${drillN(r.e.leads.upcoming,nm+' · visits upcoming')}</td><td class="mono"><b>${r.e.rate==null?'—':r.e.rate+'%'}</b></td></tr>`;}).join('')}<tr style="background:#F3E9D2"><td><b>Total</b></td><td class="mono"><b>${drillN(veTot.leads.planned,'All · visits planned')}</b></td><td class="mono"><b>${drillN(veTot.leads.kept,'All · visits happened')}</b></td><td class="mono"><b>${drillN(veTot.leads.missed,'All · visits missed')}</b></td><td class="mono"><b>${drillN(veTot.leads.upcoming,'All · visits upcoming')}</b></td><td class="mono"><b>${veTot.rate==null?'—':veTot.rate+'%'}</b></td></tr></tbody></table><div style="margin-top:12px;color:#5a4a2a;font-size:13px">Counts revisits <b>planned for ${rMonthLabel(reportMonth)}</b>. <b>Kept rate</b> = happened ÷ (happened + missed); visits still upcoming are excluded.</div>`)
     : slide('Visit Efficiency',`<div style="color:#7F6E3A">No revisits were planned for this month.</div>`);
   // NQ & Closed-Lost categories
   const nqSlide=crossReasonSlide('NQ — Categories',inMonth.filter(l=>l.stage==='not_qualified'),l=>l.nqReason,cats,slide);
@@ -5059,7 +5066,7 @@ function reportHTML(){
   // Closed-Lost reason pie
   const lostLeads=inMonth.filter(l=>l.stage==='lost');const lostEntries=reasonCounts(lostLeads);
   const lostPieSlide=lostEntries.length
-    ? slide('Closed Lost — Reasons',`<div style="display:flex;gap:34px;align-items:center;flex-wrap:wrap"><div style="flex:none">${svgPie(lostEntries,240)}</div><div style="flex:1;min-width:230px">${pieLegend(lostEntries)}<div style="margin-top:12px;font-family:'Space Grotesk';font-weight:600;color:#5a4a2a">${lostLeads.length} closed-lost this month</div></div></div>`)
+    ? slide('Closed Lost — Reasons',`<div style="display:flex;gap:34px;align-items:center;flex-wrap:wrap"><div style="flex:none">${svgPie(lostEntries,240)}</div><div style="flex:1;min-width:230px">${pieLegend(lostEntries,r=>lostLeads.filter(l=>((l.lostReason||'').split(' — ')[0]||'').trim()===r))}<div style="margin-top:12px;font-family:'Space Grotesk';font-weight:600;color:#5a4a2a">${lostLeads.length} closed-lost this month</div></div></div>`)
     : slide('Closed Lost — Reasons',`<div style="color:#7F6E3A">No closed-lost leads this month.</div>`);
   // Historic Sales Summary (external)
   const histRows=parseLines(rd.historicText);let histSlide;
