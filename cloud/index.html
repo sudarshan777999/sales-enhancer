@@ -6228,7 +6228,10 @@ document.addEventListener('keydown',function(e){
   if((e.metaKey||e.ctrlKey)&&(e.key==='k'||e.key==='K')){e.preventDefault();pal.open?palClose():palOpen();return;}
   if(pal.open){palKey(e);return;}                     // the palette owns the keyboard while open
   if(typing||e.metaKey||e.ctrlKey||e.altKey){         // never steal a key from a text box
-    if(e.key==='Escape'&&typing&&t.blur)t.blur();
+    // Escape inside a field leaves the field and stops there. A second Escape closes
+    // the dialog. One press used to do both, so a stray Escape mid-note threw the
+    // whole sheet away along with what had been typed.
+    if(e.key==='Escape'&&typing){if(t.blur)t.blur();e.preventDefault();return;}
     if(!(e.key==='Escape'))return;
   }
   if(!typing){
