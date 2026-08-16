@@ -598,6 +598,21 @@
   }
   @media (max-width:400px){ .kpis{grid-template-columns:1fr 1fr;} .kpi .val{font-size:20px;} }
   .act.ds-on{background:var(--brand);color:#fff;border-color:var(--brand);}
+  /* deal status: one connected track so it can only ever read as single-select */
+  .dsteps{display:flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;background:var(--surface);}
+  .dstep{flex:1 1 auto;min-width:0;border:0;border-left:1px solid var(--line);background:transparent;
+    padding:10px 8px;font-family:inherit;font-size:12.5px;font-weight:600;color:var(--soft);
+    cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .12s,color .12s;}
+  .dstep:first-child{border-left:0;}
+  .dstep:hover:not(.on){background:var(--canvas);color:var(--ink);}
+  .dstep.on{background:var(--brand);color:#fff;}
+  .dstep.on.win{background:var(--booked);}
+  .dstep.on.lost{background:var(--lost);}
+  @media(max-width:760px){
+    .dstep{flex:1 1 50%;min-height:44px;font-size:13px;}
+    .dstep:nth-child(3){border-left:0;}
+    .dstep:nth-child(n+3){border-top:1px solid var(--line);}
+  }
   /* saved-filter chips + labels */
   .sfbar{display:flex;flex-wrap:wrap;gap:8px;padding:10px 0 2px;}
   .sfchip{border:1px solid var(--line);background:var(--surface);border-radius:20px;padding:6px 13px;font-size:12.5px;font-weight:600;color:var(--ink);}
@@ -3421,7 +3436,7 @@ function lbBreakdown(r){
 /* ============ drawer ============ */
 function openDrawer(id){listReturn=null;openId=id;renderDrawer();document.getElementById('scrim').classList.add('on');document.getElementById('drawer').classList.add('on');fabSync();urlWrite();}
 function openFromList(id){const ret=curList;closeLeadList();openDrawer(id);listReturn=ret;}
-function closeDrawer(){openId=null;document.getElementById('scrim').classList.remove('on');document.getElementById('drawer').classList.remove('on');fabSync();if(listReturn){const lr=listReturn;listReturn=null;openLeadList(lr.title,db.leads.filter(l=>lr.ids.includes(l.id)));}urlWrite();}
+function closeDrawer(){openId=null;lostPickFor=null;document.getElementById('scrim').classList.remove('on');document.getElementById('drawer').classList.remove('on');fabSync();if(listReturn){const lr=listReturn;listReturn=null;openLeadList(lr.title,db.leads.filter(l=>lr.ids.includes(l.id)));}urlWrite();}
 function getLead(){return db.leads.find(l=>l.id===openId);}
 function renderDrawer(){
   const l=getLead();if(!l)return;
@@ -3728,20 +3743,40 @@ async function logFollowUp(id){const l=db.leads.find(x=>x.id===id);if(!can('edit
 function rnrCount(l){return (l.log||[]).filter(e=>/^RNR\b/.test(e.t||'')).length;}
 async function logRNR(id){const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;const n=rnrCount(l)+1;const date=addDays(1);if(!await updateLead(id,{next_follow_up:date}))return;await addActivityRow(id,{kind:'system',body:'RNR — ring no response (attempt #'+n+') · reminder set for tomorrow',next:date});await refreshLead(id);}
 async function setTemp(id,t){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;if(l.temp===t){if(!await updateLead(id,{temp:null}))return;await addActivityRow(id,{kind:'system',body:'Cleared temperature'});}else{if(!await updateLead(id,{temp:t}))return;await addActivityRow(id,{kind:'system',body:'Marked as '+t+' lead'});}await refreshLead(id);}
+// The four stages were four loose buttons. "Closed Won" kept a green border and
+// "Mark Lost" a red one even when inactive — and an outlined colour button is exactly
+// what a *selected* chip looks like everywhere else here, so two or three of them read
+// as selected at once. Closed Lost was worse: it highlighted nothing at all.
+// One connected track, left to right, with exactly one segment filled.
+let lostPickFor=null;
 function dealStatusBlock(l){
-  const cur=l.dealStatus||'';const seg=s=>`<button class="act ${cur===s?'ds-on':''}" onclick="setDealStatus('${l.id}','${s}')">${s}</button>`;
-  return `<div class="block"><label>Deal status${cur?` · <span style="color:var(--ink)">${cur}</span>`:''}</label>
-    <div class="actions">
-      ${seg('First Contact Done')}${seg('Prospect')}
-      <button class="act win ${cur==='Closed Won'?'ds-on':''}" onclick="openBooking('${l.id}','Closed Won')">Closed Won</button>
-    </div>
-    <div class="fu-form" style="margin-top:9px"><div class="r" style="margin-bottom:0;gap:8px;flex-wrap:wrap">
-      <select class="field" id="lr_${l.id}" style="flex:1;min-width:150px"><option value="">Closed Lost — reason…</option>${LOST_REASONS.map(r=>`<option>${r}</option>`).join('')}</select>
+  const cur=l.dealStatus||'';
+  const step=(sname,extra)=>{
+    const on=cur===sname;
+    return `<button class="dstep ${extra||''} ${on?'on':''}" ${on?'aria-current="step"':''}
+      onclick="dealStep('${l.id}','${sname}')">${sname}</button>`;
+  };
+  const showLost=(cur==='Closed Lost')||(lostPickFor===l.id);
+  const lostRow=showLost?`<div class="fu-form" style="margin-top:10px"><div class="r" style="margin-bottom:0;gap:8px;flex-wrap:wrap">
+      <select class="field" id="lr_${l.id}" style="flex:1;min-width:150px"><option value="">Reason for the loss…</option>${LOST_REASONS.map(r=>`<option ${l.lostReason===r?'selected':''}>${r}</option>`).join('')}</select>
       <input class="field" id="lc_${l.id}" style="flex:1;min-width:140px" placeholder="Lost to (competitor)" value="${(l.lostTo||'').replace(/"/g,'&quot;')}"/>
-      <button class="act bad" onclick="closedLostBtn('${l.id}')">Mark Lost</button>
-    </div></div></div>`;
+      <button class="act bad" onclick="closedLostBtn('${l.id}')">${cur==='Closed Lost'?'Update':'Mark Lost'}</button>
+    </div></div>`:'';
+  return `<div class="block"><label>Deal status${cur?` · <span style="color:var(--ink)">${cur}</span>`:''}</label>
+    <div class="dsteps" role="group" aria-label="Deal status">
+      ${step('First Contact Done')}${step('Prospect')}${step('Closed Won','win')}${step('Closed Lost','lost')}
+    </div>${lostRow}</div>`;
 }
-function closedLostBtn(id){const reason=(document.getElementById('lr_'+id)||{}).value;const comp=((document.getElementById('lc_'+id)||{}).value||'').trim();if(!reason){notify('Pick a reason for the loss.');return;}closedLost(id,reason,comp);}
+// One entry point so every stage moves through the same door.
+function dealStep(id,sname){
+  const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;
+  if(sname==='Closed Won'){lostPickFor=null;return openBooking(id,'Closed Won');}
+  if(sname==='Closed Lost'){lostPickFor=id;return renderDrawer();}   // reason is required
+  lostPickFor=null;
+  if(l.dealStatus===sname)return;                                    // already there
+  setDealStatus(id,sname);
+}
+function closedLostBtn(id){lostPickFor=null;const reason=(document.getElementById('lr_'+id)||{}).value;const comp=((document.getElementById('lc_'+id)||{}).value||'').trim();if(!reason){notify('Pick a reason for the loss.');return;}closedLost(id,reason,comp);}
 async function setDealStatus(id,s){const l=db.leads.find(x=>x.id===id);if(!can('edit',l))return;const patch={deal_status:s,stage:'qualified'};if(s==='First Contact Done'||s==='Prospect')patch.lost_reason='';if(!await updateLead(id,patch))return;await addActivityRow(id,{kind:'system',body:'Deal status → '+s});await refreshLead(id);}
 // The qualify-or-disqualify panel (before a lead is qualified).
 function qualifyBlock(l){
