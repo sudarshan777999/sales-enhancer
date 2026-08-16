@@ -1595,6 +1595,12 @@
 </div>
 
 <!-- Reminder modal -->
+<div class="modal-scrim" id="setPwScrim">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-h"><h2>Set a password</h2></div>
+    <div class="modal-b" style="display:block" id="setPwBody"></div>
+  </div>
+</div>
 <div class="modal-scrim" id="remScrim">
   <div class="modal" style="max-width:440px">
     <div class="modal-h"><h2>⏰ Set a reminder</h2></div>
@@ -1624,6 +1630,12 @@ const ENV_PROD={url:'https://xhlgwzpbkovqxuxarcoe.supabase.co',anon:'eyJhbGciOiJ
 const ENV_SANDBOX={url:'https://tadcupqosvvjndxyyerc.supabase.co',anon:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhZGN1cHFvc3Z2am5keHl5ZXJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1OTQ5MzAsImV4cCI6MjA5OTE3MDkzMH0.CCH5mBZLU0DcEjhX4DcyM0iDWz20JWtOmx9npmAGEsw'};
 const IS_SANDBOX=/sandbox|localhost|127\.0\.0\.1/.test(location.hostname);
 const ENV=IS_SANDBOX?ENV_SANDBOX:ENV_PROD;
+// Read the recovery marker BEFORE createClient: detectSessionInUrl strips the hash
+// as soon as the client boots, so by the time boot() runs there is nothing left to see.
+const IS_RECOVERY=(function(){try{
+  return /(^|[#&])type=recovery/.test(location.hash||'')
+      || new URLSearchParams(location.search).get('recovery')==='1';
+}catch(e){return false;}})();
 const sb=supabase.createClient(ENV.url,ENV.anon);
 
 /* ============ config ============ */
@@ -1877,6 +1889,20 @@ function renderLogin(){
       ${authField('ob_name','Your full name','text','e.g. Amartya',loginView.name||'')}
       ${err}
       <div class="auth-actions"><button class="btn wide" onclick="authSubmit()">Join the team &amp; enter</button></div></div>`;
+  } else if(st==='resetsent'){
+    body=`<div class="auth-body"><p>If <b>${escapeHtml(loginView.email||'that address')}</b> has an account, a reset link is on its way. Open it on this device and you'll be asked to choose a new password.</p>
+      <p style="color:var(--soft);font-size:12.5px">The link lasts one hour. Check your spam folder if it hasn't arrived in a few minutes.</p>
+      <div class="auth-actions"><button class="btn wide ghost" onclick="gotoAuth('signin')">← Back to sign in</button></div></div>`;
+  } else if(st==='nomail'){
+    body=`<div class="auth-body"><p><b>${escapeHtml(loginView.uname||'This login')}</b> is a username, not an email address — so there's no inbox we can send a reset link to.</p>
+      <p>Ask your Sales Head to set a new password for you from <b>Team</b> → the ⋯ menu next to your name.</p>
+      <div class="auth-actions"><button class="btn wide ghost" onclick="gotoAuth('signin')">← Back to sign in</button></div></div>`;
+  } else if(st==='newpw'){
+    body=`<div class="auth-body"><p>Choose a new password for <b>${escapeHtml(loginView.email||'your account')}</b>.</p>
+      ${authField('np1','New password','password','At least 6 characters','')}
+      ${authField('np2','Repeat new password','password','Type it again','')}
+      ${err}
+      <div class="auth-actions"><button class="btn wide" onclick="authSubmit()">Save password &amp; continue</button></div></div>`;
   } else if(st==='reset'){
     body=`<div class="auth-body"><p>Enter your email and we'll send a password-reset link.</p>
       ${authField('em','Email','email','you@company.com',loginView.email)}
@@ -1925,12 +1951,34 @@ async function authSubmit(){
     if(error){loginView.err=error.message;return renderLogin();}
     pendingInvite=null;await afterLogin();return;
   }
+  if(st==='newpw'){
+    const p1=(document.getElementById('np1').value||''),p2=(document.getElementById('np2').value||'');
+    if(p1.length<6){loginView.err='Password must be at least 6 characters.';return renderLogin();}
+    if(p1!==p2){loginView.err='The two passwords do not match.';return renderLogin();}
+    const {error}=await sb.auth.updateUser({password:p1});
+    if(error){loginView.err=error.message;return renderLogin();}
+    history.replaceState(null,'',location.origin+location.pathname);   // don't re-trigger on refresh
+    const mem=await loadMyMember();
+    if(mem){await afterLogin();}
+    else{await sb.auth.signOut();session=null;
+      loginView={step:'signin',err:'Password updated. Ask your Sales Head to link this login to your team, then sign in.',email:''};renderLogin();}
+    return;
+  }
   const email=toEmail(document.getElementById('em').value);loginView.email=email;
   if(st==='reset'){
     if(!email){loginView.err='Enter your email first.';return renderLogin();}
-    const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.href});
+    // Team logins are usernames mapped to @bnm.local, which has no mailbox — Supabase
+    // would happily accept the request and the person would wait for an email forever.
+    if(email.endsWith('@'+LOGIN_DOMAIN)){
+      loginView.uname=(document.getElementById('em').value||'').trim();
+      loginView.err='';loginView.step='nomail';return renderLogin();
+    }
+    // A clean, fixed URL: window.location.href carries ?tab=…&id=… which would have to be
+    // allow-listed in Supabase one variant at a time.
+    const back=location.origin+location.pathname+'?recovery=1';
+    const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:back});
     if(error){loginView.err=error.message;return renderLogin();}
-    loginView.err='';loginView.step='checkemail';return renderLogin();
+    loginView.err='';loginView.step='resetsent';return renderLogin();
   }
   const pw=document.getElementById('pw').value;
   if(!email||!pw){loginView.err='Enter your email and password.';return renderLogin();}
@@ -2080,7 +2128,7 @@ async function renderTeam(){
     }
     const self=m.id===session;
     return `<tr><td><b class="mono">${escapeHtml(m.name)}</b></td><td>${ROLE_LABEL[m.role]||m.role}</td><td>${m.project||'—'}</td>
-      <td style="white-space:nowrap"><button class="btn ghost" style="padding:4px 9px" onclick="teamEdit='${m.id}';renderTeam()">Edit</button>${self?'':` <button class="btn ghost" style="padding:4px 9px;color:var(--lost)" onclick="deleteMember('${m.id}')">Delete</button>`}</td></tr>`;
+      <td style="white-space:nowrap"><button class="btn ghost" style="padding:4px 9px" onclick="teamEdit='${m.id}';renderTeam()">Edit</button>${self?'':` <button class="btn ghost" style="padding:4px 9px" onclick="openSetPw('${m.id}')">Set password</button> <button class="btn ghost" style="padding:4px 9px;color:var(--lost)" onclick="deleteMember('${m.id}')">Delete</button>`}</td></tr>`;
   }).join('');
   const projOpts=PROJECTS.map(p=>`<option>${p}</option>`).join('');
   const invRows=(invs||[]).map(v=>{const link=inviteLink(v.token);return `<div class="fu-form" style="margin-top:8px"><div style="font-size:12.5px"><b>${v.email||'(no email)'}</b> · ${ROLE_LABEL[v.role]} · ${projName(v.project_id)||'—'}</div><div class="r" style="margin-top:8px;gap:8px"><input class="field" style="font-size:11px" readonly value="${link}"/><button class="btn" style="white-space:nowrap" onclick="copyText('${link}')">Copy link</button></div></div>`;}).join('');
@@ -2118,6 +2166,46 @@ async function inviteTeammate(){
   await renderTeam();copyText(inviteLink(data.token));
 }
 function fdRoleToggle(){const isSales=(document.getElementById('fd_role')||{}).value==='sales';const pr=document.getElementById('fd_project');if(pr)pr.style.display=isSales?'':'none';}
+/* ---- Sales Head resets a teammate's password ----
+ * Username logins (<name>@bnm.local) have no mailbox, so the emailed reset link can
+ * never reach them. This is their only route back in. The privilege lives in a
+ * SECURITY DEFINER function (migration-30) because the admin key must never ship to
+ * a browser; the browser only gets to call this one narrow thing.
+ */
+let setPwFor=null;
+function openSetPw(id){
+  if(currentUser().role!=='sales_head')return;
+  const m=db.users.find(u=>u.id===id);if(!m)return;
+  setPwFor=id;
+  const el=document.getElementById('setPwBody');
+  el.innerHTML=`<p style="margin:0 0 12px">Set a new password for <b>${escapeHtml(m.name)}</b>.
+      They'll be signed out everywhere and will need this password to get back in.</p>
+    <input class="field" id="spw1" type="password" placeholder="New password (min 8 characters)" autocomplete="new-password"/>
+    <input class="field" id="spw2" type="password" placeholder="Repeat the password" style="margin-top:8px" autocomplete="new-password"/>
+    <div class="r" style="gap:8px;margin-top:14px">
+      <button class="btn" id="spwBtn" onclick="saveSetPw()">Set password</button>
+      <button class="btn ghost" onclick="closeSetPw()">Cancel</button></div>`;
+  document.getElementById('setPwScrim').classList.add('on');
+  setTimeout(()=>{const f=document.getElementById('spw1');if(f)f.focus();},30);
+}
+function closeSetPw(){setPwFor=null;document.getElementById('setPwScrim').classList.remove('on');}
+async function saveSetPw(){
+  const p1=(document.getElementById('spw1').value||''),p2=(document.getElementById('spw2').value||'');
+  if(p1.length<8)return notify('Password must be at least 8 characters.');
+  if(p1!==p2)return notify('The two passwords do not match.');
+  const m=db.users.find(u=>u.id===setPwFor);
+  const btn=document.getElementById('spwBtn');if(btn){btn.disabled=true;btn.textContent='Setting…';}
+  const {error}=await sb.rpc('admin_set_member_password',{p_member:setPwFor,p_password:p1});
+  if(btn){btn.disabled=false;btn.textContent='Set password';}
+  if(error){
+    notify(/could not find the function|does not exist/i.test(error.message)
+      ? 'Run the database update (migration-30) first, then try again.'
+      : 'Could not set the password: '+error.message);
+    return;
+  }
+  closeSetPw();
+  notify('✓ Password set for '+(m?m.name:'that member')+'.\n\nPassword: '+p1+'\n\nGive it to them directly — it is not emailed anywhere. They can change it after signing in.');
+}
 async function createLoginNow(){
   if(currentUser().role!=='sales_head')return;
   const uname=((document.getElementById('fd_user')||{}).value||'').trim();
@@ -5745,7 +5833,22 @@ async function boot(){
   tdLoad();
   if(IS_SANDBOX){const b=document.createElement('div');b.textContent='● SANDBOX — test environment · not your live data';b.style.cssText='position:fixed;bottom:0;left:0;right:0;background:var(--lost);color:#fff;text-align:center;font-family:Inter,sans-serif;font-weight:600;font-size:12px;letter-spacing:.04em;padding:5px;z-index:200';document.body.appendChild(b);document.body.classList.add('is-sandbox');document.title='[SANDBOX] '+document.title;}
   pendingInvite=new URLSearchParams(location.search).get('invite');
+  // A recovery link signs the person in. Without this they would land straight in the
+  // app with their old password still unknown, and be locked out again next time.
+  sb.auth.onAuthStateChange(function(ev,ses){
+    if(ev==='PASSWORD_RECOVERY'&&ses){
+      session=ses.user.id;
+      loginView={step:'newpw',err:'',email:ses.user.email||''};showLogin();
+    }
+  });
   const {data:{session:s}}=await sb.auth.getSession();
+  if(s&&IS_RECOVERY){
+    session=s.user.id;
+    loginView={step:'newpw',err:'',email:s.user.email||''};showLogin();return;
+  }
+  if(IS_RECOVERY&&!s){
+    loginView={step:'signin',err:'That reset link has expired or was already used. Request a new one.',email:''};showLogin();return;
+  }
   if(s){session=s.user.id;const mem=await loadMyMember();
     if(mem){await afterLogin();}
     else if(pendingInvite){loginView={step:'join',err:'',email:s.user.email};showLogin();}
@@ -5762,7 +5865,7 @@ async function boot(){
  * We never call history.back() ourselves to "give an entry back" — that was the
  * bug: the counters desynchronised and the second swipe fell through and quit.
  */
-const NAV_CLOSERS={modalScrim:'closeModal',editScrim:'closeEdit',bulkScrim:'closeBulk',baScrim:'closeBulkAssign',
+const NAV_CLOSERS={setPwScrim:'closeSetPw',modalScrim:'closeModal',editScrim:'closeEdit',bulkScrim:'closeBulk',baScrim:'closeBulkAssign',
   bookScrim:'closeBooking',chatScrim:'closeChat',cpScrim:'closeCpManager',filterScrim:'closeFilters',
   listScrim:'closeLeadList',msgScrim:'closeMsgManager',msgPickScrim:'closeMsgPicker',pieScrim:'closePie',
   priceScrim:'closePricing',remScrim:'closeReminder',schemeScrim:'closeSchemes',teamScrim:'closeTeam'};
