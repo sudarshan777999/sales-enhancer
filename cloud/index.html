@@ -874,6 +874,78 @@
   .panel table th{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--soft);font-weight:700;}
   .panel table td{font-size:13px;}
 
+  /* ================= mobile shell =================
+     Built to the mobile spec's transferable rules: persistent bottom tab bar (never a
+     hamburger for primary nav), primary actions in the bottom third, 44pt touch targets,
+     sheets instead of pushed screens, and 16px body text as the floor for content. */
+  .mtabs{display:none;}
+  .sheet-scrim{position:fixed;inset:0;background:rgba(12,14,12,.45);z-index:130;display:none;align-items:flex-end;}
+  .sheet-scrim.on{display:flex;}
+  .sheet{width:100%;background:var(--surface);border-radius:var(--r-lg) var(--r-lg) 0 0;
+    max-height:88vh;display:flex;flex-direction:column;box-shadow:var(--shadow-lift);
+    padding-bottom:env(safe-area-inset-bottom,0);}
+  .sheet-grab{width:36px;height:5px;border-radius:var(--r-full);background:var(--line);margin:9px auto 4px;flex:none;}
+  .sheet-t{font-family:'Space Grotesk';font-weight:650;font-size:16px;padding:6px 18px 10px;border-bottom:1px solid var(--line2);}
+  .sheet-b{overflow-y:auto;padding:12px 14px 18px;}
+  .sheet-row{display:flex;align-items:center;gap:12px;width:100%;border:0;background:transparent;
+    font-family:inherit;font-size:16px;color:var(--ink);padding:13px 10px;border-radius:var(--r-sm);text-align:left;min-height:48px;}
+  .sheet-row:active{background:var(--brand-tint);}
+  .sheet-row .ic{width:24px;text-align:center;flex:none;}
+  .sheet-row .ct{margin-left:auto;font-size:12.5px;color:var(--soft);}
+  /* outcome pills — the three-tap log lives here */
+  .ql-pills{display:flex;flex-wrap:wrap;gap:8px;}
+  .ql-pill{min-height:44px;padding:10px 16px;border-radius:var(--r-full);border:1px solid var(--line);
+    background:var(--surface);font-family:inherit;font-size:15px;font-weight:600;color:var(--ink);flex:1 1 auto;}
+  .ql-pill:active{background:var(--brand-tint);}
+  .ql-pill.danger{border-color:var(--t-bad-fg);color:var(--t-bad-fg);}
+  .ql-step{font-size:12px;color:var(--soft);text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin:4px 2px 9px;}
+  .ql-sub{font-size:13px;color:var(--soft);margin:0 2px 12px;line-height:1.5;}
+
+  @media(max-width:760px){
+    /* one-handed: content clears the bar, primary actions sit low */
+    body{font-size:16px;}
+    .sidenav{display:none;}
+    main,main.wide{max-width:100vw;padding:6px 14px 96px;}
+    .shell{display:block;}
+    .mtabs{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:100;background:var(--header-bg);
+      backdrop-filter:blur(12px);border-top:1px solid var(--line);
+      padding:6px 4px calc(6px + env(safe-area-inset-bottom,0));}
+    .mtab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;border:0;background:transparent;
+      font-family:inherit;font-size:11px;font-weight:600;color:var(--soft);padding:6px 2px;min-height:52px;border-radius:var(--r-sm);}
+    .mtab .mi{font-size:19px;line-height:1;}
+    .mtab.on{color:var(--brand-ink);}
+    .mtab .mn{position:absolute;transform:translate(14px,-4px);background:var(--lost);color:#fff;
+      font-size:10px;font-weight:700;min-width:17px;height:17px;border-radius:var(--r-full);display:grid;place-items:center;padding:0 4px;}
+    /* toast must never cover the tab bar or the primary action */
+    #toastWrap,.toastwrap{bottom:calc(74px + env(safe-area-inset-bottom,0)) !important;}
+    /* the lead panel becomes a bottom sheet, not a side drawer */
+    .drawer{top:auto;bottom:0;right:0;left:0;width:100%;height:92vh;border-radius:var(--r-lg) var(--r-lg) 0 0;
+      transform:translateY(100%);}
+    .drawer.on{transform:translateY(0);}
+    /* touch targets: 44pt floor everywhere */
+    .btn,.act,.field,select.field,.sfchip,.navi,.x,.mtop-btn{min-height:44px;}
+    .x{width:44px;height:44px;}
+    .btn{padding:12px 18px;font-size:15px;}
+    .field{font-size:16px;padding:12px 13px;}     /* 16px stops iOS zooming the page on focus */
+    .stg,.tchip{font-size:11px;}
+    .kpi .val{font-size:19px;}
+    .modal{border-radius:var(--r-lg) var(--r-lg) 0 0;max-height:92vh;}
+    .tdock{display:none !important;}              /* the dock is a desktop affordance */
+  }
+
+  .ql-btn{border:1px solid var(--line);background:var(--surface);border-radius:var(--r-sm);
+    width:30px;height:30px;font-size:14px;line-height:1;color:var(--soft);flex:none;order:99;margin-left:auto;}
+  .ql-btn:active{background:var(--brand-tint);}
+  @media(max-width:760px){.ql-btn{width:44px;height:44px;font-size:17px;}}
+  @media(max-width:760px){
+    /* The performance strip belongs on Today, per the spec's IA — not stacked above every list */
+    body:not([data-tab="plays"]) #kpiBand,body:not([data-tab="plays"]) #myTarget,
+    body:not([data-tab="plays"]) .perm-note{display:none;}
+    /* the saved-filter row scrolls sideways rather than eating four rows of height */
+    #savedBar{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:8px;padding-bottom:4px;}
+    #savedBar .sfchip{flex:none;}
+    .foot{padding-bottom:8px;}
+  }
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
   /* ---------- data table (All leads) ---------- */
   .dt-wrap{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;}
@@ -1059,6 +1131,21 @@
       <main id="main"></main>
       <div class="foot"><span id="count"></span></div>
     </div>
+  </div>
+</div>
+
+<!-- Mobile: bottom tab bar, More sheet, and the three-tap quick-log sheet -->
+<nav class="mtabs" id="mtabs" role="navigation" aria-label="Main"></nav>
+<div class="sheet-scrim" id="moreScrim" onclick="if(event.target===this)closeMore()">
+  <div class="sheet" role="dialog" aria-modal="true" aria-label="More">
+    <div class="sheet-grab"></div><div class="sheet-t">More</div>
+    <div class="sheet-b" id="moreBody"></div>
+  </div>
+</div>
+<div class="sheet-scrim" id="qlScrim" onclick="if(event.target===this)closeQuickLog()">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="qlTitle">
+    <div class="sheet-grab"></div><div class="sheet-t" id="qlTitle">Log outcome</div>
+    <div class="sheet-b" id="qlBody"></div>
   </div>
 </div>
 
@@ -2205,7 +2292,7 @@ function renderReception(){
   ['filterBtn','bulkBtn','newBtn'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});
   const search=document.querySelector('#appRoot header .search');if(search)search.style.display='none';
   document.getElementById('whoami').innerHTML=`<div class="u-av sales">${initials(u.name)}</div><div><div class="nm">${u.name}</div><div class="rl">Receptionist</div></div><button class="signout" onclick="signOut()">Sign out</button>`;
-  ['tabs','permNote','kpis','myTarget','savedBar'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});
+  ['tabs','permNote','kpis','myTarget','savedBar','mtabs'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});
   const cnt=document.getElementById('count');if(cnt)cnt.textContent='';
   document.getElementById('main').innerHTML=receptionScreenHTML();
   const first=document.getElementById('rc_name');if(first)first.focus();
@@ -2309,7 +2396,7 @@ function render(){
   const leads=visible();
   renderTabs();renderKPIs(leads);
   const m=document.getElementById('main');
-  if(activeTab==='pipeline')m.innerHTML=pipeToggle()+(pipeView==='list'?pipelineListHTML(leads):boardHTML(leads));
+  if(activeTab==='pipeline'){const asList=isPhone()||pipeView==='list';m.innerHTML=(isPhone()?'':pipeToggle())+(asList?pipelineListHTML(leads):boardHTML(leads));}
   else if(activeTab==='plays')m.innerHTML=filterBanner()+playsHTML();
   else if(activeTab==='followups')m.innerHTML=followupsHTML(leads);
   else if(activeTab==='visits')m.innerHTML=visitsHTML(leads);
@@ -2330,7 +2417,8 @@ function render(){
   if(['funnel','stats','ageing'].includes(activeTab))makeReorderable(m,activeTab);
   const total=scoped().length;
   document.getElementById('count').textContent=total+(u.role==='sales'?' of your leads':' leads in view');
-  refreshNotifyBadge();renderSavedBar();renderMyTarget();renderTaskDock();navSync();urlWrite();
+  refreshNotifyBadge();renderSavedBar();renderMyTarget();renderTaskDock();navSync();urlWrite();renderMobileTabs();
+  document.body.dataset.tab=activeTab;
   if(activeTab==='crossproject'){const k=document.getElementById('kpis');if(k)k.innerHTML='';const sb=document.getElementById('savedBar');if(sb)sb.innerHTML='';}   // cross-project: no stats/filters
   if(openId)renderDrawer();
 }
@@ -2419,9 +2507,10 @@ function cardHTML(l){
   if(l.stage==='lost'&&l.lostReason)reason=`<div class="reason-tag">Lost · <b>${l.lostReason}</b></div>`;
   return `<div class="card ${crit?'crit':attn?'attn':''}" style="--l:${st.color}" onclick="openDrawer('${l.id}')">
     <div class="top"><div><div class="nm">${l.name}</div><div class="proj">${l.project||'—'} · <span title="${l.source==='walkin'?'Walk-in date':'Captured'}">📅 ${fmtDate(l.createdAt)}</span></div></div><span class="src ${l.source}">${l.source==='digital'?'Digital':'Walk-in'}</span></div>
-    <div class="meta">${l.ownerId?`<div class="avatar" title="${userName(l.ownerId)}">${initials(userName(l.ownerId))}</div>`:`<div class="avatar none" title="Unassigned">–</div>`}${l.viaGre?`<span class="tchip" style="background:var(--t-good-bg);color:var(--t-good-fg)" title="Entered at the front desk (GRE)">GRE</span>`:''}${l.pendingRevisit?`<span class="tchip" style="background:var(--t-warn-bg);color:var(--t-warn-fg)" title="Marked as a revisit by the front desk — needs merge">↩ Revisit · merge</span>`:''}${l.dealStatus?`<span class="tchip" style="background:var(--t-info-bg);color:var(--t-info-fg)">${l.dealStatus}</span>`:''}${(l.metProjectHead===false&&(l.revisits&&l.revisits.length))?`<span class="tchip" style="background:var(--t-bad-bg);color:var(--t-bad-fg)" title="Revisited but no Project-Head meeting">No PH mtg</span>`:''}${(l.revisits&&l.revisits.length)?`<span class="tchip" style="background:var(--t-note-bg);color:var(--t-note-fg);font-weight:700" title="Came back ${l.revisits.length} time${l.revisits.length===1?'':'s'} after the first walk-in">↩ ${l.revisits.length} revisit${l.revisits.length===1?'':'s'}</span>`:''}${(l.plannedVisit&&isOpenLead(l))?`<span class="tchip" style="background:${l.plannedVisit<iso(today())?'#FBE3E1':'#E8F0FA'};color:${l.plannedVisit<iso(today())?'#A03027':'#25506F'}" title="Next visit planned${l.plannedVisit<iso(today())?' — date passed, no revisit logged':''}">📅${fmtDate(l.plannedVisit)}</span>`:''}${rnrCount(l)?`<span class="tchip" style="background:var(--t-bad-bg);color:var(--t-bad-fg)" title="Ring-no-response attempts">☎ RNR ×${rnrCount(l)}</span>`:''}${(l.labels||[]).map(n=>`<span class="lchip" style="background:${labelColor(n)}">${n}</span>`).join('')}${slaHTML}${dueHTML}${l.budget?`<span class="budget">₹${l.budget}</span>`:''}</div>
+    <div class="meta">${(can('edit',l)&&isOpenLead(l))?`<button class="ql-btn" title="Log outcome" aria-label="Log outcome for ${escapeHtml(l.name)}" onclick="openQuickLog('${l.id}',event)">⚡</button>`:''}${l.ownerId?`<div class="avatar" title="${userName(l.ownerId)}">${initials(userName(l.ownerId))}</div>`:`<div class="avatar none" title="Unassigned">–</div>`}${l.viaGre?`<span class="tchip" style="background:var(--t-good-bg);color:var(--t-good-fg)" title="Entered at the front desk (GRE)">GRE</span>`:''}${l.pendingRevisit?`<span class="tchip" style="background:var(--t-warn-bg);color:var(--t-warn-fg)" title="Marked as a revisit by the front desk — needs merge">↩ Revisit · merge</span>`:''}${l.dealStatus?`<span class="tchip" style="background:var(--t-info-bg);color:var(--t-info-fg)">${l.dealStatus}</span>`:''}${(l.metProjectHead===false&&(l.revisits&&l.revisits.length))?`<span class="tchip" style="background:var(--t-bad-bg);color:var(--t-bad-fg)" title="Revisited but no Project-Head meeting">No PH mtg</span>`:''}${(l.revisits&&l.revisits.length)?`<span class="tchip" style="background:var(--t-note-bg);color:var(--t-note-fg);font-weight:700" title="Came back ${l.revisits.length} time${l.revisits.length===1?'':'s'} after the first walk-in">↩ ${l.revisits.length} revisit${l.revisits.length===1?'':'s'}</span>`:''}${(l.plannedVisit&&isOpenLead(l))?`<span class="tchip" style="background:${l.plannedVisit<iso(today())?'#FBE3E1':'#E8F0FA'};color:${l.plannedVisit<iso(today())?'#A03027':'#25506F'}" title="Next visit planned${l.plannedVisit<iso(today())?' — date passed, no revisit logged':''}">📅${fmtDate(l.plannedVisit)}</span>`:''}${rnrCount(l)?`<span class="tchip" style="background:var(--t-bad-bg);color:var(--t-bad-fg)" title="Ring-no-response attempts">☎ RNR ×${rnrCount(l)}</span>`:''}${(l.labels||[]).map(n=>`<span class="lchip" style="background:${labelColor(n)}">${n}</span>`).join('')}${slaHTML}${dueHTML}${l.budget?`<span class="budget">₹${l.budget}</span>`:''}</div>
     ${reason}</div>`;
 }
+function isPhone(){try{return window.matchMedia('(max-width:760px)').matches;}catch(e){return false;}}
 function setPipeView(v){pipeView=v;try{localStorage.setItem('bm_pipe_view',v);}catch(e){}render();}
 function pipeToggle(){return `<div class="pipe-toolbar"><div class="seg pipe-seg"><button class="${pipeView!=='list'?'on':''}" onclick="setPipeView('board')">▦ Board</button><button class="${pipeView==='list'?'on':''}" onclick="setPipeView('list')">☰ List</button></div></div>`;}
 function pipelineListHTML(leads){
@@ -5300,6 +5389,121 @@ let pal={open:false,q:'',sel:0,page:null,items:[],lastFocus:null};
 const NAV_KEYS=[['p','pipeline','Pipeline'],['t','plays',"Today's plays"],['v','visits','Visits planned'],
   ['f','followups','Follow-ups due'],['l','all','All leads'],['k','tasks','Tasks'],
   ['n','funnel','Funnel'],['c','lostanalytics','Closed Lost'],['r','report','Report']];
+/* ============ mobile shell ============ *
+ * Bottom tab bar (4 destinations + More), and the three-tap outcome log. The spec's hard
+ * acceptance criterion: log an outcome in <=3 taps without the keyboard appearing.
+ */
+const MTABS=[['pipeline','Leads','📋'],['plays','Today','🧭'],['visits','Visits','📅'],['__more','More','⋯']];
+function renderMobileTabs(){
+  const el=document.getElementById('mtabs');if(!el)return;
+  const u=currentUser();
+  if(!u||u.role==='reception'){el.innerHTML='';return;}   // the front desk has one screen
+  const s=scoped();
+  const counts={
+    plays:s.filter(isOpenLead).map(dealCoach).filter(Boolean).length,
+    visits:s.filter(l=>l.plannedVisit&&isOpenLead(l)&&l.plannedVisit>=iso(today())&&l.plannedVisit<=addDays(7)).length
+  };
+  el.innerHTML=MTABS.map(function(t){
+    const on=t[0]==='__more'?false:activeTab===t[0];
+    const n=counts[t[0]]||0;
+    return `<button class="mtab ${on?'on':''}" onclick="${t[0]==='__more'?'openMore()':"setTab('"+t[0]+"')"}"
+      aria-label="${t[1]}" ${on?'aria-current="page"':''}>
+      <span class="mi">${t[2]}${n?`<span class="mn">${n>99?'99+':n}</span>`:''}</span><span>${t[1]}</span></button>`;
+  }).join('');
+}
+function openMore(){
+  const u=currentUser();if(!u)return;
+  const done=MTABS.map(t=>t[0]);
+  const rest=Object.keys(NAV_META).filter(k=>done.indexOf(k)<0);
+  const allowed=rest.filter(function(k){
+    if(k==='funnel'||k==='cp'||k==='report'||k==='crossproject')return u.role==='sales_head'||u.role==='project_head';
+    return true;
+  });
+  document.getElementById('moreBody').innerHTML=
+    allowed.map(function(k){const m=NAV_META[k];
+      return `<button class="sheet-row" onclick="closeMore();setTab('${k}')"><span class="ic">${m.icon}</span>${escapeHtml(navLabel(k))}</button>`;}).join('')
+    +`<div style="height:1px;background:var(--line2);margin:8px 2px"></div>`
+    +`<button class="sheet-row" onclick="closeMore();openKeys()"><span class="ic">⌨</span>Keyboard shortcuts</button>`
+    +`<button class="sheet-row" onclick="cycleTheme()"><span class="ic">${themeIcon()}</span>${escapeHtml(themeLabel())}</button>`
+    +`<button class="sheet-row" onclick="closeMore();signOut()"><span class="ic">⏻</span>Sign out</button>`;
+  document.getElementById('moreScrim').classList.add('on');
+}
+function closeMore(){document.getElementById('moreScrim').classList.remove('on');}
+function navLabel(k){
+  const map={pipeline:'Pipeline',plays:"Today's plays",visits:'Visits planned',followups:'Follow-ups due',
+    tasks:'Tasks',all:'All leads',funnel:'Funnel',cp:'CP analytics',ageing:'Ageing',stats:'Follow-up stats',
+    lostanalytics:'Closed Lost',leaderboard:'Leaderboard',builder:'Builder',crossproject:'Cross-project',report:'Report'};
+  return map[k]||k;
+}
+/* ---- three-tap outcome log ---- */
+let qlLead=null;
+function openQuickLog(id,ev){
+  if(ev){ev.stopPropagation();}
+  const l=db.leads.find(x=>x.id===id);if(!l||!can('edit',l))return;
+  qlLead=id;qlRenderOutcomes();
+  document.getElementById('qlScrim').classList.add('on');
+}
+function closeQuickLog(){qlLead=null;document.getElementById('qlScrim').classList.remove('on');}
+function qlRenderOutcomes(){
+  const l=db.leads.find(x=>x.id===qlLead);if(!l)return;
+  document.getElementById('qlTitle').textContent=l.name;
+  const pill=(label,fn,cls)=>`<button class="ql-pill ${cls||''}" onclick="${fn}">${label}</button>`;
+  document.getElementById('qlBody').innerHTML=
+    `<div class="ql-step">What happened?</div><div class="ql-pills">
+      ${pill('Spoke — interested',"qlPick('interested')")}
+      ${pill('Visit booked',"qlPick('visit')")}
+      ${pill('Call later',"qlPick('later')")}
+      ${pill('Not reachable',"qlPick('rnr')")}
+      ${pill('Not interested',"qlPick('no')",'danger')}
+    </div>`;
+}
+function qlPick(kind){
+  const l=db.leads.find(x=>x.id===qlLead);if(!l)return;
+  if(kind==='rnr'){logRNR(l.id);closeQuickLog();notify('Logged — no answer. Reminder set for tomorrow.');return;}
+  if(kind==='no'){qlRenderReasons();return;}
+  if(kind==='visit'){qlRenderWhen('visit');return;}
+  qlRenderWhen(kind);
+}
+function qlRenderWhen(kind){
+  const label=kind==='visit'?'When are they visiting?':'When will you follow up?';
+  const opts=kind==='visit'
+    ? [['Tomorrow',1],['This weekend',qlWeekend()],['In a week',7]]
+    : [['Tomorrow',1],['In 3 days',3],['Next week',7]];
+  document.getElementById('qlBody').innerHTML=
+    `<div class="ql-step">${escapeHtml(label)}</div><div class="ql-pills">
+      ${opts.map(o=>`<button class="ql-pill" onclick="qlSave('${kind}',${o[1]})">${o[0]}</button>`).join('')}
+    </div><div class="ql-sub" style="margin-top:12px">Pick one and it saves — no typing needed. Add notes later on the lead if you want.</div>`;
+}
+function qlWeekend(){const d=today().getDay();return ((6-d)+7)%7||6;}   // days until Saturday
+function qlRenderReasons(){
+  document.getElementById('qlBody').innerHTML=
+    `<div class="ql-step">Why not?</div><div class="ql-pills">
+      ${NQ_REASONS.slice(0,6).map(r=>`<button class="ql-pill" onclick="qlSaveNo(${JSON.stringify(r).replace(/"/g,'&quot;')})">${escapeHtml(r)}</button>`).join('')}
+    </div><div class="ql-sub" style="margin-top:12px">The reason is the most valuable field in the whole dataset — that's why it's the one extra tap.</div>`;
+}
+async function qlSave(kind,days){
+  const l=db.leads.find(x=>x.id===qlLead);if(!l)return;
+  const when=addDays(days);
+  closeQuickLog();
+  if(kind==='visit'){
+    const plans=(Array.isArray(l.visitPlans)?l.visitPlans.slice():[]);
+    plans.push({d:when,by:session,at:iso(today()),done:null});
+    if(!await updateLead(l.id,{planned_visit:when,visit_plans:plans}))return;
+    await addActivityRow(l.id,{kind:'system',body:'Next visit planned for '+fmtDate(when)});
+    notify('Visit booked for '+fmtDate(when)+'.');
+  } else {
+    if(!await updateLead(l.id,{next_follow_up:when}))return;
+    await addActivityRow(l.id,{kind:'note',body:kind==='interested'?'Spoke — interested':'Spoke — call back later',next:when});
+    notify('Logged. Next follow-up '+fmtDate(when)+'.');
+  }
+  await refresh();
+}
+async function qlSaveNo(reason){
+  const l=db.leads.find(x=>x.id===qlLead);if(!l)return;
+  closeQuickLog();
+  await disqualify(l.id,reason);
+  notify('Marked not qualified — '+reason+'.');
+}
 function toggleUserMenu(e){if(e)e.stopPropagation();const m=document.getElementById('umenu');if(m)m.classList.toggle('on');}
 function closeUserMenu(){const m=document.getElementById('umenu');if(m)m.classList.remove('on');}
 document.addEventListener('click',function(e){
