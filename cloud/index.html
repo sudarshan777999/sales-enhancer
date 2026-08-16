@@ -4165,10 +4165,12 @@ function closedLostPanels(leads){
     ltMap[k].arr.push(l);
   });
   const ltRows=Object.values(ltMap).map(function(g){
-    // most-used spelling wins; on a tie prefer normal casing ("Mana" over "mana"/"MANA")
+    // These are all the same name typed differently, so casing decides first — a report
+    // saying "mana" because it was typed lower-case 9 times against 8 reads like a typo.
+    // Frequency only breaks ties between equally well-formed spellings.
     const looksLikeAName=x=>/^[A-Z][^A-Z]/.test(x)?0:1;
     const label=Object.keys(g.spellings).sort((a,b)=>
-      g.spellings[b]-g.spellings[a] || looksLikeAName(a)-looksLikeAName(b) || a.localeCompare(b))[0];
+      looksLikeAName(a)-looksLikeAName(b) || g.spellings[b]-g.spellings[a] || a.localeCompare(b))[0];
     return {label:label,arr:g.arr,mo:g.arr.filter(l=>(lostAt(l)||'').slice(0,7)===thisMo)};
   }).sort((a,b)=>b.arr.length-a.arr.length);
   const ltNoneCount=lost.filter(l=>!(l.lostTo||'').trim()).length;
