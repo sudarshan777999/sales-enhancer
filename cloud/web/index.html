@@ -2583,17 +2583,32 @@ function toggleOwner(id){
   filters=val?others.concat([{field:'owner',value:val}]):others;
   filterMode='AND';_returnTab=null;render();
 }
+/* ---- where the filter bar earns its place ----
+ * Audited every screen for whether it actually reads the filters:
+ *   Leads, All leads, Today, Ageing, Follow-up stats, Closed Lost  -> yes, full bar
+ *   Visits planned, Funnel                                         -> yes, but each has its
+ *       own date control (Window 7/15/30, and This month/60/90/Custom). A "captured in
+ *       August" chip beside a "next 7 days" window reads as one control and is not.
+ *       Owner chips stay — "whose visits" is a fair question — periods and saved views go.
+ *   Tasks, Channel partners, Leaderboard, Report builder, Monthly report, Cross-project
+ *       -> these never read the filters at all, so the chips were decoration that
+ *          implied an effect they did not have. The bar is hidden.
+ */
+const BAR_NONE=['tasks','cp','leaderboard','builder','report','crossproject'];
+const BAR_NOPERIOD=['visits','funnel'];
 function renderSavedBar(){
   const el=document.getElementById('savedBar');if(!el)return;
+  if(BAR_NONE.indexOf(activeTab)>=0){el.innerHTML='';return;}
+  const noPeriod=BAR_NOPERIOD.indexOf(activeTab)>=0;
   const list=savedFilters();const active=activeFilters().length;
   const cur=JSON.stringify({m:filterMode,f:activeFilters()});
   const qv=(days,label)=>{const val=addDays(-days)+'|'+addDays(0);const on=filters.some(f=>f.field==='captured'&&f.value===val);return `<button class="sfchip ${on?'on':''}" onclick="applyQuickView(${days})">${label}</button>`;};
   const mv=(offset,label)=>{const val=monthRange(offset);const on=filters.some(f=>f.field==='captured'&&f.value===val);return `<button class="sfchip ${on?'on':''}" onclick="applyMonth(${offset})">${label}</button>`;};
-  const quick=mv(0,'This month')+mv(-1,'Last month')+qv(15,'Last 15 days')+qv(30,'Last 30 days');
+  const quick=noPeriod?'':(mv(0,'This month')+mv(-1,'Last month')+qv(15,'Last 15 days')+qv(30,'Last 30 days'));
   const u=currentUser();
   const ppl=(u&&u.role==='sales_head')?salespeople():(u&&u.role==='project_head')?salespeople(u.project):[];
   const ownerChips=ppl.map(p=>{const on=filters.some(f=>f.field==='owner'&&String(f.value||'').split(',').includes(p.id));return `<button class="sfchip ${on?'on':''}" onclick="toggleOwner('${p.id}')">👤 ${escapeHtml(p.name)}</button>`;}).join('');
-  const chips=list.map((sf,i)=>{const on=JSON.stringify({m:sf.mode||'AND',f:sf.filters})===cur;return `<button class="sfchip ${on?'on':''}" onclick="applySaved(${i})">${sf.name}</button>`;}).join('');
+  const chips=noPeriod?'':list.map((sf,i)=>{const on=JSON.stringify({m:sf.mode||'AND',f:sf.filters})===cur;return `<button class="sfchip ${on?'on':''}" onclick="applySaved(${i})">${sf.name}</button>`;}).join('');
   el.innerHTML=`<div class="sfbar">${ownerChips}${quick}${chips}${active?`<button class="sfchip clear" onclick="clearFilters()">✕ Clear filters (${active})</button>`:''}<button class="sfchip add" onclick="openFilters()">＋ Filter / save</button></div>`;
 }
 /* ---- custom labels ---- */
@@ -2854,11 +2869,11 @@ function render(){
   const m=document.getElementById('main');
   if(activeTab==='pipeline'){const asList=isPhone()||pipeView==='list';m.innerHTML=(isPhone()?'':pipeToggle())+(asList?pipelineListHTML(leads):boardHTML(leads));}
   else if(activeTab==='plays')m.innerHTML=filterBanner()+playsHTML();
-  else if(activeTab==='followups')m.innerHTML=followupsHTML(leads);
+  else if(activeTab==='followups')m.innerHTML=filterBanner()+followupsHTML(leads);
   else if(activeTab==='visits')m.innerHTML=visitsHTML(leads);
   else if(activeTab==='stats')m.innerHTML=filterBanner()+statsHTML(visible());
   else if(activeTab==='funnel')m.innerHTML=funnelHTML();
-  else if(activeTab==='cp')m.innerHTML=filterBanner()+cpAnalyticsHTML();
+  else if(activeTab==='cp')m.innerHTML=cpAnalyticsHTML();
   else if(activeTab==='ageing')m.innerHTML=filterBanner()+ageingTreeHTML();
   else if(activeTab==='lostanalytics')m.innerHTML=filterBanner()+closedLostTabHTML();
   else if(activeTab==='crossproject')m.innerHTML=crossProjectHTML();
