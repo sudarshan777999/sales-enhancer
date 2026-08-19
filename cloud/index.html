@@ -543,6 +543,15 @@
   .modal-scrim.on{display:flex;}
   .modal{background:var(--surface);border-radius:16px;width:min(540px,100%);box-shadow:0 24px 60px rgba(21,34,56,.28);}
   .modal-h{padding:20px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;}
+  .modal-h{position:sticky;top:0;z-index:3;background:var(--surface);border-radius:16px 16px 0 0;gap:10px;}
+  .modal-h>:first-child{flex:1;min-width:0;}
+  .modal-x{flex:none;width:36px;height:36px;margin:-4px -6px -4px 0;border:0;background:transparent;
+    border-radius:var(--r-full);color:var(--soft);font-size:16px;line-height:1;cursor:pointer;}
+  .modal-x:hover{background:var(--canvas);color:var(--ink);}
+  @media(max-width:760px){
+    .modal-x{width:44px;height:44px;font-size:18px;}
+    .modal-h{border-radius:14px 14px 0 0;}
+  }
   .modal-h h2{font-size:18px;}
   .modal-b{padding:22px 24px;display:grid;grid-template-columns:1fr 1fr;gap:15px;}
   .modal-b .full{grid-column:1/-1;}
@@ -2851,6 +2860,7 @@ async function rcSubmit(){
 function render(){
   const u=currentUser();if(!u)return;
   drillReg={};drillSeq=0;         // every clickable count is re-registered below
+  ensureModalCloses();
   if(u.role==='reception'){renderReception();return;}
   // header context + identity
   const scopeTxt=u.role==='sales_head'?'All projects':(u.project||'');
@@ -6172,6 +6182,7 @@ async function sendMessage(){const inp=document.getElementById('chatInput');cons
 /* ============ boot ============ */
 async function boot(){
   tdLoad();
+  ensureModalCloses();
   if(IS_SANDBOX){const b=document.createElement('div');b.textContent='● SANDBOX — test environment · not your live data';b.style.cssText='position:fixed;bottom:0;left:0;right:0;background:var(--lost);color:#fff;text-align:center;font-family:Inter,sans-serif;font-weight:600;font-size:12px;letter-spacing:.04em;padding:5px;z-index:200';document.body.appendChild(b);document.body.classList.add('is-sandbox');document.title='[SANDBOX] '+document.title;}
   pendingInvite=new URLSearchParams(location.search).get('invite');
   // A recovery link signs the person in. Without this they would land straight in the
@@ -6283,6 +6294,34 @@ const NAV_KEYS=[['p','pipeline','Pipeline'],['t','plays',"Today's plays"],['v','
 const MTABS=[['pipeline','Leads',ICON('pipeline',22)],['plays','Today',ICON('plays',22)],['visits','Visits',ICON('visits',22)],['__more','More',ICON('more',22)]];
 // The FAB floats over everything, so it has to stand down whenever a sheet,
 // drawer or modal owns the screen — :has() alone is not safe on older WebKit.
+/* Every dialog needs a way out that is visible the moment it opens.
+ * Six of them (new lead, the lead list, booking, channel partners, WhatsApp messages,
+ * the message picker) had their only Close button at the BOTTOM of the content — with
+ * a 14-lead list that is ~2,700px down — and none of the modals closed on a tap
+ * outside. On a phone, with no Esc key, that left no way out but the back gesture.
+ * Injected once rather than editing seventeen markup blocks, so new dialogs inherit it.
+ */
+function closeOverlayById(id){
+  const fn=window[NAV_CLOSERS[id]];
+  if(typeof fn==='function')fn(); else {const el=document.getElementById(id);if(el)el.classList.remove('on');}
+  if(typeof fabSync==='function')fabSync();
+}
+function ensureModalCloses(){
+  document.querySelectorAll('.modal-scrim').forEach(function(sc){
+    if(!sc.dataset.exitWired){
+      sc.dataset.exitWired='1';
+      sc.addEventListener('click',function(e){if(e.target===sc)closeOverlayById(sc.id);});
+    }
+    const h=sc.querySelector('.modal-h');
+    if(h&&!h.querySelector('.modal-x')){
+      const b=document.createElement('button');
+      b.type='button';b.className='modal-x';b.innerHTML='&#10005;';
+      b.setAttribute('aria-label','Close');b.title='Close (Esc)';
+      b.addEventListener('click',function(){closeOverlayById(sc.id);});
+      h.appendChild(b);
+    }
+  });
+}
 function fabSync(){
   const f=document.getElementById('fab');if(!f)return;
   const over=!!document.querySelector('.drawer.on,.modal-back.on,.sheet.on,.scrim.on,[id$="Scrim"].on');
