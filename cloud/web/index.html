@@ -1260,6 +1260,8 @@
     .is-sandbox .fab{bottom:calc(100px + env(safe-area-inset-bottom,0));}
   }
 
+  .search-note{margin-top:6px;font-size:12.5px;color:var(--soft);line-height:1.6;}
+  .search-note b{color:var(--ink);}
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
   /* ---------- data table (All leads) ---------- */
   .dt-wrap{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;}
@@ -2492,7 +2494,47 @@ const WORK_TABS=['plays','followups','visits','tasks'];
 // the user adds, edits or clears anything, it is their choice and applies everywhere.
 function isAutoPeriodOnly(){const a=activeFilters();return a.length===1&&a[0].field==='captured'&&a[0].value===monthRange(0);}
 function autoPeriodIgnoredHere(){return WORK_TABS.indexOf(activeTab)>=0&&isAutoPeriodOnly();}
-function visible(){const q=document.getElementById('search').value.trim().toLowerCase();let s=scoped();if(q)s=s.filter(l=>l.name.toLowerCase().includes(q)||(l.matchCode||'').includes(q));if(autoPeriodIgnoredHere())return s;return s.filter(passesFilters);}
+// Name, merge code, phone or email — people search with whatever they have to hand,
+// and a phone number was the one thing that never worked.
+function searchMatch(l,q){
+  if(!q)return true;
+  const d=digits(q);
+  return l.name.toLowerCase().includes(q)
+    || (l.matchCode||'').includes(q)
+    || (l.email||'').toLowerCase().includes(q)
+    || (d.length>=4 && digits(l.phone).includes(d));
+}
+function visible(){
+  const q=document.getElementById('search').value.trim().toLowerCase();
+  let s=scoped();
+  if(q)s=s.filter(l=>searchMatch(l,q));
+  if(autoPeriodIgnoredHere())return s;
+  // Typing a name means "find this person", not "find them among the walk-ins captured
+  // this month". The month filter the app applies by itself must not hide them. A filter
+  // the user chose still applies — searchHiddenNote() reports what it held back.
+  if(q&&isAutoPeriodOnly())return s;
+  return s.filter(passesFilters);
+}
+// What the current search would have found if nothing were filtered out.
+function searchHiddenNote(){
+  const box=document.getElementById('search');
+  const q=box?box.value.trim().toLowerCase():'';
+  if(!q)return '';
+  const shown=visible().length;
+  const all=db.leads.filter(l=>can('view',l)&&searchMatch(l,q));
+  const hiddenByFilter=all.filter(l=>!l.mergedInto).length-shown;
+  const merged=all.filter(l=>l.mergedInto);
+  const bits=[];
+  if(hiddenByFilter>0)bits.push(`<b>${hiddenByFilter}</b> more match “${escapeHtml(q)}” but are hidden by your filters `
+    +`<button class="mini-link" onclick="clearFilters()">clear filters</button>`);
+  merged.slice(0,3).forEach(m=>{
+    const into=db.leads.find(x=>x.id===m.mergedInto);
+    bits.push(`<b>${escapeHtml(m.name)}</b> was merged as a duplicate`
+      +(into?` into <button class="mini-link" onclick="openDrawer('${into.id}')">${escapeHtml(into.name)}</button>`:''));
+  });
+  if(!bits.length)return '';
+  return `<div class="search-note">${bits.join(' · ')}</div>`;
+}
 /* ---- multi-filter builder ---- */
 const FILTER_FIELDS=[
   {k:'stage',label:'Stage',type:'select',opts:()=>Object.keys(STAGES).map(s=>[s,STAGES[s].label])},
@@ -2917,7 +2959,7 @@ function render(){
   {const ar=document.getElementById('appRoot');if(ar)ar.classList.toggle('board-wide',activeTab==='pipeline'&&pipeView!=='list');}
   if(['funnel','stats','ageing'].includes(activeTab))makeReorderable(m,activeTab);
   const total=scoped().length;
-  document.getElementById('count').textContent=total+(u.role==='sales'?' of your leads':' leads in view');
+  document.getElementById('count').innerHTML=escapeHtml(total+(u.role==='sales'?' of your leads':' leads in view'))+searchHiddenNote();
   refreshNotifyBadge();renderSavedBar();renderMyTarget();renderTaskDock();navSync();urlWrite();renderMobileTabs();
   contrastFix();
   document.body.dataset.tab=activeTab;
@@ -3164,6 +3206,14 @@ function pipelineListHTML(leads){
 }
 function filterBanner(){
   const af=activeFilters();if(!af.length)return '';
+  // Same principle for search: the banner must never claim a filter that isn't being
+  // applied. A search sets the month filter aside, so say that rather than showing a
+  // date range the results plainly ignore.
+  {const b=document.getElementById('search');
+   if(b&&b.value.trim()&&isAutoPeriodOnly()&&!autoPeriodIgnoredHere())
+     return `<div class="filter-banner" style="background:var(--t-info-bg);color:var(--t-info-fg);border:0">`
+       +`Searching <b style="margin:0 4px">all dates</b> — the month filter is set aside while you search.`
+       +`<button onclick="document.getElementById('search').value='';render()">✕ Clear search</button></div>`;}
   // Don't claim a filter that this screen is deliberately ignoring.
   if(autoPeriodIgnoredHere())return `<div class="filter-banner" style="background:var(--t-info-bg);color:var(--t-info-fg);border:0">Showing <b style="margin:0 4px">everything due</b>, not just this month — so nothing older slips through.</div>`;
   const chips=af.map(f=>{let v=String(f.value);if(fieldMeta(f.field).type==='daterange'){const p=v.split('|');v=(p[0]?fmtDate(p[0]):'any')+' → '+(p[1]?fmtDate(p[1]):'any');}return `<span class="fb-chip">${fieldMeta(f.field).label}: “${v}”</span>`;}).join(' ');
