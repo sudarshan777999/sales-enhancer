@@ -4399,28 +4399,94 @@ const THEME_STOP=new Set(('the a an and or but to of in on for with at by from i
  * y = count of the term in that group, n = total tokens in it, a_w = prior pseudocount
  * for the term (its share of the combined corpus x a0), a0 = total prior mass.
  */
-const FW_STOP=new Set(Array.from(THEME_STOP).concat(
-  ('will shall going want wants wanted need needs needed like likes liked good bad nice sure yet still just only even much many lot bit'
-  +' mr mrs ms sir madam ji please thanks thank regards hi hello dear ok'
-  +' am pm min mins hour hours day days week weeks month months year years'
-  +' rs inr lakh lakhs lac lacs cr crore crores k l').split(' ')));
-function fwTokens(text){
-  const raw=String(text||'').toLowerCase().replace(/[^a-z0-9₹\s.-]/g,' ').split(/\s+/)
+// Sentences the APP writes into the same comment stream as the team. Left in, the
+// comparison mostly learned the software's own vocabulary — "front desk", "merge code",
+// "follow-up set", "whatsapp follow-up", "quoted" were all machine-written boilerplate,
+// and "front desk" looked like a winning tactic purely because GRE-confirmed visits
+// correlate with booking.
+const FW_SYSTEM=[
+  /^completed task/i, /^quoted to customer/i, /^follow-?up set via/i,
+  /^whatsapp follow-?up sent/i, /^revisit at the front desk/i, /^revisit \(via front desk\)/i,
+  /^revisited \(visit #\d+\)/i, /^rnr\b/i, /merge code/i, /^deal status/i,
+  /^marked as /i, /^cleared /i, /^moved to /i, /^assigned to /i, /^reassigned/i
+];
+// Grammatical glue — never a term, never inside a phrase.
+const FW_FUNC=new Set(('a an the and or but if then than so as of in on at to for with from by about into over under'
++' is are was were be been being am do does did done have has had having will would shall should can could may might must'
++' i me my mine we us our you your he him his she her they them their it its this that these those there here'
++' not no yes what which who whom whose when where why how all any both each few more most other some such only own same'
++' very just now also too again once still yet ok okay well'
++' after before during since until while because though although however therefore').split(' '));
+// Common on their own, but meaningful inside a phrase: "plan" is noise, "payment plan" is not.
+const FW_WEAK=new Set(('plan plans set sheet amount visit visits visiting follow followup call called calling spoke speak'
++' talk talked told tell said say says ask asked asking answer answered reply replied replying text texted texting message'
++' messaged sent send sending share shared sharing discuss discussed discussion update updated mention mentioned drop'
++' dropped give gave given take taken taking get got make made want wants wanted need needs needed like liked look looking'
++' see seen show showed shown come came coming go going went meet met meeting customer client lead leads walkin walk'
++' property project unit today tomorrow yesterday day days week weeks month months time date good bad nice sure fine'
++' number phone mobile connect connected reach reached tried trying attempt back again next last first second').split(' '));
+// What actually matters in a residential sale — used to keep a term, not to find it.
+const FW_DOMAIN=new Set(('price pricing budget discount negotiation negotiate quote cost rate offer'
++' loan emi sanction sanctioned approved eligibility downpayment token registration stamp duty gst maintenance corpus'
++' bhk carpet builtup sqft floor tower block facing east west north south vaastu corner terrace balcony parking'
++' clubhouse amenities view layout brochure possession handover completion rera construction ready delay'
++' family wife husband parents father mother son daughter brother inlaws decision'
++' competitor comparing compare location connectivity metro school hospital office commute distance'
++' booking advance cheque payment finance bank interest tenure'
++' revisit sitevisit closure closing').split(' '));
+const FW_STOP=FW_FUNC;
+function fwWords(text){
+  return String(text||'').toLowerCase().replace(/[^a-z0-9\s.-]/g,' ').split(/\s+/)
     .map(w=>w.replace(/^[.-]+|[.-]+$/g,''))
-    .filter(w=>w.length>2&&w.length<24&&!FW_STOP.has(w)&&!/^\d+$/.test(w));
-  const out=raw.slice();
-  for(let i=0;i<raw.length-1;i++)out.push(raw[i]+' '+raw[i+1]);   // phrases carry more meaning than words
+    .filter(w=>w.length>2&&w.length<24&&!/^\d+$/.test(w));
+}
+// Terms worth showing: a real-estate concept, a name the team typed (competitor, project,
+// locality), or a two-word phrase whose halves both carry meaning. Everything else — "him",
+// "mentioned", "dropped", "well" — is how people write, not what they learned.
+function fwTerms(text,propers){
+  const raw=fwWords(text), out=[];
+  const contentful=w=>!FW_FUNC.has(w)&&!FW_WEAK.has(w);
+  raw.forEach(function(w){
+    if(!FW_FUNC.has(w)&&!FW_WEAK.has(w)&&(FW_DOMAIN.has(w)||(propers&&propers.has(w))))out.push(w);
+  });
+  for(let i=0;i<raw.length-1;i++){
+    const a=raw[i],b=raw[i+1];
+    if(FW_FUNC.has(a)||FW_FUNC.has(b))continue;
+    const known=FW_DOMAIN.has(a)||FW_DOMAIN.has(b)||(propers&&(propers.has(a)||propers.has(b)));
+    if(known||(contentful(a)&&contentful(b)))out.push(a+' '+b);
+  }
+  return out;
+}
+// Names the team typed: capitalised mid-sentence, so "Mana"/"Prestige"/"Whitefield" survive
+// while a word that only ever starts a sentence does not.
+function fwProperNouns(texts){
+  const cap={},low={};
+  texts.forEach(function(t){
+    String(t||'').split(/(?<=[.!?])\s+|\n+/).forEach(function(sent){
+      const ws=String(sent).trim().split(/\s+/);
+      ws.forEach(function(w,i){
+        const clean=w.replace(/[^A-Za-z]/g,''); if(clean.length<3)return;
+        const k=clean.toLowerCase();
+        if(FW_FUNC.has(k)||FW_WEAK.has(k))return;
+        if(i>0&&/^[A-Z][a-z]/.test(clean))cap[k]=(cap[k]||0)+1; else low[k]=(low[k]||0)+1;
+      });
+    });
+  });
+  const out=new Set();
+  Object.keys(cap).forEach(function(k){if(cap[k]>=2&&cap[k]>=(low[k]||0))out.add(k);});
   return out;
 }
 // Terms that lean towards one group or the other, strongest lean first.
 function fightinWords(A,B,commentsOf,opts){
   opts=opts||{};
   const a0=opts.prior||120, minLeads=opts.minLeads||2, top=opts.top||16;
+  const propers=fwProperNouns(A.concat(B).map(commentsOf));
+  const terms=l=>fwTerms(commentsOf(l),propers);
   const count=(leads)=>{const c={};let n=0;
-    leads.forEach(l=>{fwTokens(commentsOf(l)).forEach(t=>{c[t]=(c[t]||0)+1;n++;});});return {c:c,n:n};};
-  const leadsWith=(leads,t)=>leads.filter(l=>fwTokens(commentsOf(l)).indexOf(t)>=0);
+    leads.forEach(l=>{terms(l).forEach(t=>{c[t]=(c[t]||0)+1;n++;});});return {c:c,n:n};};
+  const leadsWith=(leads,t)=>leads.filter(l=>terms(l).indexOf(t)>=0);
   const a=count(A), b=count(B);
-  if(a.n<40||b.n<40)return null;                       // too little written to say anything
+  if(a.n<25||b.n<25)return null;                       // too little written to say anything
   const all={};Object.keys(a.c).forEach(k=>all[k]=(all[k]||0)+a.c[k]);
   Object.keys(b.c).forEach(k=>all[k]=(all[k]||0)+b.c[k]);
   const N=a.n+b.n;
@@ -5259,7 +5325,10 @@ function reportHTML(){
   const nqSlide=crossReasonSlide('NQ — Categories',inMonth.filter(l=>l.stage==='not_qualified'),l=>l.nqReason,cats,slide);
   const lostSlide=crossReasonSlide('Closed-Lost — Categories',inMonth.filter(l=>l.stage==='lost'),l=>l.lostReason,cats,slide);
   // What the team writes about deals that close vs deals that die
-  const fwComments=l=>(l.log||[]).filter(e=>e.kind==='note'||e.kind==='revisit').map(e=>String(e.t||'')).join('  ');
+  const fwComments=l=>(l.log||[]).filter(e=>(e.kind==='note'||e.kind==='revisit'))
+    .map(e=>String(e.t||'').trim())
+    .filter(t=>t&&!FW_SYSTEM.some(rx=>rx.test(t)))     // drop the app's own boilerplate
+    .join('. ');
   const fwWon=inMonth.filter(l=>l.stage==='booked'), fwLost=inMonth.filter(l=>l.stage==='lost');
   const fw=fightinWords(fwWon,fwLost,fwComments,{top:16});
   const fwCloud=(rows,col,side)=>{
@@ -5274,23 +5343,24 @@ function reportHTML(){
     }).join('')+`</div>`;
   };
   const fwSlide=fw
-    ? slide('What we write about winners vs losers',
+    ? slide('What comes up on booked deals vs lost ones',
         `<div style="display:flex;gap:26px;flex-wrap:wrap">
            <div style="flex:1;min-width:260px">
-             <div class="fw-h" style="color:#2E7D52">Said far more about the ${drillN(fwWon,'Booked · '+rMonthLabel(reportMonth))} we booked</div>
+             <div class="fw-h" style="color:#2E7D52">Comes up far more on the ${drillN(fwWon,'Booked · '+rMonthLabel(reportMonth))} we booked</div>
              ${fwCloud(fw.won,'#2E7D52','won')}</div>
            <div style="flex:1;min-width:260px">
-             <div class="fw-h" style="color:#B0473B">Said far more about the ${drillN(fwLost,'Closed Lost · '+rMonthLabel(reportMonth))} we lost</div>
+             <div class="fw-h" style="color:#B0473B">Comes up far more on the ${drillN(fwLost,'Closed Lost · '+rMonthLabel(reportMonth))} we lost</div>
              ${fwCloud(fw.lost,'#B0473B','lost')}</div>
          </div>
          <div style="margin-top:14px;font-size:11.5px;color:#7F6E3A;line-height:1.6">
-           Not the most common words — the most <b>lopsided</b> ones. Size is how strongly a term
-           leans to one side, by weighted log-odds with an informative Dirichlet prior
-           (Monroe, Colaresi &amp; Quinn, 2008), so a single talkative note cannot invent a headline.
-           Words shared evenly by both sides are dropped, which is why “price” or “call” may be absent.
-           Tap any word for the walk-ins whose comments contain it.
+           Only what the team typed — the app's own log lines (front desk, merge code,
+           follow-up set) are excluded, and so is ordinary phrasing like “mentioned” or
+           “dropped”. What is left is sales substance: money, product, timeline, family,
+           and names your team wrote such as competitors and localities. Size is how
+           strongly a term leans to one side, by weighted log-odds with an informative
+           Dirichlet prior (Monroe, Colaresi &amp; Quinn, 2008). Tap a word for those walk-ins.
          </div>`)
-    : slide('What we write about winners vs losers',
+    : slide('What comes up on booked deals vs lost ones',
         `<div style="color:#7F6E3A">Not enough written on booked and lost walk-ins this month to compare — this needs comments on both sides.</div>`);
   // Closed-Lost reason pie
   const lostLeads=inMonth.filter(l=>l.stage==='lost');const lostEntries=reasonCounts(lostLeads);
