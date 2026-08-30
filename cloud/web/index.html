@@ -3106,7 +3106,7 @@ function renderTabs(){
   tabs.push(['visits','Visits planned',visitSoon||''],['ageing','Ageing',''],['followups','Follow-ups due',dueCount],['stats','Follow-up stats',''],['lostanalytics','Closed Lost',''],['builder','Builder',''],['all','All leads',s.length]);
   if(cu&&cu.role!=='reception')tabs.push(['leaderboard','Leaderboard','']);
   if(cu&&(cu.role==='sales_head'||cu.role==='project_head')){const ci=(db.crossInterest||[]).filter(c=>c.status==='open'&&(cu.role==='sales_head'||c.target_project_id===myProjId())).length;tabs.push(['crossproject','Cross-project',ci||'']);}
-  if(cu&&cu.role==='sales_head')tabs.push(['report','Report','']);
+  if(cu&&(cu.role==='sales_head'||cu.role==='project_head'))tabs.push(['report','Report','']);
   const item=([k,l,n])=>{const m=NAV_META[k]||{icon:'•',color:'5C6879'};const on=activeTab===k;
     return `<button class="navi ${on?'on':''}" style="--_c:#${m.color}" onclick="setTab('${k}')" title="${l}">
       <span class="navi-ic" style="background:#${m.color}1c">${m.icon}</span>
@@ -5184,7 +5184,13 @@ function reportHTML(){
   const brand=`<div class="brand">bricks<br>&amp; milestones</div>`;
   const foot=`<div style="text-align:right;color:#7F6E3A;font-size:11px;margin-top:14px">www.bricksandmilestones.com</div>`;
   const slide=(title,inner)=>`<div class="report-slide">${brand}<h2>${title}</h2><div class="rule"></div>${inner}${foot}</div>`;
-  const projOpts=['All',...PROJECTS].map(p=>`<option ${reportProject===p?'selected':''}>${p}</option>`).join('');
+  // Row-level security only ever hands a Project Head their own project, so offering
+  // the others would just show them empty months.
+  const ru=currentUser();
+  const myProjOnly=!!(ru&&ru.role==='project_head'&&ru.project);
+  if(myProjOnly&&reportProject!==ru.project)reportProject=ru.project;
+  const projOpts=(myProjOnly?[ru.project]:['All',...PROJECTS])
+    .map(p=>`<option ${reportProject===p?'selected':''}>${p}</option>`).join('');
   const toolbar=`<div class="report-toolbar no-print">
     <b style="font-family:'Space Grotesk';font-size:15px">Monthly Sales Review</b>
     <input type="month" class="field" style="width:auto" value="${reportMonth}" onchange="setReportMonth(this.value)"/>
